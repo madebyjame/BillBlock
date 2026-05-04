@@ -231,7 +231,7 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
                 <SummaryRow label="รวมเป็นเงิน" value={`${formatNumber(subtotal)} ${sym}`} />
                 {v.summary.specialDiscount && (
                   <tr>
-                    <td className="py-1 pr-2 text-right text-slate-500 text-xs">
+                    <td className="py-1 pr-2 text-right text-slate-500 text-xs whitespace-nowrap">
                       ส่วนลดพิเศษ{doc.summary.specialDiscountType === 'percent' ? ` ${doc.summary.specialDiscount}%` : ''}
                     </td>
                     <td className="py-1 text-right text-slate-700 tabular-nums w-36">
@@ -254,7 +254,7 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
                       <SummaryRow label={`ราคาก่อน VAT`} value={`${formatNumber(preTaxAmount)} ${sym}`} muted />
                     )}
                     <tr>
-                      <td className="py-1 pr-2 text-right text-slate-500">
+                      <td className="py-1 pr-2 text-right text-slate-500 whitespace-nowrap">
                         {pdfMode
                           ? `ภาษีมูลค่าเพิ่ม ${doc.summary.vatRate}%`
                           : <span className="flex items-center justify-end gap-1">
@@ -273,8 +273,8 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
                   </>
                 )}
                 <tr className="border-t border-slate-300">
-                  <td className="pt-2 pr-2 text-right font-bold text-slate-800">จำนวนเงินรวมทั้งสิ้น</td>
-                  <td className="pt-2 text-right font-bold tabular-nums w-36 text-base" style={{ color: tc }}>
+                  <td className="pt-2 pr-2 text-right font-bold text-slate-800 whitespace-nowrap">จำนวนเงินรวมทั้งสิ้น</td>
+                  <td className="pt-2 text-right font-bold tabular-nums w-36 text-base whitespace-nowrap" style={{ color: tc }}>
                     {formatNumber(total)} {sym}
                   </td>
                 </tr>
@@ -581,8 +581,8 @@ function MetaRow({ label, children }: { label: string; children: React.ReactNode
 function SummaryRow({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   return (
     <tr>
-      <td className={`py-0.5 pr-2 text-right ${muted ? 'text-xs text-slate-400' : 'text-slate-500'}`}>{label}</td>
-      <td className={`py-0.5 text-right tabular-nums w-36 ${muted ? 'text-slate-400 text-xs' : 'text-slate-700'}`}>{value}</td>
+      <td className={`py-0.5 pr-2 text-right whitespace-nowrap ${muted ? 'text-xs text-slate-400' : 'text-slate-500'}`}>{label}</td>
+      <td className={`py-0.5 text-right tabular-nums w-36 whitespace-nowrap ${muted ? 'text-slate-400 text-xs' : 'text-slate-700'}`}>{value}</td>
     </tr>
   )
 }

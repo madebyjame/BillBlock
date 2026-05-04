@@ -31,6 +31,15 @@ export function useExportPdf() {
     // ก่อนที่ html2canvas จะ capture — ไม่งั้น input fields ยังอยู่
     flushSync(() => setPdfMode(true))
 
+    // บังคับ layout กว้าง A4 (794px) ก่อน capture — ไม่งั้น viewport แคบทำให้ layout พัง
+    const A4_PX = 794
+    const savedWidth = el.style.width
+    const savedMinWidth = el.style.minWidth
+    const savedMaxWidth = el.style.maxWidth
+    el.style.width = `${A4_PX}px`
+    el.style.minWidth = `${A4_PX}px`
+    el.style.maxWidth = `${A4_PX}px`
+
     try {
       await document.fonts.ready
       await waitNextFrames(2)
@@ -51,7 +60,7 @@ export function useExportPdf() {
         height: el.scrollHeight,
         scrollX: 0,
         scrollY: 0,
-        windowWidth: el.scrollWidth,
+        windowWidth: A4_PX,
         windowHeight: el.scrollHeight,
       })
 
@@ -95,6 +104,9 @@ export function useExportPdf() {
           'ถ้ามีรูปจากลิงก์ภายนอก ให้ลองบันทึกเป็นไฟล์แล้วอัปโหลดใหม่ หรือลองปิดโหมดดูตัวอย่างแล้วกด Export อีกครั้ง',
       )
     } finally {
+      el.style.width = savedWidth
+      el.style.minWidth = savedMinWidth
+      el.style.maxWidth = savedMaxWidth
       flushSync(() => {
         setPdfMode(false)
         setIsExporting(false)
