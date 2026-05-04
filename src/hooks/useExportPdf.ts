@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 
 export function useExportPdf() {
   const docRef = useRef<HTMLDivElement>(null)
@@ -7,14 +8,20 @@ export function useExportPdf() {
 
   async function exportPdf(filename = 'document.pdf') {
     const el = docRef.current
-    if (!el) return
+    if (!el) {
+      alert('ไม่พบเอกสาร กรุณาลองใหม่')
+      return
+    }
+
     setIsExporting(true)
 
-    // 1. เข้า pdfMode — ซ่อน UI chrome ทั้งหมด (React re-render)
-    setPdfMode(true)
+    // flushSync บังคับให้ React update DOM แบบ synchronous ทันที
+    // ก่อนที่ html2canvas จะ capture — ไม่งั้น input fields ยังอยู่
+    flushSync(() => setPdfMode(true))
 
-    // 2. รอให้ React render เสร็จก่อน
-    await new Promise(r => setTimeout(r, 150))
+    // รอ font และ image โหลดเสร็จ
+    await document.fonts.ready
+    await new Promise(r => setTimeout(r, 80))
 
     try {
       const html2canvas = (await import('html2canvas')).default
@@ -23,17 +30,23 @@ export function useExportPdf() {
       const canvas = await html2canvas(el, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: el.offsetWidth,
-        windowHeight: el.offsetHeight,
+        // ใช้ scrollWidth/scrollHeight เพื่อ capture เนื้อหาเต็ม ไม่ตัดตาม viewport
+        width: el.scrollWidth,
+        height: el.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: el.scrollWidth,
+        windowHeight: el.scrollHeight,
       })
 
       const imgData = canvas.toDataURL('image/png')
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
-      const pageW = pdf.internal.pageSize.getWidth()   // 210mm
-      const pageH = pdf.internal.pageSize.getHeight()  // 297mm
+      const pageW = pdf.internal.pageSize.getWidth()    // 210mm
+      const pageH = pdf.internal.pageSize.getHeight()   // 297mm
       const imgW = pageW
       const imgH = (canvas.height * imgW) / canvas.width
 
@@ -46,9 +59,14 @@ export function useExportPdf() {
       }
 
       pdf.save(filename)
+    } catch (err) {
+      console.error('[BillBlock] PDF export error:', err)
+      alert(`Export ไม่สำเร็จ: ${err instanceof Error ? err.message : 'Unknown error'}\n\nกรุณา screenshot console และแจ้งให้ทราบ`)
     } finally {
-      setPdfMode(false)
-      setIsExporting(false)
+      flushSync(() => {
+        setPdfMode(false)
+        setIsExporting(false)
+      })
     }
   }
 
