@@ -1,42 +1,32 @@
 import { useRef, useState } from 'react'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
 
 export function useExportPdf() {
-  const canvasRef = useRef<HTMLDivElement>(null)
+  const docRef = useRef<HTMLDivElement>(null)
   const [isExporting, setIsExporting] = useState(false)
+  const [pdfMode, setPdfMode] = useState(false)
 
   async function exportPdf(filename = 'document.pdf') {
-    const el = canvasRef.current
+    const el = docRef.current
     if (!el) return
     setIsExporting(true)
 
-    // ซ่อน toolbar และ toggle panel ที่ใช้ในแอปแต่ไม่ควรปรากฏใน PDF
-    const hiddenEls = el.querySelectorAll<HTMLElement>(
-      '[data-pdf-hide], .group-hover\\:opacity-100, .border-l'
-    )
-    const prevStyles: string[] = []
-    hiddenEls.forEach(e => {
-      prevStyles.push(e.style.cssText)
-      e.style.visibility = 'hidden'
-    })
+    // 1. เข้า pdfMode — ซ่อน UI chrome ทั้งหมด (React re-render)
+    setPdfMode(true)
 
-    // ซ่อนปุ่มทั้งหมดใน toolbar
-    const toolbars = el.querySelectorAll<HTMLElement>('.group .opacity-0')
-    const toolbarStyles: string[] = []
-    toolbars.forEach(e => {
-      toolbarStyles.push(e.style.cssText)
-      e.style.display = 'none'
-    })
+    // 2. รอให้ React render เสร็จก่อน
+    await new Promise(r => setTimeout(r, 150))
 
     try {
+      const html2canvas = (await import('html2canvas')).default
+      const { default: jsPDF } = await import('jspdf')
+
       const canvas = await html2canvas(el, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: el.scrollWidth,
-        windowHeight: el.scrollHeight,
+        windowWidth: el.offsetWidth,
+        windowHeight: el.offsetHeight,
       })
 
       const imgData = canvas.toDataURL('image/png')
@@ -47,7 +37,7 @@ export function useExportPdf() {
       const imgW = pageW
       const imgH = (canvas.height * imgW) / canvas.width
 
-      // แบ่งหน้าอัตโนมัติ
+      // แบ่งหน้าถ้าเนื้อหายาวเกิน A4
       let posY = 0
       while (posY < imgH) {
         if (posY > 0) pdf.addPage()
@@ -57,12 +47,10 @@ export function useExportPdf() {
 
       pdf.save(filename)
     } finally {
-      // คืนค่า visibility
-      hiddenEls.forEach((e, i) => { e.style.cssText = prevStyles[i] })
-      toolbars.forEach((e, i) => { e.style.cssText = toolbarStyles[i] })
+      setPdfMode(false)
       setIsExporting(false)
     }
   }
 
-  return { canvasRef, exportPdf, isExporting }
+  return { docRef, exportPdf, isExporting, pdfMode }
 }
