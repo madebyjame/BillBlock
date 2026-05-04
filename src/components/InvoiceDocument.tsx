@@ -311,6 +311,8 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
             onLabelChange={v => dispatch({ type: 'UPDATE_FOOTER', data: { sellerLabel: v } })}
             onTitleChange={v => dispatch({ type: 'UPDATE_FOOTER', data: { approverName: v } })}
             signatureUrl={doc.footer.signatureUrl}
+            signatureScale={doc.footer.signatureScale}
+            onScaleChange={s => dispatch({ type: 'UPDATE_FOOTER', data: { signatureScale: s } })}
             stampUrl={v.footer.stamp ? doc.footer.stampUrl : undefined}
             signatureDate={doc.footer.signatureDate}
             showStamp={v.footer.stamp}
@@ -520,36 +522,60 @@ function DiscountInput({ value, discountType, sym, onValue, onType }: {
 }
 
 // ─── Signature Box ───
-function SignatureBox({ pdfMode, label, title, onLabelChange, onTitleChange, signatureUrl, stampUrl, signatureDate, showStamp, onSignatureUpload, onStampUpload, onDateChange }: {
+function SignatureBox({ pdfMode, label, title, onLabelChange, onTitleChange,
+  signatureUrl, signatureScale = 1, onScaleChange,
+  stampUrl, signatureDate, showStamp,
+  onSignatureUpload, onStampUpload, onDateChange }: {
   pdfMode: boolean; label: string; title: string
   onLabelChange: (v: string) => void; onTitleChange?: (v: string) => void
-  signatureUrl?: string; stampUrl?: string; signatureDate?: string
-  showStamp?: boolean
+  signatureUrl?: string; signatureScale?: number; onScaleChange?: (s: number) => void
+  stampUrl?: string; signatureDate?: string; showStamp?: boolean
   onSignatureUpload?: (url: string) => void; onStampUpload?: (url: string) => void
   onDateChange?: (d: string) => void
 }) {
+  const sigH = Math.round(64 * signatureScale)
+
   return (
-    <div className="flex flex-col items-center text-sm">
-      {pdfMode ? <p className="text-slate-600 mb-3">{label}</p>
+    // h-full + flex-col ทำให้ทั้งสองกล่องสูงเท่ากัน (grid stretch)
+    <div className="h-full flex flex-col items-center text-sm">
+
+      {/* Label */}
+      {pdfMode
+        ? <p className="text-slate-600 mb-3 text-center">{label}</p>
         : <F pdfMode={pdfMode} value={label} className="text-slate-600 mb-3 text-center" onChange={onLabelChange} />}
 
-      {/* Signature area */}
-      <div className="relative w-full flex justify-center items-end mb-2" style={{ height: '56px' }}>
+      {/* Signature + date — flex-1 ดันเส้นลงล่างสุดเสมอ */}
+      <div className="flex-1 w-full flex flex-col items-center justify-end pb-2 relative">
         {onSignatureUpload && (
-          <label className={`flex h-14 items-center justify-center ${pdfMode ? '' : 'cursor-pointer'}`}>
-            {signatureUrl
-              ? <img src={signatureUrl} alt="sig" className="h-14 object-contain" />
-              : !pdfMode && <span className="text-[10px] text-slate-200 hover:text-slate-400 border border-dashed border-slate-200 rounded px-3 py-2">+ ลายเซ็น</span>
-            }
-            {!pdfMode && <input type="file" accept="image/*" className="hidden"
-              onChange={e => {
-                const f = e.target.files?.[0]
-                e.target.value = ''
-                if (!f || !onSignatureUpload) return
-                void readImageFileAsDataUrl(f).then(onSignatureUpload, err => alert(err instanceof Error ? err.message : String(err)))
-              }} />}
-          </label>
+          <div className="flex flex-col items-center gap-1">
+            <label className={`flex items-center justify-center ${pdfMode ? '' : 'cursor-pointer'}`}>
+              {signatureUrl
+                ? <img src={signatureUrl} alt="sig"
+                    style={{ height: `${sigH}px` }}
+                    className="object-contain max-w-full" />
+                : !pdfMode && <span className="text-[10px] text-slate-300 hover:text-slate-500 transition-colors">+ อัปโหลดลายเซ็น</span>
+              }
+              {!pdfMode && <input type="file" accept="image/*" className="hidden"
+                onChange={e => {
+                  const f = e.target.files?.[0]; e.target.value = ''
+                  if (!f || !onSignatureUpload) return
+                  void readImageFileAsDataUrl(f).then(onSignatureUpload, err => alert(err instanceof Error ? err.message : String(err)))
+                }} />}
+            </label>
+            {/* ปุ่มปรับขนาด — แสดงเฉพาะมีลายเซ็น + ไม่ใช่ PDF mode */}
+            {!pdfMode && signatureUrl && onScaleChange && (
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={() => onScaleChange(Math.max(0.25, signatureScale - 0.25))}
+                  className="h-4 w-4 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 text-xs leading-none flex items-center justify-center">−</button>
+                <span className="text-[9px] text-slate-400 w-7 text-center">{Math.round(signatureScale * 100)}%</span>
+                <button type="button" onClick={() => onScaleChange(Math.min(3, signatureScale + 0.25))}
+                  className="h-4 w-4 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 text-xs leading-none flex items-center justify-center">+</button>
+              </div>
+            )}
+          </div>
         )}
+
+        {/* ตราประทับ */}
         {showStamp && onStampUpload && (
           <label className={`absolute right-0 bottom-0 flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed border-slate-200 overflow-hidden ${pdfMode ? '' : 'cursor-pointer hover:border-blue-300'}`}>
             {stampUrl
@@ -558,8 +584,7 @@ function SignatureBox({ pdfMode, label, title, onLabelChange, onTitleChange, sig
             }
             {!pdfMode && <input type="file" accept="image/*" className="hidden"
               onChange={e => {
-                const f = e.target.files?.[0]
-                e.target.value = ''
+                const f = e.target.files?.[0]; e.target.value = ''
                 if (!f) return
                 void readImageFileAsDataUrl(f).then(onStampUpload, err => alert(err instanceof Error ? err.message : String(err)))
               }} />}
@@ -567,6 +592,7 @@ function SignatureBox({ pdfMode, label, title, onLabelChange, onTitleChange, sig
         )}
       </div>
 
+      {/* วันที่ */}
       {onDateChange && (
         pdfMode
           ? <p className="text-xs text-slate-400 mb-1">{signatureDate ? formatDate(signatureDate) : ''}</p>
@@ -574,6 +600,7 @@ function SignatureBox({ pdfMode, label, title, onLabelChange, onTitleChange, sig
               className="text-xs text-slate-400 border-0 bg-transparent mb-1 focus:outline-none" />
       )}
 
+      {/* เส้น + ชื่อ */}
       <div className="w-full border-t border-slate-400 pt-1 text-center">
         {pdfMode
           ? <span className="text-xs text-slate-500">{title}</span>

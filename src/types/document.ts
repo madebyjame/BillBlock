@@ -53,6 +53,7 @@ export interface DocumentData {
     buyerLabel: string
     buyerTitle: string
     signatureUrl?: string
+    signatureScale: number
     stampUrl?: string
     signatureDate: string
     bankName: string
@@ -175,6 +176,7 @@ export const defaultDocument: DocumentData = {
     approverTitle: 'กรรมการผู้จัดการ',
     buyerLabel: 'ในนาม ลูกค้า / ผู้สั่งซื้อ',
     buyerTitle: 'ผู้สั่งซื้อ / ผู้อนุมัติสั่งซื้อ',
+    signatureScale: 1,
     signatureDate: '',
     bankName: 'ธนาคาร',
     accountName: 'ชื่อบัญชี',
