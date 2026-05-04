@@ -52,10 +52,10 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
   return (
     <div
       ref={docRef}
-      className="mx-auto w-full bg-white"
+      className="mx-auto w-full bg-white flex flex-col"
       style={{ maxWidth: '794px', minHeight: '1123px', fontFamily: "'Sarabun', sans-serif", fontSize: '14px' }}
     >
-      <div className="p-10">
+      <div className="p-10 flex-1 flex flex-col">
 
         {/* ═══ SECTION 1: Header 2-col ═══ */}
         <div className="grid grid-cols-2 gap-8 mb-5">
@@ -84,10 +84,20 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
                   onChange={v => dispatch({ type: 'UPDATE_COMPANY', data: { name: v } })} />
                 {v.header.address && <F pdfMode={pdfMode} multiline value={doc.company.address} className="text-slate-500"
                   onChange={v => dispatch({ type: 'UPDATE_COMPANY', data: { address: v } })} />}
-                {v.header.taxId && <F pdfMode={pdfMode} value={`เลขประจำตัวผู้เสียภาษี ${doc.company.taxId}`} className="text-slate-500"
-                  onChange={val => dispatch({ type: 'UPDATE_COMPANY', data: { taxId: val.replace('เลขประจำตัวผู้เสียภาษี ', '') } })} />}
-                {v.header.phone && <F pdfMode={pdfMode} value={`เบอร์โทร ${doc.company.phone}`} className="text-slate-500"
-                  onChange={val => dispatch({ type: 'UPDATE_COMPANY', data: { phone: val.replace('เบอร์โทร ', '') } })} />}
+                {v.header.taxId && (
+                  <div className="flex items-center gap-1 text-slate-500">
+                    <span className="shrink-0">เลขประจำตัวผู้เสียภาษี</span>
+                    <F pdfMode={pdfMode} value={doc.company.taxId}
+                      onChange={val => dispatch({ type: 'UPDATE_COMPANY', data: { taxId: val } })} />
+                  </div>
+                )}
+                {v.header.phone && (
+                  <div className="flex items-center gap-1 text-slate-500">
+                    <span className="shrink-0">เบอร์โทร</span>
+                    <F pdfMode={pdfMode} value={doc.company.phone}
+                      onChange={val => dispatch({ type: 'UPDATE_COMPANY', data: { phone: val } })} />
+                  </div>
+                )}
                 {v.header.email && <F pdfMode={pdfMode} value={doc.company.email} className="text-slate-500"
                   onChange={val => dispatch({ type: 'UPDATE_COMPANY', data: { email: val } })} />}
               </div>
@@ -100,8 +110,13 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
                 onChange={val => dispatch({ type: 'UPDATE_CUSTOMER', data: { name: val } })} />
               <F pdfMode={pdfMode} multiline value={doc.customer.address} className="text-slate-500"
                 onChange={val => dispatch({ type: 'UPDATE_CUSTOMER', data: { address: val } })} />
-              {v.customer.taxId && <F pdfMode={pdfMode} value={`เลขประจำตัวผู้เสียภาษี ${doc.customer.taxId}`} className="text-slate-500"
-                onChange={val => dispatch({ type: 'UPDATE_CUSTOMER', data: { taxId: val.replace('เลขประจำตัวผู้เสียภาษี ', '') } })} />}
+              {v.customer.taxId && (
+                <div className="flex items-center gap-1 text-slate-500">
+                  <span className="shrink-0">เลขประจำตัวผู้เสียภาษี</span>
+                  <F pdfMode={pdfMode} value={doc.customer.taxId}
+                    onChange={val => dispatch({ type: 'UPDATE_CUSTOMER', data: { taxId: val } })} />
+                </div>
+              )}
               {v.customer.branch && <F pdfMode={pdfMode} value={doc.customer.branch} className="text-slate-500"
                 onChange={val => dispatch({ type: 'UPDATE_CUSTOMER', data: { branch: val } })} />}
             </div>
@@ -283,8 +298,9 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
           </div>
         </div>
 
-        {/* ═══ SECTION 4: Signatures ═══ */}
-        <div className={`grid gap-8 mt-8 ${v.footer.buyerSignature ? 'grid-cols-2' : 'grid-cols-1 max-w-xs ml-auto'}`}>
+        {/* ═══ SECTION 4: Signatures — mt-auto ดันลงล่างสุดหน้า A4 เสมอ ═══ */}
+        <div className="mt-auto pt-8">
+        <div className={`grid gap-8 ${v.footer.buyerSignature ? 'grid-cols-2' : 'grid-cols-1 max-w-xs ml-auto'}`}>
           {v.footer.buyerSignature && (
             <SignatureBox pdfMode={pdfMode} label={doc.footer.buyerLabel} title="ผู้สั่งซื้อสินค้า"
               onLabelChange={v => dispatch({ type: 'UPDATE_FOOTER', data: { buyerLabel: v } })} />
@@ -317,6 +333,7 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
               onChange={v => dispatch({ type: 'UPDATE_FOOTER', data: { accountNumber: v } })} />
           </div>
         )}
+        </div>{/* end mt-auto wrapper */}
       </div>
     </div>
   )
