@@ -31,15 +31,6 @@ export function useExportPdf() {
     // ก่อนที่ html2canvas จะ capture — ไม่งั้น input fields ยังอยู่
     flushSync(() => setPdfMode(true))
 
-    // บังคับ layout กว้าง A4 (794px) ก่อน capture — ไม่งั้น viewport แคบทำให้ layout พัง
-    const A4_PX = 794
-    const savedWidth = el.style.width
-    const savedMinWidth = el.style.minWidth
-    const savedMaxWidth = el.style.maxWidth
-    el.style.width = `${A4_PX}px`
-    el.style.minWidth = `${A4_PX}px`
-    el.style.maxWidth = `${A4_PX}px`
-
     try {
       await document.fonts.ready
       await waitNextFrames(2)
@@ -60,7 +51,7 @@ export function useExportPdf() {
         height: el.scrollHeight,
         scrollX: 0,
         scrollY: 0,
-        windowWidth: A4_PX,
+        windowWidth: el.scrollWidth,
         windowHeight: el.scrollHeight,
       })
 
@@ -88,8 +79,9 @@ export function useExportPdf() {
       const imgW = pageW
       const imgH = (canvas.height * imgW) / canvas.width
 
+      // epsilon 0.5mm กัน floating-point ทำให้ขึ้นหน้าเปล่าเพิ่ม
       let posY = 0
-      while (posY < imgH) {
+      while (posY + 0.5 < imgH) {
         if (posY > 0) pdf.addPage()
         pdf.addImage(imgData, imgFmt, 0, -posY, imgW, imgH)
         posY += pageH
@@ -104,9 +96,6 @@ export function useExportPdf() {
           'ถ้ามีรูปจากลิงก์ภายนอก ให้ลองบันทึกเป็นไฟล์แล้วอัปโหลดใหม่ หรือลองปิดโหมดดูตัวอย่างแล้วกด Export อีกครั้ง',
       )
     } finally {
-      el.style.width = savedWidth
-      el.style.minWidth = savedMinWidth
-      el.style.maxWidth = savedMaxWidth
       flushSync(() => {
         setPdfMode(false)
         setIsExporting(false)

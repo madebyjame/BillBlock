@@ -50,20 +50,23 @@ export default function App() {
           themeColor={doc.settings.themeColor}
         />
 
-        <main className="flex-1 overflow-y-auto p-6">
-          {/* Preview mode banner */}
-          {isPreview && (
-            <div className="mx-auto mb-3 flex items-center justify-between rounded-md bg-amber-50 border border-amber-200 px-4 py-2 text-sm text-amber-700" style={{ maxWidth: '794px' }}>
-              <span className="font-medium">โหมดดูตัวอย่าง — นี่คือหน้าตาที่จะปรากฏใน PDF</span>
-              <button onClick={() => setIsPreview(false)}
-                className="rounded px-2 py-0.5 hover:bg-amber-100 text-xs font-medium">
-                ปิด
-              </button>
-            </div>
-          )}
+        <main className="flex-1 overflow-y-auto overflow-x-auto p-6">
+          {/* กล่องนี้กำหนด width = 794px (A4) เสมอ ทำให้ layout ถูกต้องทั้งใน UI และตอน export */}
+          <div style={{ width: '794px', margin: '0 auto' }}>
+            {/* Preview mode banner */}
+            {isPreview && (
+              <div className="mb-3 flex items-center justify-between rounded-md bg-amber-50 border border-amber-200 px-4 py-2 text-sm text-amber-700">
+                <span className="font-medium">โหมดดูตัวอย่าง — นี่คือหน้าตาที่จะปรากฏใน PDF</span>
+                <button onClick={() => setIsPreview(false)}
+                  className="rounded px-2 py-0.5 hover:bg-amber-100 text-xs font-medium">
+                  ปิด
+                </button>
+              </div>
+            )}
 
-          <div className="shadow-lg rounded-sm">
-            <InvoiceDocument doc={doc} dispatch={dispatch} docRef={docRef} catalog={catalog} />
+            <div className="shadow-lg rounded-sm">
+              <InvoiceDocument doc={doc} dispatch={dispatch} docRef={docRef} catalog={catalog} />
+            </div>
           </div>
         </main>
 
