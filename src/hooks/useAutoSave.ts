@@ -39,7 +39,9 @@ export function saveCatalog(entries: CatalogEntry[]) {
       new Map(entries.map(e => [e.description.toLowerCase(), e])).values()
     ).slice(-100)
     localStorage.setItem(CATALOG_KEY, JSON.stringify(unique))
-  } catch {}
+  } catch {
+    void 0 /* quota / private mode */
+  }
 }
 
 /** Hook: auto-save doc ทุกครั้งที่เปลี่ยน + แสดงสถานะ */

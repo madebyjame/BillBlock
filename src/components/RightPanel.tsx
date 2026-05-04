@@ -1,6 +1,8 @@
+import { useRef } from 'react'
 import type { DocumentData } from '../types/document'
 import { CURRENCIES, THEME_COLORS } from '../types/document'
 import type { DocumentAction } from '../store/documentStore'
+import { normalizeDocumentDraft } from '../utils/documentDraft'
 
 interface Props {
   doc: DocumentData
@@ -8,6 +10,7 @@ interface Props {
 }
 
 export default function RightPanel({ doc, dispatch }: Props) {
+  const importRef = useRef<HTMLInputElement>(null)
   function toggle(path: string) { dispatch({ type: 'TOGGLE_VISIBILITY', path }) }
   function setSetting(data: Partial<DocumentData['settings']>) { dispatch({ type: 'UPDATE_SETTINGS', data }) }
 
@@ -132,6 +135,63 @@ export default function RightPanel({ doc, dispatch }: Props) {
           <Toggle label="ลายเซ็นผู้ซื้อ" on={v.footer.buyerSignature} onToggle={() => toggle('footer.buyerSignature')} tc={s.themeColor} />
           <Toggle label="ตราประทับ"      on={v.footer.stamp}          onToggle={() => toggle('footer.stamp')}          tc={s.themeColor} />
           <Toggle label="บัญชีธนาคาร"   on={v.footer.bankInfo}       onToggle={() => toggle('footer.bankInfo')}       tc={s.themeColor} />
+        </Section>
+
+        {/* ─── Backup ─── */}
+        <Section title="สำรองข้อมูล">
+          <p className="text-[10px] text-slate-400 leading-snug mb-2">
+            ส่งออก JSON เพื่อเก็บไว้ที่เครื่องหรือย้ายไปคอมอื่น จากนั้นนำเข้ากลับมาได้
+          </p>
+          <div className="flex flex-col gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json;charset=utf-8' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                const safe = doc.docMeta.number.replace(/[^\w\-ก-๙]+/g, '_').replace(/^_|_$/g, '') || 'draft'
+                a.href = url
+                a.download = `billblock-${safe}.json`
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+                URL.revokeObjectURL(url)
+              }}
+              className="w-full rounded-md border border-slate-200 px-2 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            >
+              ส่งออก JSON
+            </button>
+            <button
+              type="button"
+              onClick={() => importRef.current?.click()}
+              className="w-full rounded-md px-2 py-2 text-xs font-medium text-white"
+              style={{ backgroundColor: doc.settings.themeColor }}
+            >
+              นำเข้า JSON
+            </button>
+            <input
+              ref={importRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={e => {
+                const file = e.target.files?.[0]
+                e.target.value = ''
+                if (!file) return
+                const reader = new FileReader()
+                reader.onload = () => {
+                  try {
+                    const parsed = JSON.parse(reader.result as string) as Partial<DocumentData>
+                    dispatch({ type: 'LOAD_DOCUMENT', doc: normalizeDocumentDraft(parsed) })
+                  } catch {
+                    alert('ไฟล์ JSON ไม่ถูกต้องหรือเสียหาย')
+                  }
+                }
+                reader.onerror = () => alert('อ่านไฟล์ไม่สำเร็จ')
+                reader.readAsText(file, 'UTF-8')
+              }}
+            />
+          </div>
         </Section>
 
       </div>

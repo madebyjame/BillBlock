@@ -15,6 +15,7 @@ import type { DocumentAction } from '../store/documentStore'
 import {
   calcItemTotal, calcDocSummary, formatNumber, formatDate, numberToThaiText,
 } from '../utils/calculations'
+import { readImageFileAsDataUrl } from '../utils/fileToDataUrl'
 
 export const PdfModeContext = createContext(false)
 
@@ -68,7 +69,15 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
                   ? <img src={doc.company.logoUrl} alt="logo" className="h-full w-full object-contain p-0.5" />
                   : <LogoPlaceholder />}
                 {!pdfMode && <input type="file" accept="image/*" className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) dispatch({ type: 'UPDATE_COMPANY', data: { logoUrl: URL.createObjectURL(f) } }) }} />}
+                  onChange={e => {
+                    const f = e.target.files?.[0]
+                    e.target.value = ''
+                    if (!f) return
+                    void readImageFileAsDataUrl(f).then(
+                      dataUrl => dispatch({ type: 'UPDATE_COMPANY', data: { logoUrl: dataUrl } }),
+                      err => alert(err instanceof Error ? err.message : String(err)),
+                    )
+                  }} />}
               </label>
               <div className="flex-1 text-sm leading-relaxed">
                 <F pdfMode={pdfMode} value={doc.company.name} className="font-bold text-slate-800 text-base"
@@ -515,7 +524,12 @@ function SignatureBox({ pdfMode, label, title, onLabelChange, onTitleChange, sig
               : !pdfMode && <span className="text-[10px] text-slate-200 hover:text-slate-400 border border-dashed border-slate-200 rounded px-3 py-2">+ ลายเซ็น</span>
             }
             {!pdfMode && <input type="file" accept="image/*" className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f && onSignatureUpload) onSignatureUpload(URL.createObjectURL(f)) }} />}
+              onChange={e => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (!f || !onSignatureUpload) return
+                void readImageFileAsDataUrl(f).then(onSignatureUpload, err => alert(err instanceof Error ? err.message : String(err)))
+              }} />}
           </label>
         )}
         {showStamp && onStampUpload && (
@@ -525,7 +539,12 @@ function SignatureBox({ pdfMode, label, title, onLabelChange, onTitleChange, sig
               : !pdfMode && <span className="text-[9px] text-slate-300 text-center">ตรา</span>
             }
             {!pdfMode && <input type="file" accept="image/*" className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) onStampUpload(URL.createObjectURL(f)) }} />}
+              onChange={e => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (!f) return
+                void readImageFileAsDataUrl(f).then(onStampUpload, err => alert(err instanceof Error ? err.message : String(err)))
+              }} />}
           </label>
         )}
       </div>

@@ -6,14 +6,17 @@ import RightPanel from './components/RightPanel'
 import { documentReducer, defaultDocument } from './store/documentStore'
 import { useExportPdf } from './hooks/useExportPdf'
 import { useAutoSave, loadDraft, loadCatalog } from './hooks/useAutoSave'
+import { normalizeDocumentDraft, stripEphemeralBlobUrls } from './utils/documentDraft'
+import { validateDocumentForExport } from './utils/validateExport'
 
 // โหลด draft จาก localStorage ถ้ามี ไม่งั้นใช้ default
 function getInitialDoc() {
   try {
     const draft = loadDraft()
-    // merge กับ defaultDocument เผื่อ schema เปลี่ยน
-    if (draft) return { ...defaultDocument, ...draft, settings: { ...defaultDocument.settings, ...draft.settings }, visibility: { ...defaultDocument.visibility, ...draft.visibility } }
-  } catch {}
+    if (draft) return stripEphemeralBlobUrls(normalizeDocumentDraft(draft))
+  } catch {
+    void 0 /* draft ใน localStorage เสียหาย */
+  }
   return defaultDocument
 }
 
@@ -32,7 +35,14 @@ export default function App() {
     <PdfModeContext.Provider value={displayPdfMode}>
       <div className="flex h-screen overflow-hidden bg-slate-100">
         <LeftPanel
-          onExportPdf={() => exportPdf('bill-block-document.pdf')}
+          onExportPdf={() => {
+            const { ok, messages } = validateDocumentForExport(doc)
+            if (!ok) {
+              alert(`กรุณากรอกข้อมูลต่อไปนี้ก่อน Export PDF:\n\n• ${messages.join('\n• ')}`)
+              return
+            }
+            void exportPdf('bill-block-document.pdf')
+          }}
           isExporting={isExporting}
           onPreview={() => setIsPreview(p => !p)}
           isPreview={isPreview}
