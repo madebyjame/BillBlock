@@ -1,5 +1,5 @@
 import type { DocumentData, LineItem, DocumentSettings } from '../types/document'
-import { defaultDocument } from '../types/document'
+import { defaultDocument, SIGNATURE_PRESETS } from '../types/document'
 import { generateId } from '../utils/idGenerator'
 
 export type DocumentAction =
@@ -22,8 +22,31 @@ export function documentReducer(state: DocumentData, action: DocumentAction): Do
   switch (action.type) {
     case 'UPDATE_COMPANY':
       return { ...state, company: { ...state.company, ...action.data } }
-    case 'UPDATE_DOC_META':
-      return { ...state, docMeta: { ...state.docMeta, ...action.data } }
+    case 'UPDATE_DOC_META': {
+      const newMeta = { ...state.docMeta, ...action.data }
+      // เมื่อเปลี่ยนประเภทเอกสาร ให้อัปเดต signature labels อัตโนมัติ
+      if (action.data.documentType && action.data.documentType !== state.docMeta.documentType) {
+        const preset = SIGNATURE_PRESETS[action.data.documentType]
+        if (preset) {
+          return {
+            ...state,
+            docMeta: newMeta,
+            footer: {
+              ...state.footer,
+              sellerLabel: preset.sellerLabel,
+              approverName: preset.approverName,
+              buyerLabel: preset.buyerLabel,
+              buyerTitle: preset.buyerTitle,
+            },
+            visibility: {
+              ...state.visibility,
+              footer: { ...state.visibility.footer, buyerSignature: preset.showBuyerSignature },
+            },
+          }
+        }
+      }
+      return { ...state, docMeta: newMeta }
+    }
     case 'UPDATE_CUSTOMER':
       return { ...state, customer: { ...state.customer, ...action.data } }
     case 'ADD_ITEM':
