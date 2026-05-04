@@ -51,6 +51,7 @@ export interface DocumentData {
     approverName: string
     approverTitle: string
     buyerLabel: string
+    buyerTitle: string
     signatureUrl?: string
     stampUrl?: string
     signatureDate: string
@@ -78,6 +79,52 @@ export interface CatalogItem {
 }
 
 export const DOCUMENT_TYPES = ['ใบเสนอราคา', 'ใบแจ้งหนี้', 'ใบเสร็จรับเงิน', 'ใบวางบิล', 'ใบกำกับภาษี']
+
+export interface SignaturePreset {
+  sellerLabel: string
+  approverName: string
+  buyerLabel: string
+  buyerTitle: string
+  showBuyerSignature: boolean
+}
+
+export const SIGNATURE_PRESETS: Record<string, SignaturePreset> = {
+  'ใบเสนอราคา': {
+    sellerLabel: 'ในนาม บริษัท',
+    approverName: 'ผู้อนุมัติ',
+    buyerLabel: 'ในนาม ลูกค้า / ผู้สั่งซื้อ',
+    buyerTitle: 'ผู้สั่งซื้อ / ผู้อนุมัติสั่งซื้อ',
+    showBuyerSignature: true,
+  },
+  'ใบแจ้งหนี้': {
+    sellerLabel: 'ในนาม บริษัท',
+    approverName: 'ผู้ออกเอกสาร / ผู้แจ้งหนี้',
+    buyerLabel: 'ในนาม ลูกค้า / ผู้รับเอกสาร',
+    buyerTitle: 'ผู้รับเอกสาร / ผู้รับสินค้า',
+    showBuyerSignature: true,
+  },
+  'ใบวางบิล': {
+    sellerLabel: 'ในนาม บริษัท',
+    approverName: 'ผู้วางบิล',
+    buyerLabel: 'ในนาม ลูกค้า / ผู้รับวางบิล',
+    buyerTitle: 'ผู้รับวางบิล',
+    showBuyerSignature: true,
+  },
+  'ใบเสร็จรับเงิน': {
+    sellerLabel: 'ในนาม บริษัท',
+    approverName: 'ผู้รับเงิน / ผู้ออกเอกสาร',
+    buyerLabel: '',
+    buyerTitle: '',
+    showBuyerSignature: false,
+  },
+  'ใบกำกับภาษี': {
+    sellerLabel: 'ในนาม บริษัท',
+    approverName: 'ผู้ออกเอกสาร / ผู้รับมอบอำนาจ',
+    buyerLabel: '',
+    buyerTitle: '',
+    showBuyerSignature: false,
+  },
+}
 
 export const CURRENCIES: { code: string; symbol: string; label: string }[] = [
   { code: 'THB', symbol: '฿', label: 'บาท (THB)' },
@@ -124,9 +171,10 @@ export const defaultDocument: DocumentData = {
   summary: { specialDiscount: 0, specialDiscountType: 'amount', vatRate: 7 },
   footer: {
     sellerLabel: 'ในนาม บริษัท',
-    approverName: 'ชื่อผู้อนุมัติ',
+    approverName: 'ผู้อนุมัติ',
     approverTitle: 'กรรมการผู้จัดการ',
     buyerLabel: 'ในนาม ลูกค้า / ผู้สั่งซื้อ',
+    buyerTitle: 'ผู้สั่งซื้อ / ผู้อนุมัติสั่งซื้อ',
     signatureDate: '',
     bankName: 'ธนาคาร',
     accountName: 'ชื่อบัญชี',

@@ -302,8 +302,9 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
         <div className="mt-auto pt-8">
         <div className={`grid gap-8 ${v.footer.buyerSignature ? 'grid-cols-2' : 'grid-cols-1 max-w-xs ml-auto'}`}>
           {v.footer.buyerSignature && (
-            <SignatureBox pdfMode={pdfMode} label={doc.footer.buyerLabel} title="ผู้สั่งซื้อสินค้า"
-              onLabelChange={v => dispatch({ type: 'UPDATE_FOOTER', data: { buyerLabel: v } })} />
+            <SignatureBox pdfMode={pdfMode} label={doc.footer.buyerLabel} title={doc.footer.buyerTitle}
+              onLabelChange={v => dispatch({ type: 'UPDATE_FOOTER', data: { buyerLabel: v } })}
+              onTitleChange={v => dispatch({ type: 'UPDATE_FOOTER', data: { buyerTitle: v } })} />
           )}
           <SignatureBox pdfMode={pdfMode}
             label={doc.footer.sellerLabel} title={doc.footer.approverName}
