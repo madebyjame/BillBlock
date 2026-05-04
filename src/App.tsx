@@ -1,32 +1,62 @@
-import { useReducer } from 'react'
+import { useReducer, useState } from 'react'
 import { PdfModeContext } from './components/InvoiceDocument'
 import InvoiceDocument from './components/InvoiceDocument'
 import LeftPanel from './components/LeftPanel'
 import RightPanel from './components/RightPanel'
 import { documentReducer, defaultDocument } from './store/documentStore'
 import { useExportPdf } from './hooks/useExportPdf'
+import { useAutoSave, loadDraft, loadCatalog } from './hooks/useAutoSave'
+
+// โหลด draft จาก localStorage ถ้ามี ไม่งั้นใช้ default
+function getInitialDoc() {
+  try {
+    const draft = loadDraft()
+    // merge กับ defaultDocument เผื่อ schema เปลี่ยน
+    if (draft) return { ...defaultDocument, ...draft, settings: { ...defaultDocument.settings, ...draft.settings }, visibility: { ...defaultDocument.visibility, ...draft.visibility } }
+  } catch {}
+  return defaultDocument
+}
 
 export default function App() {
-  const [doc, dispatch] = useReducer(documentReducer, defaultDocument)
+  const [doc, dispatch] = useReducer(documentReducer, undefined, getInitialDoc)
+  const [isPreview, setIsPreview] = useState(false)
+
   const { docRef, exportPdf, isExporting, pdfMode } = useExportPdf()
+  const saveStatus = useAutoSave(doc)
+  const catalog = loadCatalog()
+
+  // Preview mode = pdfMode แต่ไม่ export
+  const displayPdfMode = pdfMode || isPreview
 
   return (
-    <PdfModeContext.Provider value={pdfMode}>
+    <PdfModeContext.Provider value={displayPdfMode}>
       <div className="flex h-screen overflow-hidden bg-slate-100">
-        {/* ── ซ้าย: Branding + Export ── */}
         <LeftPanel
           onExportPdf={() => exportPdf('bill-block-document.pdf')}
           isExporting={isExporting}
+          onPreview={() => setIsPreview(p => !p)}
+          isPreview={isPreview}
+          saveStatus={saveStatus}
+          themeColor={doc.settings.themeColor}
         />
 
-        {/* ── กลาง: Invoice Document ── */}
         <main className="flex-1 overflow-y-auto p-6">
+          {/* Preview mode banner */}
+          {isPreview && (
+            <div className="mx-auto mb-3 flex items-center justify-between rounded-md bg-amber-50 border border-amber-200 px-4 py-2 text-sm text-amber-700" style={{ maxWidth: '794px' }}>
+              <span className="font-medium">โหมดดูตัวอย่าง — นี่คือหน้าตาที่จะปรากฏใน PDF</span>
+              <button onClick={() => setIsPreview(false)}
+                className="rounded px-2 py-0.5 hover:bg-amber-100 text-xs font-medium">
+                ปิด
+              </button>
+            </div>
+          )}
+
           <div className="shadow-lg rounded-sm">
-            <InvoiceDocument doc={doc} dispatch={dispatch} docRef={docRef} />
+            <InvoiceDocument doc={doc} dispatch={dispatch} docRef={docRef} catalog={catalog} />
           </div>
         </main>
 
-        {/* ── ขวา: Controls ── */}
         <RightPanel doc={doc} dispatch={dispatch} />
       </div>
     </PdfModeContext.Provider>
