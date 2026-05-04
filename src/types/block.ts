@@ -1,38 +1,69 @@
 // ============================================================
-// Block Types สำหรับ Bill Block App
-// แต่ละ Block มี id, type, และ data ที่แตกต่างกันตามประเภท
+// Block Types — Bill Block App (v2)
+// ใช้ Discriminated Union + visibleFields สำหรับ hide/show
 // ============================================================
 
-/** ประเภทของ Block ทั้งหมด */
-export type BlockType = 'header' | 'info' | 'table' | 'text' | 'footer'
+export type BlockType =
+  | 'header'
+  | 'docInfo'
+  | 'customer'
+  | 'table'
+  | 'summary'
+  | 'footer'
 
 // ─────────────────────────────────────────
-// Header Block — โลโก้ + ชื่อบริษัท + ที่อยู่
+// Header Block
 // ─────────────────────────────────────────
 export interface HeaderBlockData {
   companyName: string
   address: string
   phone: string
   email: string
+  taxId: string
   logoUrl?: string
+  visibleFields: {
+    address: boolean
+    phone: boolean
+    email: boolean
+    taxId: boolean
+  }
 }
 
 // ─────────────────────────────────────────
-// Info Block — เลขที่เอกสาร, วันที่, ลูกค้า (2 คอลัมน์)
+// Document Info Block
 // ─────────────────────────────────────────
-export interface InfoBlockData {
-  documentType: string        // เช่น "ใบเสนอราคา" | "ใบแจ้งหนี้"
+export interface DocInfoBlockData {
+  documentType: string
   documentNumber: string
-  documentDate: string        // ISO string เช่น "2025-01-15"
-  dueDate?: string
-  customerName: string
-  customerAddress: string
-  customerPhone?: string
-  customerTaxId?: string
+  documentDate: string
+  dueDate: string
+  salesperson: string
+  paymentTerms: string
+  projectName: string
+  visibleFields: {
+    dueDate: boolean
+    salesperson: boolean
+    paymentTerms: boolean
+    projectName: boolean
+  }
 }
 
 // ─────────────────────────────────────────
-// Table Block — รายการสินค้า + คำนวณภาษี
+// Customer Block
+// ─────────────────────────────────────────
+export interface CustomerBlockData {
+  customerName: string
+  taxId: string
+  address: string
+  phone: string
+  visibleFields: {
+    taxId: boolean
+    phone: boolean
+  }
+}
+
+// ─────────────────────────────────────────
+// Table Block
 // ─────────────────────────────────────────
 export interface TableRow {
   id: string
@@ -40,85 +71,120 @@ export interface TableRow {
   quantity: number
   unit: string
   unitPrice: number
-  // total คำนวณจาก quantity * unitPrice (ไม่เก็บใน state)
+  discount: number   // ส่วนลดต่อแถวเป็น %
 }
 
 export interface TableBlockData {
   rows: TableRow[]
-  vatRate: number             // % VAT เช่น 7 (สำหรับ 7%)
-  includeVat: boolean         // รวม VAT หรือไม่
-  discountAmount: number      // ส่วนลดเป็นบาท
+  visibleColumns: {
+    unit: boolean
+    discount: boolean
+  }
 }
 
 // ─────────────────────────────────────────
-// Text Block — หมายเหตุ / ข้อความอิสระ
+// Summary Block
 // ─────────────────────────────────────────
-export interface TextBlockData {
-  title?: string              // หัวข้อ เช่น "หมายเหตุ"
-  content: string
+export interface SummaryBlockData {
+  discountAmount: number   // ส่วนลดพิเศษ (บาท)
+  vatRate: number
+  visibleFields: {
+    thaiText: boolean      // ข้อความจำนวนเงินภาษาไทย
+    discount: boolean      // แถวส่วนลดพิเศษ
+    vat: boolean           // VAT
+  }
 }
 
 // ─────────────────────────────────────────
-// Footer Block — บัญชีธนาคาร + ลายเซ็น
+// Footer Block
 // ─────────────────────────────────────────
 export interface FooterBlockData {
-  bankName?: string
-  accountName?: string
-  accountNumber?: string
-  signerName?: string
-  signerTitle?: string
-  note?: string
+  bankName: string
+  accountName: string
+  accountNumber: string
+  signerName: string
+  signerTitle: string
+  customerSignerLabel: string
+  signatureImageUrl?: string    // รูปลายเซ็น
+  stampImageUrl?: string        // รูปตราประทับ
+  visibleFields: {
+    bankInfo: boolean
+    customerSignature: boolean
+    stamp: boolean
+  }
 }
 
 // ─────────────────────────────────────────
-// Union Type สำหรับ Block ทั้งหมด
-// ใช้ Discriminated Union เพื่อให้ TypeScript ช่วย type-check
+// Discriminated Union
 // ─────────────────────────────────────────
 export type Block =
-  | { id: string; type: 'header'; data: HeaderBlockData }
-  | { id: string; type: 'info';   data: InfoBlockData }
-  | { id: string; type: 'table';  data: TableBlockData }
-  | { id: string; type: 'text';   data: TextBlockData }
-  | { id: string; type: 'footer'; data: FooterBlockData }
+  | { id: string; type: 'header';   data: HeaderBlockData }
+  | { id: string; type: 'docInfo';  data: DocInfoBlockData }
+  | { id: string; type: 'customer'; data: CustomerBlockData }
+  | { id: string; type: 'table';    data: TableBlockData }
+  | { id: string; type: 'summary';  data: SummaryBlockData }
+  | { id: string; type: 'footer';   data: FooterBlockData }
 
 // ─────────────────────────────────────────
-// Helper: ค่า default สำหรับ Block ใหม่แต่ละประเภท
+// Default data
 // ─────────────────────────────────────────
 export const defaultBlockData: Record<BlockType, Block['data']> = {
   header: {
-    companyName: 'ชื่อบริษัทของคุณ',
-    address: 'ที่อยู่บริษัท',
+    companyName: 'ชื่อบริษัท / ร้านค้า',
+    address: '123 ถนนสุขุมวิท แขวงคลองเตย เขตคลองเตย กรุงเทพฯ 10110',
     phone: '02-xxx-xxxx',
-    email: 'email@company.com',
+    email: 'info@company.com',
+    taxId: '0000000000000',
+    visibleFields: { address: true, phone: true, email: true, taxId: true },
   } satisfies HeaderBlockData,
 
-  info: {
+  docInfo: {
     documentType: 'ใบเสนอราคา',
     documentNumber: 'QT-2025-001',
     documentDate: new Date().toISOString().split('T')[0],
-    customerName: 'ชื่อลูกค้า',
-    customerAddress: 'ที่อยู่ลูกค้า',
-  } satisfies InfoBlockData,
+    dueDate: '',
+    salesperson: '',
+    paymentTerms: 'ชำระเงินภายใน 30 วัน',
+    projectName: '',
+    visibleFields: { dueDate: true, salesperson: false, paymentTerms: true, projectName: false },
+  } satisfies DocInfoBlockData,
+
+  customer: {
+    customerName: 'ชื่อลูกค้า / บริษัท',
+    taxId: '',
+    address: 'ที่อยู่ลูกค้า',
+    phone: '',
+    visibleFields: { taxId: false, phone: false },
+  } satisfies CustomerBlockData,
 
   table: {
     rows: [
-      { id: '1', description: 'รายการสินค้า/บริการ', quantity: 1, unit: 'ชิ้น', unitPrice: 0 },
+      { id: '1', description: 'รายการสินค้า/บริการ', quantity: 1, unit: 'ชิ้น', unitPrice: 0, discount: 0 },
     ],
-    vatRate: 7,
-    includeVat: true,
-    discountAmount: 0,
+    visibleColumns: { unit: true, discount: false },
   } satisfies TableBlockData,
 
-  text: {
-    title: 'หมายเหตุ',
-    content: 'ระบุหมายเหตุหรือเงื่อนไขที่นี่',
-  } satisfies TextBlockData,
+  summary: {
+    discountAmount: 0,
+    vatRate: 7,
+    visibleFields: { thaiText: true, discount: false, vat: true },
+  } satisfies SummaryBlockData,
 
   footer: {
-    bankName: 'ธนาคาร',
+    bankName: 'ธนาคารกสิกรไทย',
     accountName: 'ชื่อบัญชี',
     accountNumber: 'xxx-x-xxxxx-x',
     signerName: 'ชื่อผู้มีอำนาจ',
-    signerTitle: 'ผู้จัดการ',
+    signerTitle: 'กรรมการผู้จัดการ',
+    customerSignerLabel: 'ผู้รับบริการ / ลูกค้า',
+    visibleFields: { bankInfo: true, customerSignature: true, stamp: false },
   } satisfies FooterBlockData,
 }
+
+export const DOCUMENT_TYPES = [
+  'ใบเสนอราคา',
+  'ใบแจ้งหนี้',
+  'ใบเสร็จรับเงิน',
+  'ใบวางบิล',
+  'ใบกำกับภาษี',
+]

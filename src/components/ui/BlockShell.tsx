@@ -6,65 +6,61 @@ interface BlockShellProps {
   id: string
   children: ReactNode
   onRemove: () => void
-  label: string        // ชื่อ block เช่น "Header Block"
+  label: string
 }
 
-/**
- * กรอบ wrapper ของทุก Block — มี drag handle, ชื่อ Block, และปุ่มลบ
- * ใช้ useSortable จาก dnd-kit เพื่อรองรับ drag & drop
- */
 export default function BlockShell({ id, children, onRemove, label }: BlockShellProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-  }
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
-      className="relative mb-3 rounded-lg border border-gray-200 bg-white shadow-sm"
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+      className="group relative mb-2 rounded-md border border-slate-200 bg-white shadow-sm"
     >
-      {/* แถบด้านบน: drag handle + ชื่อ + ปุ่มลบ */}
-      <div className="flex items-center gap-2 rounded-t-lg border-b border-gray-100 bg-gray-50 px-3 py-2">
-        {/* Drag Handle */}
-        <button
-          className="cursor-grab touch-none text-gray-400 hover:text-gray-600 active:cursor-grabbing"
-          {...attributes}
-          {...listeners}
-          title="ลากเพื่อเรียงลำดับ"
-        >
-          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M4 5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zM4 9a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm-8 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
-          </svg>
-        </button>
-
-        <span className="flex-1 text-xs font-medium text-gray-500">{label}</span>
-
-        {/* ปุ่มลบ Block */}
+      {/* Toolbar — แสดงเมื่อ hover */}
+      <div className="absolute -top-px left-0 right-0 flex items-center justify-between rounded-t-md border-b border-slate-100 bg-slate-50 px-3 py-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex items-center gap-2">
+          {/* Drag handle */}
+          <button
+            className="cursor-grab touch-none text-slate-400 hover:text-slate-600 active:cursor-grabbing"
+            {...attributes}
+            {...listeners}
+            title="ลากเพื่อเรียงลำดับ"
+          >
+            <GripIcon />
+          </button>
+          <span className="text-xs font-medium tracking-wide text-slate-400">{label}</span>
+        </div>
         <button
           onClick={onRemove}
-          className="rounded p-0.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
-          title="ลบ Block นี้"
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-slate-400 hover:bg-red-50 hover:text-red-500"
+          title="ลบ Block"
         >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <TrashIcon />
+          ลบ
         </button>
       </div>
 
-      {/* เนื้อหา Block */}
-      <div className="p-4">{children}</div>
+      {/* padding-top พิเศษให้ toolbar ไม่บัง content */}
+      <div className="pt-1">{children}</div>
     </div>
+  )
+}
+
+function GripIcon() {
+  return (
+    <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 16 16">
+      <path d="M4 5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zM4 9a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm-8 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />
+    </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
   )
 }

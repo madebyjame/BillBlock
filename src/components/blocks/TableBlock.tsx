@@ -3,234 +3,146 @@ import {
   flexRender,
   getCoreRowModel,
   useReactTable,
+  type ColumnDef,
 } from '@tanstack/react-table'
 import type { TableBlockData, TableRow } from '../../types/block'
 import BlockShell from '../ui/BlockShell'
-import { calcTotal, formatCurrency } from '../../utils/calculations'
+import ToggleField from '../ui/ToggleField'
+import { calcRowTotal, formatCurrency } from '../../utils/calculations'
 import { generateId } from '../../utils/idGenerator'
 
-interface TableBlockProps {
+interface Props {
   id: string
   data: TableBlockData
-  onChange: (data: Partial<TableBlockData>) => void
+  onChange: (d: Partial<TableBlockData>) => void
   onRemove: () => void
 }
 
-const columnHelper = createColumnHelper<TableRow>()
+const col = createColumnHelper<TableRow>()
 
-export default function TableBlock({ id, data, onChange, onRemove }: TableBlockProps) {
-  const { subtotal, vatAmount, total } = calcTotal(data)
-
-  // อัปเดต row เดียว
+export default function TableBlock({ id, data, onChange, onRemove }: Props) {
   function updateRow(rowId: string, field: keyof TableRow, value: string | number) {
-    const updated = data.rows.map(r =>
-      r.id === rowId ? { ...r, [field]: value } : r
-    )
-    onChange({ rows: updated })
+    onChange({ rows: data.rows.map(r => r.id === rowId ? { ...r, [field]: value } : r) })
   }
-
-  // เพิ่ม row ใหม่
   function addRow() {
-    const newRow: TableRow = {
-      id: generateId(),
-      description: '',
-      quantity: 1,
-      unit: 'ชิ้น',
-      unitPrice: 0,
-    }
-    onChange({ rows: [...data.rows, newRow] })
+    onChange({ rows: [...data.rows, { id: generateId(), description: '', quantity: 1, unit: 'ชิ้น', unitPrice: 0, discount: 0 }] })
   }
-
-  // ลบ row
   function removeRow(rowId: string) {
+    if (data.rows.length <= 1) return
     onChange({ rows: data.rows.filter(r => r.id !== rowId) })
   }
+  function toggleCol(field: keyof TableBlockData['visibleColumns']) {
+    onChange({ visibleColumns: { ...data.visibleColumns, [field]: !data.visibleColumns[field] } })
+  }
 
-  // column definition สำหรับ TanStack Table
-  const columns = [
-    columnHelper.accessor('description', {
-      header: 'รายการ',
+  // สร้าง column definitions แบบ dynamic ตาม visibleColumns
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const columns: ColumnDef<TableRow, any>[] = [
+    col.display({ id: 'no', header: '#',
+      cell: ({ row }) => <span className="text-slate-400">{row.index + 1}</span>,
+    }),
+    col.accessor('description', { header: 'รายการ',
       cell: ({ row }) => (
-        <input
-          type="text"
-          value={row.original.description}
+        <input type="text" value={row.original.description}
           onChange={e => updateRow(row.original.id, 'description', e.target.value)}
-          placeholder="ชื่อสินค้า/บริการ"
-          className="w-full border-0 bg-transparent text-sm focus:outline-none"
-        />
+          placeholder="ระบุรายการ..."
+          className="w-full border-0 bg-transparent text-sm text-slate-700 placeholder-slate-300 focus:outline-none" />
       ),
     }),
-    columnHelper.accessor('quantity', {
-      header: 'จำนวน',
-      cell: ({ row }) => (
-        <input
-          type="number"
-          value={row.original.quantity}
-          onChange={e => updateRow(row.original.id, 'quantity', parseFloat(e.target.value) || 0)}
-          min={0}
-          className="w-20 border-0 bg-transparent text-right text-sm focus:outline-none"
-        />
-      ),
-    }),
-    columnHelper.accessor('unit', {
-      header: 'หน่วย',
-      cell: ({ row }) => (
-        <input
-          type="text"
-          value={row.original.unit}
+    ...(data.visibleColumns.unit ? [col.accessor('unit', { header: 'หน่วย',
+      cell: ({ row }: { row: { original: TableRow } }) => (
+        <input type="text" value={row.original.unit}
           onChange={e => updateRow(row.original.id, 'unit', e.target.value)}
-          className="w-16 border-0 bg-transparent text-center text-sm focus:outline-none"
-        />
+          className="w-16 border-0 bg-transparent text-center text-sm text-slate-700 focus:outline-none" />
+      ),
+    })] : []),
+    col.accessor('quantity', { header: 'จำนวน',
+      cell: ({ row }) => (
+        <input type="number" value={row.original.quantity} min={0}
+          onChange={e => updateRow(row.original.id, 'quantity', parseFloat(e.target.value) || 0)}
+          className="w-20 border-0 bg-transparent text-right text-sm text-slate-700 focus:outline-none" />
       ),
     }),
-    columnHelper.accessor('unitPrice', {
-      header: 'ราคา/หน่วย',
+    col.accessor('unitPrice', { header: 'ราคา/หน่วย',
       cell: ({ row }) => (
-        <input
-          type="number"
-          value={row.original.unitPrice}
+        <input type="number" value={row.original.unitPrice} min={0}
           onChange={e => updateRow(row.original.id, 'unitPrice', parseFloat(e.target.value) || 0)}
-          min={0}
-          className="w-28 border-0 bg-transparent text-right text-sm focus:outline-none"
-        />
+          className="w-28 border-0 bg-transparent text-right text-sm text-slate-700 focus:outline-none" />
       ),
     }),
-    columnHelper.display({
-      id: 'total',
-      header: 'รวม',
+    ...(data.visibleColumns.discount ? [col.accessor('discount', { header: 'ส่วนลด%',
+      cell: ({ row }: { row: { original: TableRow } }) => (
+        <input type="number" value={row.original.discount} min={0} max={100}
+          onChange={e => updateRow(row.original.id, 'discount', parseFloat(e.target.value) || 0)}
+          className="w-20 border-0 bg-transparent text-right text-sm text-slate-700 focus:outline-none" />
+      ),
+    })] : []),
+    col.display({ id: 'total', header: 'จำนวนเงิน',
       cell: ({ row }) => (
-        <span className="block text-right text-sm tabular-nums">
-          {formatCurrency(row.original.quantity * row.original.unitPrice)}
+        <span className="block text-right text-sm font-medium tabular-nums text-slate-700">
+          {formatCurrency(calcRowTotal(row.original))}
         </span>
       ),
     }),
-    columnHelper.display({
-      id: 'actions',
-      header: '',
+    col.display({ id: 'actions', header: '',
       cell: ({ row }) => (
-        <button
-          onClick={() => removeRow(row.original.id)}
-          disabled={data.rows.length <= 1}
-          className="text-gray-300 hover:text-red-400 disabled:opacity-30"
-          title="ลบแถวนี้"
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        <button onClick={() => removeRow(row.original.id)} disabled={data.rows.length <= 1}
+          className="text-slate-200 hover:text-red-400 disabled:opacity-0">
+          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       ),
     }),
   ]
 
-  const table = useReactTable({
-    data: data.rows,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    // ไม่ใช้ getRowId เพราะจัดการ id ใน state เอง
-  })
+  const table = useReactTable({ data: data.rows, columns, getCoreRowModel: getCoreRowModel() })
 
   return (
-    <BlockShell id={id} label="Table Block — รายการสินค้า/บริการ" onRemove={onRemove}>
-      {/* ตารางรายการ */}
-      <div className="overflow-x-auto rounded border border-gray-200">
-        <table className="w-full border-collapse text-sm">
-          <thead className="bg-gray-50">
-            {table.getHeaderGroups().map(headerGroup => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map(header => (
-                  <th
-                    key={header.id}
-                    className="border-b border-gray-200 px-3 py-2 text-left text-xs font-semibold text-gray-500"
-                  >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row, idx) => (
-              <tr
-                key={row.id}
-                className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}
-              >
-                {row.getVisibleCells().map(cell => (
-                  <td key={cell.id} className="border-b border-gray-100 px-3 py-1.5">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <BlockShell id={id} label="Table — รายการสินค้า/บริการ" onRemove={onRemove}>
+      <div className="flex gap-0">
+        <div className="flex-1 overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              {table.getHeaderGroups().map(hg => (
+                <tr key={hg.id} className="border-b border-t border-slate-200 bg-slate-50">
+                  {hg.headers.map(h => (
+                    <th key={h.id}
+                      className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400 first:pl-5 last:pr-5">
+                      {flexRender(h.column.columnDef.header, h.getContext())}
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+            <tbody>
+              {table.getRowModel().rows.map((row, idx) => (
+                <tr key={row.id}
+                  className={`border-b border-slate-100 transition-colors hover:bg-blue-50/30 ${idx % 2 === 1 ? 'bg-slate-50/40' : ''}`}>
+                  {row.getVisibleCells().map(cell => (
+                    <td key={cell.id} className="px-3 py-2 first:pl-5 last:pr-5">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-      {/* ปุ่มเพิ่มแถว */}
-      <button
-        onClick={addRow}
-        className="mt-2 flex items-center gap-1 rounded border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-400 hover:border-blue-400 hover:text-blue-500"
-      >
-        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
-        </svg>
-        เพิ่มรายการ
-      </button>
+          <button onClick={addRow}
+            className="mx-5 mt-2 mb-3 flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-600">
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            เพิ่มรายการ
+          </button>
+        </div>
 
-      {/* ─── สรุปยอด ─── */}
-      <div className="mt-4 flex justify-end">
-        <div className="w-64 space-y-1 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-500">ยอดรวม</span>
-            <span className="tabular-nums">{formatCurrency(subtotal)} บาท</span>
-          </div>
-
-          {/* ส่วนลด */}
-          <div className="flex items-center justify-between">
-            <span className="text-gray-500">ส่วนลด</span>
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                value={data.discountAmount}
-                onChange={e => onChange({ discountAmount: parseFloat(e.target.value) || 0 })}
-                min={0}
-                className="w-24 rounded border border-gray-200 px-2 py-0.5 text-right text-sm focus:border-blue-400 focus:outline-none"
-              />
-              <span className="text-gray-400">บาท</span>
-            </div>
-          </div>
-
-          {/* VAT toggle */}
-          <div className="flex items-center justify-between">
-            <label className="flex cursor-pointer items-center gap-1.5 text-gray-500">
-              <input
-                type="checkbox"
-                checked={data.includeVat}
-                onChange={e => onChange({ includeVat: e.target.checked })}
-                className="rounded"
-              />
-              VAT
-              <input
-                type="number"
-                value={data.vatRate}
-                onChange={e => onChange({ vatRate: parseFloat(e.target.value) || 0 })}
-                min={0}
-                max={100}
-                className="w-12 rounded border border-gray-200 px-1 py-0.5 text-center text-sm focus:border-blue-400 focus:outline-none"
-              />
-              %
-            </label>
-            <span className="tabular-nums text-gray-500">
-              {data.includeVat ? formatCurrency(vatAmount) : '-'} บาท
-            </span>
-          </div>
-
-          <div className="mt-1 border-t border-gray-200 pt-1">
-            <div className="flex justify-between font-semibold">
-              <span>ยอดรวมสุทธิ</span>
-              <span className="tabular-nums text-blue-600">{formatCurrency(total)} บาท</span>
-            </div>
-          </div>
+        {/* Column toggles */}
+        <div className="flex w-28 flex-shrink-0 flex-col gap-1 border-l border-slate-100 p-3">
+          <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-300">คอลัมน์</p>
+          <ToggleField label="หน่วย" visible={data.visibleColumns.unit} onToggle={() => toggleCol('unit')} />
+          <ToggleField label="ส่วนลด" visible={data.visibleColumns.discount} onToggle={() => toggleCol('discount')} />
         </div>
       </div>
     </BlockShell>
