@@ -1,5 +1,6 @@
-import type { DocumentData } from '../types/document'
+import type { DocumentData, BlockType, DocumentBlock } from '../types/document'
 import { defaultDocument } from '../types/document'
+import { generateId } from './idGenerator'
 
 /** รวม draft ที่โหลดมากับค่าเริ่มต้น (schema ใหม่ไม่พัง) */
 export function normalizeDocumentDraft(raw: Partial<DocumentData> | null | undefined): DocumentData {
@@ -23,7 +24,17 @@ export function normalizeDocumentDraft(raw: Partial<DocumentData> | null | undef
     footer: { ...defaultDocument.footer, ...raw.footer },
     summary: { ...defaultDocument.summary, ...raw.summary },
     items: Array.isArray(raw.items) && raw.items.length > 0 ? raw.items : defaultDocument.items,
+    blocks: Array.isArray(raw.blocks) ? raw.blocks : migrateBlocksFromVisibility(raw),
   }
+}
+
+// ถ้า draft เก่าไม่มี blocks ให้สร้างจาก visibility flags
+function migrateBlocksFromVisibility(raw: Partial<DocumentData>): DocumentBlock[] {
+  const blocks: DocumentBlock[] = []
+  if (raw.notes?.trim()) blocks.push({ id: generateId(), type: 'notes' as BlockType })
+  blocks.push({ id: 'default-sig', type: 'signature' as BlockType })
+  if (raw.visibility?.footer?.bankInfo) blocks.push({ id: generateId(), type: 'bankInfo' as BlockType })
+  return blocks
 }
 
 /** blob: URL ใช้ซ้ำหลังรีเฟรชไม่ได้ — ตัดทิ้งเพื่อไม่ให้รูปพังและลดโอกาส canvas taint */

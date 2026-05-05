@@ -1,6 +1,8 @@
-import type { DocumentData, LineItem, DocumentSettings } from '../types/document'
+import type { DocumentData, LineItem, DocumentSettings, BlockType, DocumentBlock } from '../types/document'
 import { defaultDocument, SIGNATURE_PRESETS } from '../types/document'
 import { generateId } from '../utils/idGenerator'
+
+const SINGLE_INSTANCE: BlockType[] = ['notes', 'signature', 'bankInfo']
 
 export type DocumentAction =
   | { type: 'UPDATE_COMPANY';    data: Partial<DocumentData['company']> }
@@ -17,6 +19,10 @@ export type DocumentAction =
   | { type: 'UPDATE_SETTINGS';   data: Partial<DocumentSettings> }
   | { type: 'TOGGLE_VISIBILITY'; path: string }
   | { type: 'LOAD_DOCUMENT';     doc: DocumentData }
+  | { type: 'ADD_BLOCK';         blockType: BlockType; atIndex?: number }
+  | { type: 'REMOVE_BLOCK';      id: string }
+  | { type: 'REORDER_BLOCKS';    ids: string[] }
+  | { type: 'UPDATE_BLOCK';      id: string; data: Partial<DocumentBlock> }
 
 export function documentReducer(state: DocumentData, action: DocumentAction): DocumentData {
   switch (action.type) {
@@ -82,6 +88,21 @@ export function documentReducer(state: DocumentData, action: DocumentAction): Do
     }
     case 'LOAD_DOCUMENT':
       return action.doc
+    case 'ADD_BLOCK': {
+      if (SINGLE_INSTANCE.includes(action.blockType) && state.blocks.some(b => b.type === action.blockType)) return state
+      const nb: DocumentBlock = { id: generateId(), type: action.blockType, content: action.blockType === 'customText' ? '' : undefined }
+      const arr = [...state.blocks]
+      action.atIndex !== undefined ? arr.splice(action.atIndex, 0, nb) : arr.push(nb)
+      return { ...state, blocks: arr }
+    }
+    case 'REMOVE_BLOCK':
+      return { ...state, blocks: state.blocks.filter(b => b.id !== action.id) }
+    case 'REORDER_BLOCKS': {
+      const map = new Map(state.blocks.map(b => [b.id, b]))
+      return { ...state, blocks: action.ids.map(id => map.get(id)!).filter(Boolean) }
+    }
+    case 'UPDATE_BLOCK':
+      return { ...state, blocks: state.blocks.map(b => b.id === action.id ? { ...b, ...action.data } : b) }
     default:
       return state
   }

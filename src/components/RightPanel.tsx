@@ -1,8 +1,39 @@
 import { useRef } from 'react'
-import type { DocumentData } from '../types/document'
-import { CURRENCIES, THEME_COLORS } from '../types/document'
+import { useDraggable } from '@dnd-kit/core'
+import type { DocumentData, BlockType } from '../types/document'
+import { CURRENCIES, THEME_COLORS, BLOCK_CATALOG } from '../types/document'
 import type { DocumentAction } from '../store/documentStore'
 import { normalizeDocumentDraft } from '../utils/documentDraft'
+
+const SINGLE_INSTANCE_TYPES = new Set<string>(['notes', 'signature', 'bankInfo'])
+
+const BLOCK_ICONS: Record<string, React.ReactNode> = {
+  notes: (
+    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path strokeLinecap="round" d="M4 6h16M4 10h16M4 14h10" />
+    </svg>
+  ),
+  signature: (
+    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a4 4 0 01-2.829 1.172H7v-2a4 4 0 011.172-2.828z" />
+    </svg>
+  ),
+  bankInfo: (
+    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+    </svg>
+  ),
+  customText: (
+    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
+  ),
+  divider: (
+    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" d="M4 12h16" />
+    </svg>
+  ),
+}
 
 interface Props {
   doc: DocumentData
@@ -130,6 +161,17 @@ export default function RightPanel({ doc, dispatch }: Props) {
           )}
         </Section>
 
+        {/* ─── Blocks ─── */}
+        <Section title="Blocks — เพิ่มส่วน">
+          <p className="text-[10px] text-slate-400 leading-snug mb-2">ลากไปวางในเอกสาร</p>
+          <div className="space-y-1.5">
+            {BLOCK_CATALOG.map(cat => {
+              const disabled = SINGLE_INSTANCE_TYPES.has(cat.type) && doc.blocks.some(b => b.type === cat.type)
+              return <PaletteCard key={cat.type} type={cat.type as BlockType} label={cat.label} desc={cat.desc} disabled={disabled} tc={s.themeColor} />
+            })}
+          </div>
+        </Section>
+
         {/* ─── Footer ─── */}
         <Section title="Footer — ลายเซ็น">
           <Toggle label="ลายเซ็นผู้ซื้อ" on={v.footer.buyerSignature} onToggle={() => toggle('footer.buyerSignature')} tc={s.themeColor} />
@@ -204,6 +246,45 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div>
       <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">{title}</p>
       <div className="space-y-1">{children}</div>
+    </div>
+  )
+}
+
+function PaletteCard({ type, label, desc, disabled, tc }: {
+  type: BlockType; label: string; desc: string; disabled: boolean; tc: string
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `palette:${type}`,
+    disabled,
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      {...(disabled ? {} : { ...listeners, ...attributes })}
+      className={`flex items-center gap-2 rounded px-2 py-1.5 text-xs select-none transition-all duration-150
+        ${disabled ? 'opacity-40 cursor-default' : 'cursor-grab active:cursor-grabbing hover:scale-[1.02] hover:shadow-sm'}
+        ${isDragging ? 'opacity-0' : ''}
+      `}
+      style={disabled
+        ? { border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }
+        : { border: `1px solid ${tc}35`, backgroundColor: `${tc}0d` }
+      }
+    >
+      <span style={disabled ? { color: '#94a3b8' } : { color: tc }} className="shrink-0">
+        {BLOCK_ICONS[type]}
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold truncate" style={disabled ? { color: '#94a3b8' } : { color: tc }}>{label}</p>
+        <p className="text-[9px] text-slate-400 truncate">{desc}</p>
+      </div>
+      {disabled
+        ? <span className="text-[9px] font-bold text-slate-300 shrink-0">✓</span>
+        : <svg className="h-3 w-3 text-slate-300 shrink-0" fill="currentColor" viewBox="0 0 16 16">
+            <circle cx="5" cy="4" r="1.2" /><circle cx="11" cy="4" r="1.2" />
+            <circle cx="5" cy="8" r="1.2" /><circle cx="11" cy="8" r="1.2" />
+            <circle cx="5" cy="12" r="1.2" /><circle cx="11" cy="12" r="1.2" />
+          </svg>
+      }
     </div>
   )
 }

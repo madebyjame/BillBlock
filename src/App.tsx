@@ -1,4 +1,7 @@
 import { useReducer, useState } from 'react'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
+import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core'
+import { arrayMove } from '@dnd-kit/sortable'
 import { PdfModeContext } from './components/InvoiceDocument'
 import InvoiceDocument from './components/InvoiceDocument'
 import LeftPanel from './components/LeftPanel'
@@ -8,6 +11,8 @@ import { useExportPdf } from './hooks/useExportPdf'
 import { useAutoSave, loadDraft, loadCatalog } from './hooks/useAutoSave'
 import { normalizeDocumentDraft, stripEphemeralBlobUrls } from './utils/documentDraft'
 import { validateDocumentForExport } from './utils/validateExport'
+import { BLOCK_CATALOG } from './types/document'
+import type { BlockType } from './types/document'
 
 // โหลด draft จาก localStorage ถ้ามี ไม่งั้นใช้ default
 function getInitialDoc() {
@@ -23,15 +28,53 @@ function getInitialDoc() {
 export default function App() {
   const [doc, dispatch] = useReducer(documentReducer, undefined, getInitialDoc)
   const [isPreview, setIsPreview] = useState(false)
+  const [activeDragId, setActiveDragId] = useState<string | null>(null)
 
   const { docRef, exportPdf, isExporting, pdfMode } = useExportPdf()
   const saveStatus = useAutoSave(doc)
   const catalog = loadCatalog()
 
-  // Preview mode = pdfMode แต่ไม่ export
   const displayPdfMode = pdfMode || isPreview
 
+  const outerSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  )
+
+  function handleDragStart(e: DragStartEvent) {
+    setActiveDragId(String(e.active.id))
+  }
+
+  function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    setActiveDragId(null)
+    const activeId = String(active.id)
+
+    if (activeId.startsWith('palette:')) {
+      if (over) dispatch({ type: 'ADD_BLOCK', blockType: activeId.slice(8) as BlockType })
+      return
+    }
+
+    // Block reorder
+    if (over && active.id !== over.id) {
+      const oldIdx = doc.blocks.findIndex(b => b.id === active.id)
+      const newIdx = doc.blocks.findIndex(b => b.id === over.id)
+      if (oldIdx !== -1 && newIdx !== -1) {
+        const ids = arrayMove(doc.blocks, oldIdx, newIdx).map(b => b.id)
+        dispatch({ type: 'REORDER_BLOCKS', ids })
+      }
+    }
+  }
+
+  // Label shown in DragOverlay
+  const dragLabel = activeDragId?.startsWith('palette:')
+    ? BLOCK_CATALOG.find(c => c.type === activeDragId.slice(8))?.label ?? ''
+    : doc.blocks.find(b => b.id === activeDragId)
+        ? BLOCK_CATALOG.find(c => c.type === doc.blocks.find(b => b.id === activeDragId)?.type)?.label ?? ''
+        : ''
+
   return (
+    <DndContext sensors={outerSensors} collisionDetection={closestCenter}
+      onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
     <PdfModeContext.Provider value={displayPdfMode}>
       <div className="flex h-screen overflow-hidden bg-slate-100">
         <LeftPanel
@@ -73,5 +116,14 @@ export default function App() {
         <RightPanel doc={doc} dispatch={dispatch} />
       </div>
     </PdfModeContext.Provider>
+    <DragOverlay dropAnimation={null}>
+      {activeDragId && dragLabel ? (
+        <div className="rounded-md px-3 py-1.5 text-xs font-semibold text-white shadow-xl pointer-events-none"
+          style={{ backgroundColor: doc.settings.themeColor, opacity: 0.92 }}>
+          {dragLabel}
+        </div>
+      ) : null}
+    </DragOverlay>
+    </DndContext>
   )
 }
