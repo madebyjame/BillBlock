@@ -6,13 +6,23 @@ interface Props {
   saveStatus: 'saved' | 'saving' | 'unsaved'
   themeColor: string
   onSignOut: () => Promise<void>
+  onBack?: () => void
 }
 
-export default function LeftPanel({ onExportPdf, isExporting, onPreview, isPreview, saveStatus, themeColor, onSignOut }: Props) {
+export default function LeftPanel({ onExportPdf, isExporting, onPreview, isPreview, saveStatus, themeColor, onSignOut, onBack }: Props) {
   return (
     <aside className="flex h-full w-44 flex-shrink-0 flex-col border-r border-slate-200 bg-white">
-      {/* Brand */}
+      {/* Brand / Back */}
       <div className="border-b border-slate-100 px-4 py-4">
+        {onBack ? (
+          <button onClick={onBack}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-700 mb-2 transition-colors">
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            เอกสารทั้งหมด
+          </button>
+        ) : null}
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md" style={{ backgroundColor: themeColor }}>
             <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
