@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { useNavigate, useParams, useBlocker } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
@@ -186,21 +186,6 @@ function EditorUI({
     return () => window.removeEventListener('beforeunload', handler)
   }, [isDirty, isCloudDoc])
 
-  // ─── In-app navigation guard (react-router) ───────────────────────────────
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      isDirty && isCloudDoc && currentLocation.pathname !== nextLocation.pathname,
-  )
-
-  useEffect(() => {
-    if (blocker.state !== 'blocked') return
-    if (window.confirm('มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก\nต้องการออกจากหน้านี้หรือไม่?')) {
-      blocker.proceed()
-    } else {
-      blocker.reset()
-    }
-  }, [blocker])
-
   // ─── Explicit save ────────────────────────────────────────────────────────
   const handleSave = useCallback(async (targetStatus: DocumentRow['status'] = 'draft') => {
     if (!docId || !isCloudDoc || isSaving) return
@@ -274,7 +259,10 @@ function EditorUI({
             saveStatus={saveStatus}
             themeColor={doc.settings.themeColor}
             onSignOut={signOut}
-            onBack={() => navigate('/documents')}
+            onBack={() => {
+              if (isDirty && isCloudDoc && !window.confirm('มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก\nต้องการออกจากหน้านี้หรือไม่?')) return
+              navigate('/documents')
+            }}
             isDirty={isDirty && isCloudDoc}
             isSaving={isSaving}
             onSaveDraft={isCloudDoc ? () => void handleSave('draft') : undefined}
