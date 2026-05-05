@@ -12,6 +12,8 @@ import { CSS } from '@dnd-kit/utilities'
 import type { DocumentData, LineItem, CatalogItem, DocumentBlock } from '../types/document'
 import { DOCUMENT_TYPES } from '../types/document'
 import type { DocumentAction } from '../store/documentStore'
+import type { CustomerRow } from '../lib/customerApi'
+import type { ProductRow } from '../lib/productApi'
 import {
   calcItemTotal, calcDocSummary, formatNumber, formatDate, numberToThaiText,
 } from '../utils/calculations'
@@ -24,9 +26,11 @@ interface Props {
   dispatch: React.Dispatch<DocumentAction>
   docRef: React.RefObject<HTMLDivElement | null>
   catalog: CatalogItem[]
+  customers: CustomerRow[]
+  products: ProductRow[]
 }
 
-export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Props) {
+export default function InvoiceDocument({ doc, dispatch, docRef, catalog, customers, products }: Props) {
   const pdfMode = useContext(PdfModeContext)
   const v = doc.visibility
   const tc = doc.settings.themeColor   // theme color
@@ -110,8 +114,12 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
             {/* Customer */}
             <div className="text-sm leading-relaxed">
               <p className="font-semibold mb-1" style={{ color: tc }}>ลูกค้า</p>
-              <F pdfMode={pdfMode} value={doc.customer.name} className="font-semibold text-slate-800"
-                onChange={val => dispatch({ type: 'UPDATE_CUSTOMER', data: { name: val } })} />
+              <CustomerLookupInput
+                pdfMode={pdfMode}
+                customer={doc.customer}
+                customers={customers}
+                onChange={(data) => dispatch({ type: 'UPDATE_CUSTOMER', data })}
+              />
               <F pdfMode={pdfMode} multiline value={doc.customer.address} className="text-slate-500"
                 onChange={val => dispatch({ type: 'UPDATE_CUSTOMER', data: { address: val } })} />
               {v.customer.taxId && (
@@ -203,7 +211,7 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
                   <tbody>
                     {doc.items.map((item, idx) => (
                       <SortableRow key={item.id} item={item} idx={idx} doc={doc}
-                        dispatch={dispatch} catalog={catalog} v={v} />
+                        dispatch={dispatch} catalog={catalog} products={products} v={v} />
                     ))}
                   </tbody>
                 </SortableContext>
@@ -299,6 +307,7 @@ function SortableRow({ item, idx, doc, dispatch, catalog, v }: {
   doc: DocumentData
   dispatch: React.Dispatch<DocumentAction>
   catalog: CatalogItem[]
+  products: ProductRow[]
   v: DocumentData['visibility']
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
@@ -321,7 +330,7 @@ function SortableRow({ item, idx, doc, dispatch, catalog, v }: {
 
       {/* Description + autocomplete */}
       <td className="px-2 py-2 align-top">
-        <DescriptionInput item={item} dispatch={dispatch} catalog={catalog} />
+        <DescriptionInput item={item} dispatch={dispatch} catalog={catalog} products={products} />
       </td>
 
       <td className="px-2 py-2 align-top">
@@ -404,16 +413,24 @@ function DescriptionInput({ item, dispatch, catalog }: {
   item: LineItem
   dispatch: React.Dispatch<DocumentAction>
   catalog: CatalogItem[]
+  products: ProductRow[]
 }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const matches = item.description.length > 0
-    ? catalog.filter(c => c.description.toLowerCase().includes(item.description.toLowerCase()) && c.description !== item.description)
+    ? [
+        ...catalog
+          .filter((c) => c.description.toLowerCase().includes(item.description.toLowerCase()) && c.description !== item.description)
+          .map((c) => ({ key: `catalog:${c.description}`, label: c.description, unit: c.unit, unitPrice: c.unitPrice, discountType: c.discountType as 'percent' | 'amount' })),
+        ...products
+          .filter((p) => p.name.toLowerCase().includes(item.description.toLowerCase()) && p.name !== item.description)
+          .map((p) => ({ key: `product:${p.id}`, label: p.name, unit: p.unit, unitPrice: p.price, discountType: 'percent' as const })),
+      ]
     : []
 
-  function fill(c: CatalogItem) {
-    dispatch({ type: 'FILL_ITEM', id: item.id, data: { description: c.description, unit: c.unit, unitPrice: c.unitPrice, discountType: c.discountType } })
+  function fill(match: { label: string; unit: string; unitPrice: number; discountType: 'percent' | 'amount' }) {
+    dispatch({ type: 'FILL_ITEM', id: item.id, data: { description: match.label, unit: match.unit, unitPrice: match.unitPrice, discountType: match.discountType } })
     setOpen(false)
   }
 
@@ -431,14 +448,77 @@ function DescriptionInput({ item, dispatch, catalog }: {
         className="w-full border-0 bg-transparent text-xs text-slate-400 placeholder-slate-200 focus:outline-none" />
       {open && matches.length > 0 && (
         <div className="absolute top-full left-0 z-20 w-72 rounded-md border border-slate-200 bg-white shadow-lg">
-          {matches.slice(0, 8).map(c => (
-            <button key={c.description} onMouseDown={() => fill(c)}
+          {matches.slice(0, 8).map((match) => (
+            <button key={match.key} onMouseDown={() => fill(match)}
               className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-blue-50 border-b border-slate-50 last:border-0">
               <div>
-                <p className="text-sm text-slate-800">{c.description}</p>
-                <p className="text-xs text-slate-400">{c.unit} · {formatNumber(c.unitPrice)} ฿</p>
+                <p className="text-sm text-slate-800">{match.label}</p>
+                <p className="text-xs text-slate-400">{match.unit} · {formatNumber(match.unitPrice)} ฿</p>
               </div>
               <span className="text-[10px] text-slate-300 ml-2">กรอก</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CustomerLookupInput({
+  pdfMode,
+  customer,
+  customers,
+  onChange,
+}: {
+  pdfMode: boolean
+  customer: DocumentData['customer']
+  customers: CustomerRow[]
+  onChange: (data: Partial<DocumentData['customer']>) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const matches = customer.name.trim()
+    ? customers.filter((row) => row.name.toLowerCase().includes(customer.name.toLowerCase()) && row.name !== customer.name).slice(0, 8)
+    : []
+
+  function applyCustomer(row: CustomerRow) {
+    onChange({
+      name: row.name,
+      address: row.address || customer.address,
+      taxId: row.tax_id || customer.taxId,
+    })
+    setOpen(false)
+  }
+
+  if (pdfMode) {
+    return <span className="font-semibold text-slate-800">{customer.name}</span>
+  }
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={customer.name}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 200)}
+        onChange={(event) => {
+          onChange({ name: event.target.value })
+          setOpen(true)
+        }}
+        className="w-full rounded border-0 bg-transparent px-0.5 font-semibold text-slate-800 hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+      />
+      {open && matches.length > 0 && (
+        <div className="absolute top-full left-0 z-20 mt-1 w-80 rounded-md border border-slate-200 bg-white shadow-lg">
+          {matches.map((row) => (
+            <button
+              key={row.id}
+              onMouseDown={() => applyCustomer(row)}
+              className="flex w-full items-start justify-between border-b border-slate-50 px-3 py-2 text-left hover:bg-blue-50 last:border-0"
+            >
+              <div>
+                <p className="text-sm text-slate-800">{row.name}</p>
+                <p className="text-xs text-slate-400">{row.tax_id || '-'} · {row.phone || '-'}</p>
+              </div>
+              <span className="ml-2 text-[10px] text-slate-300">เลือก</span>
             </button>
           ))}
         </div>

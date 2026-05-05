@@ -12,11 +12,12 @@ interface Props {
   isSaving?: boolean
   onSaveDraft?: () => void
   onSaveAndIssue?: () => void
+  onSaveAsPaid?: () => void
 }
 
 export default function LeftPanel({
   onExportPdf, isExporting, onPreview, isPreview, saveStatus, themeColor,
-  onSignOut, onBack, isDirty, isSaving, onSaveDraft, onSaveAndIssue,
+  onSignOut, onBack, isDirty, isSaving, onSaveDraft, onSaveAndIssue, onSaveAsPaid,
 }: Props) {
   return (
     <aside className="flex h-full w-44 flex-shrink-0 flex-col border-r border-slate-200 bg-white">
@@ -64,7 +65,7 @@ export default function LeftPanel({
       </div>
 
       {/* Explicit save buttons (cloud docs only) */}
-      {(onSaveDraft || onSaveAndIssue) && (
+      {(onSaveDraft || onSaveAndIssue || onSaveAsPaid) && (
         <div className="border-t border-slate-100 p-3 space-y-2">
           {onSaveDraft && (
             <button
@@ -98,6 +99,18 @@ export default function LeftPanel({
                   d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               ออกเอกสาร
+            </button>
+          )}
+          {onSaveAsPaid && (
+            <button
+              onClick={onSaveAsPaid}
+              disabled={isSaving}
+              className="flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              บันทึกเป็น Paid
             </button>
           )}
         </div>

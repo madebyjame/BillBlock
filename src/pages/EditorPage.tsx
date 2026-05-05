@@ -21,6 +21,8 @@ import { useCloudAutoSave } from '../hooks/useCloudAutoSave'
 import { updateDocument } from '../lib/documentApi'
 import type { DocumentRow } from '../lib/documentApi'
 import { getProfile } from '../lib/profileApi'
+import { listCustomers, type CustomerRow } from '../lib/customerApi'
+import { listProducts, type ProductRow } from '../lib/productApi'
 
 function getLocalDraftOrDefault() {
   try {
@@ -48,7 +50,31 @@ export default function EditorPage() {
 
   // ─── โหลดจาก Supabase + auto-fill profile ────────────────────────────────
   useEffect(() => {
-    if (!id || id === 'new' || id === 'local') return
+    if (!id) return
+    if (id === 'new') {
+      if (!user) return
+      async function autofillCompanyForNewDoc() {
+        try {
+          const profile = await getProfile(user.id)
+          if (!profile) return
+          dispatch({
+            type: 'UPDATE_COMPANY',
+            data: {
+              name: profile.company_name || defaultDocument.company.name,
+              address: profile.address || defaultDocument.company.address,
+              phone: profile.phone || defaultDocument.company.phone,
+              email: profile.email || defaultDocument.company.email,
+              taxId: profile.tax_id || defaultDocument.company.taxId,
+            },
+          })
+        } catch {
+          toast.error('ไม่สามารถเติมข้อมูลบริษัทอัตโนมัติได้')
+        }
+      }
+      void autofillCompanyForNewDoc()
+      return
+    }
+    if (id === 'local') return
 
     async function loadFromCloud() {
       setDocLoading(true)
@@ -90,8 +116,8 @@ export default function EditorPage() {
           dispatch({ type: 'LOAD_DOCUMENT', doc: loaded })
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'โหลดเอกสารไม่สำเร็จ'
-        setDocError(msg)
+        setDocError('ไม่สามารถเปิดเอกสารนี้ได้ในขณะนี้')
+        toast.error('เปิดเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
       } finally {
         setDocLoading(false)
       }
@@ -116,8 +142,8 @@ export default function EditorPage() {
   if (docError) return (
     <div className="flex h-screen items-center justify-center bg-slate-50">
       <div className="text-center">
-        <p className="text-red-500 font-medium mb-2">โหลดเอกสารไม่สำเร็จ</p>
-        <p className="text-sm text-slate-400 mb-4">{docError}</p>
+        <p className="mb-2 font-medium text-slate-700">โหลดเอกสารไม่สำเร็จ</p>
+        <p className="mb-4 text-sm text-slate-400">{docError}</p>
         <button onClick={() => navigate('/documents')}
           className="rounded-lg bg-blue-700 px-4 py-2 text-sm text-white hover:bg-blue-800">
           กลับไปรายการเอกสาร
@@ -148,9 +174,12 @@ function EditorUI({
   signOut: () => Promise<void>
 }) {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [isPreview, setIsPreview] = useState(false)
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [customers, setCustomers] = useState<CustomerRow[]>([])
+  const [products, setProducts] = useState<ProductRow[]>([])
 
   const isCloudDoc = !!docId && docId !== 'new' && docId !== 'local'
 
@@ -159,6 +188,20 @@ function EditorUI({
   const cloudSaveStatus = useCloudAutoSave(isCloudDoc ? docId : undefined, doc)
   const saveStatus = isCloudDoc ? cloudSaveStatus : localSaveStatus
   const [catalog] = useState(() => loadCatalog())
+
+  useEffect(() => {
+    if (!user) return
+    async function loadMasterData() {
+      try {
+        const [customersData, productsData] = await Promise.all([listCustomers(), listProducts()])
+        setCustomers(customersData)
+        setProducts(productsData)
+      } catch {
+        toast.error('โหลดข้อมูลลูกค้า/สินค้าไม่สำเร็จ')
+      }
+    }
+    void loadMasterData()
+  }, [user])
 
   // ─── isDirty tracking ────────────────────────────────────────────────────
   const [isDirty, setIsDirty] = useState(false)
@@ -193,9 +236,15 @@ function EditorUI({
     try {
       await updateDocument(docId, latestDocRef.current!, targetStatus)
       setIsDirty(false)
-      toast.success(targetStatus === 'draft' ? 'บันทึก Draft แล้ว' : 'ออกเอกสารแล้ว')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'บันทึกไม่สำเร็จ')
+      const successMessage: Record<DocumentRow['status'], string> = {
+        draft: 'บันทึก Draft แล้ว',
+        sent: 'อัปเดตสถานะเป็น Sent แล้ว',
+        paid: 'อัปเดตสถานะเป็น Paid แล้ว',
+        cancelled: 'อัปเดตสถานะเป็น Cancelled แล้ว',
+      }
+      toast.success(successMessage[targetStatus])
+    } catch {
+      toast.error('บันทึกเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
     } finally {
       setIsSaving(false)
     }
@@ -267,6 +316,7 @@ function EditorUI({
             isSaving={isSaving}
             onSaveDraft={isCloudDoc ? () => void handleSave('draft') : undefined}
             onSaveAndIssue={isCloudDoc ? () => void handleSave('sent') : undefined}
+            onSaveAsPaid={isCloudDoc ? () => void handleSave('paid') : undefined}
           />
 
           <main className="flex-1 overflow-y-auto overflow-x-auto p-6">
@@ -279,7 +329,7 @@ function EditorUI({
                 </div>
               )}
               <div className="shadow-lg rounded-sm">
-                <InvoiceDocument doc={doc} dispatch={dispatch} docRef={docRef} catalog={catalog} />
+                <InvoiceDocument doc={doc} dispatch={dispatch} docRef={docRef} catalog={catalog} customers={customers} products={products} />
               </div>
             </div>
           </main>

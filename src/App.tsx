@@ -6,6 +6,8 @@ import DashboardPage from './pages/DashboardPage'
 import DocumentsPage from './pages/DocumentsPage'
 import EditorPage from './pages/EditorPage'
 import SettingsPage from './pages/SettingsPage'
+import CustomersPage from './pages/CustomersPage'
+import ProductsPage from './pages/ProductsPage'
 
 // ─── Loading Spinner (shared) ────────────────────────────────────────────────
 function LoadingScreen() {
@@ -56,6 +58,8 @@ export default function App() {
           <Route element={<MainLayout />}>
             <Route path="/"            element={<DashboardPage />} />
             <Route path="/documents"   element={<DocumentsPage />} />
+            <Route path="/customers"   element={<CustomersPage />} />
+            <Route path="/products"    element={<ProductsPage />} />
             <Route path="/settings"    element={<SettingsPage />} />
           </Route>
 

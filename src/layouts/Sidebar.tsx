@@ -25,12 +25,9 @@ type SidebarProps = {
 const NAV_ITEMS = [
   { to: '/', label: 'แดชบอร์ด', end: true, Icon: LayoutDashboard },
   { to: '/documents', label: 'เอกสารทั้งหมด', end: false, Icon: FileText },
+  { to: '/customers', label: 'ลูกค้า', end: false, Icon: Users },
+  { to: '/products', label: 'สินค้า', end: false, Icon: Box },
   { to: '/settings', label: 'ตั้งค่า', end: false, Icon: Settings },
-]
-
-const DISABLED_ITEMS = [
-  { label: 'ลูกค้า', Icon: Users },
-  { label: 'สินค้า', Icon: Box },
 ]
 
 export default function Sidebar({
@@ -103,24 +100,6 @@ export default function Sidebar({
               <Icon size={16} className="shrink-0" />
               {!collapsed && <span className="truncate">{label}</span>}
             </NavLink>
-          ))}
-
-          <div className="my-3 border-t border-slate-800" />
-
-          {DISABLED_ITEMS.map(({ label, Icon }) => (
-            <div
-              key={label}
-              className="flex cursor-not-allowed items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-500"
-              title="เร็วๆ นี้"
-            >
-              <Icon size={16} className="shrink-0" />
-              {!collapsed && (
-                <span className="flex items-center gap-1.5 truncate">
-                  {label}
-                  <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">soon</span>
-                </span>
-              )}
-            </div>
           ))}
         </nav>
 

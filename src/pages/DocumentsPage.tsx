@@ -1,11 +1,11 @@
-import type { MouseEvent } from 'react'
+import type { ChangeEvent, MouseEvent } from 'react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FilePlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useDocuments } from '../hooks/useDocuments'
-import { createDocument, deleteDocument } from '../lib/documentApi'
+import { createDocument, deleteDocument, updateDocumentStatus } from '../lib/documentApi'
 import type { DocumentRow } from '../lib/documentApi'
 
 const DOC_TYPE_LABEL: Record<string, string> = {
@@ -44,6 +44,7 @@ export default function DocumentsPage() {
   const { rows, loading, error, refetch } = useDocuments()
   const [creating, setCreating] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
   const themeColor = typeof user?.user_metadata?.themeColor === 'string'
     ? user.user_metadata.themeColor
     : '#1e3a8a'
@@ -54,9 +55,8 @@ export default function DocumentsPage() {
     try {
       const id = await createDocument(user.id)
       navigate(`/editor/${id}`)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'สร้างเอกสารไม่สำเร็จ'
-      toast.error(msg)
+    } catch {
+      toast.error('สร้างเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
       setCreating(false)
     }
   }
@@ -70,6 +70,20 @@ export default function DocumentsPage() {
       refetch()
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  async function handleChangeStatus(event: ChangeEvent<HTMLSelectElement>, id: string, status: DocumentRow['status']) {
+    event.stopPropagation()
+    setUpdatingStatusId(id)
+    try {
+      await updateDocumentStatus(id, status)
+      toast.success('อัปเดตสถานะเอกสารแล้ว')
+      refetch()
+    } catch {
+      toast.error('อัปเดตสถานะไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
+    } finally {
+      setUpdatingStatusId(null)
     }
   }
 
@@ -122,7 +136,7 @@ export default function DocumentsPage() {
               </tr>
             ) : error ? (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-sm text-red-400">{error}</td>
+                <td colSpan={6} className="px-4 py-12 text-center text-sm text-slate-400">{error}</td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
@@ -130,8 +144,17 @@ export default function DocumentsPage() {
                   <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
                     <FilePlus size={20} />
                   </div>
-                  <p className="font-medium text-slate-500">ยังไม่มีเอกสาร</p>
-                  <p className="mt-1 text-xs">กดปุ่ม "สร้างใหม่" เพื่อเริ่มต้น</p>
+                  <p className="font-medium text-slate-600">เริ่มสร้างเอกสารใบแรกของคุณเลย!</p>
+                  <p className="mt-1 text-xs">ยังไม่มีข้อมูลเอกสารในระบบตอนนี้</p>
+                  <button
+                    onClick={() => void handleCreate()}
+                    disabled={creating}
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                    style={{ backgroundColor: themeColor }}
+                  >
+                    <FilePlus size={14} />
+                    สร้างเอกสารใหม่
+                  </button>
                 </td>
               </tr>
             ) : rows.map((row) => (
@@ -142,9 +165,23 @@ export default function DocumentsPage() {
               >
                 <td className="px-4 py-3 font-medium text-slate-700">{DOC_TYPE_LABEL[row.doc_type] ?? row.doc_type}</td>
                 <td className="px-4 py-3">
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[row.status]}`}>
-                    {STATUS_LABEL[row.status]}
-                  </span>
+                  <div className="inline-flex items-center gap-2">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[row.status]}`}>
+                      {STATUS_LABEL[row.status]}
+                    </span>
+                    <select
+                      value={row.status}
+                      disabled={updatingStatusId === row.id}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => void handleChangeStatus(event, row.id, event.target.value as DocumentRow['status'])}
+                      className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="sent">Sent</option>
+                      <option value="paid">Paid</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-slate-400">{fmtDate(row.created_at)}</td>
                 <td className="px-4 py-3 text-slate-400">{fmtDate(row.updated_at)}</td>

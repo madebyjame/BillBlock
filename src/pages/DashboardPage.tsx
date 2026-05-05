@@ -37,9 +37,8 @@ export default function DashboardPage() {
     try {
       const id = await createDocument(user.id)
       navigate(`/editor/${id}`)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'สร้างเอกสารไม่สำเร็จ'
-      toast.error(msg)
+    } catch {
+      toast.error('สร้างเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
       setCreating(false)
     }
   }
@@ -68,8 +67,8 @@ export default function DashboardPage() {
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-sm font-medium text-slate-500">เอกสารเดือนนี้</p>
-              <p className="mt-3 text-2xl font-semibold text-slate-900">{stats.thisMonth} รายการ</p>
-              <p className="mt-2 text-xs text-slate-400">สร้างภายในเดือนปัจจุบัน</p>
+              <p className="mt-3 text-2xl font-semibold text-slate-900">฿ {fmtAmount(stats.thisMonthAmount)}</p>
+              <p className="mt-2 text-xs text-slate-400">{stats.thisMonth} เอกสารภายในเดือนปัจจุบัน</p>
             </div>
           </div>
 
