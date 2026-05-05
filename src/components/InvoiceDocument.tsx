@@ -10,7 +10,7 @@ import {
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { CSS } from '@dnd-kit/utilities'
 import type { DocumentData, LineItem, CatalogItem, DocumentBlock } from '../types/document'
-import { DOCUMENT_TYPES } from '../types/document'
+import { DOCUMENT_TYPES, defaultDocument } from '../types/document'
 import type { DocumentAction } from '../store/documentStore'
 import type { CustomerRow } from '../lib/customerApi'
 import type { ProductRow } from '../lib/productApi'
