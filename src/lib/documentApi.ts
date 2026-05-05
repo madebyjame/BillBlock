@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
-import { defaultDocument } from '../types/document'
-import type { DocumentData } from '../types/document'
+import { defaultDocument, DOC_TYPE_CODES, thaiToDocTypeCode } from '../types/document'
+import type { DocumentData, DocTypeCode } from '../types/document'
 import { calcDocSummary } from '../utils/calculations'
 import { getProfile } from './profileApi'
 
@@ -14,12 +14,38 @@ export interface DocumentRow {
   updated_at: string
 }
 
+const DOC_NUMBER_PREFIX: Record<DocTypeCode, string> = {
+  quotation: 'QT',
+  invoice: 'INV',
+  receipt: 'REC',
+  'billing-note': 'BN',
+  'tax-invoice': 'TAX',
+}
+
 // ─── Create ───────────────────────────────────────────────────────────────────
-export async function createDocument(userId: string): Promise<string> {
+export async function createDocument(
+  userId: string,
+  docType: DocTypeCode = 'quotation',
+): Promise<string> {
+  const year = new Date().getFullYear()
+  const prefix = DOC_NUMBER_PREFIX[docType]
+
+  // Count existing docs of this type for sequential number
+  const { count } = await supabase
+    .from('documents')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('doc_type', docType)
+
+  const docNumber = `${prefix}-${year}-${String((count ?? 0) + 1).padStart(3, '0')}`
+  const documentType = DOC_TYPE_CODES[docType]
+
   let content: DocumentData = {
     ...defaultDocument,
     docMeta: {
       ...defaultDocument.docMeta,
+      documentType,
+      number: docNumber,
       date: new Date().toISOString().split('T')[0],
     },
   }
@@ -46,7 +72,7 @@ export async function createDocument(userId: string): Promise<string> {
     .from('documents')
     .insert({
       user_id: userId,
-      doc_type: content.docMeta.documentType,
+      doc_type: docType,
       status: 'draft',
       total_amount: 0,
       content,
@@ -67,7 +93,7 @@ export async function updateDocument(
   const { total } = calcDocSummary(doc)
 
   const patch: Record<string, unknown> = {
-    doc_type: doc.docMeta.documentType,
+    doc_type: thaiToDocTypeCode(doc.docMeta.documentType),
     total_amount: Math.round(total * 100) / 100,
     content: doc,
     updated_at: new Date().toISOString(),
