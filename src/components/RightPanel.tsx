@@ -149,7 +149,6 @@ export default function RightPanel({ doc, dispatch }: Props) {
           <Toggle label="จำนวนเป็นคำอ่าน" on={v.summary.thaiText}        onToggle={() => toggle('summary.thaiText')}        tc={s.themeColor} />
           <Toggle label="ส่วนลดพิเศษ"     on={v.summary.specialDiscount} onToggle={() => toggle('summary.specialDiscount')} tc={s.themeColor} />
           <Toggle label="VAT"             on={v.summary.vat}             onToggle={() => toggle('summary.vat')}             tc={s.themeColor} />
-          <Toggle label="หมายเหตุ"         on={v.summary.notes}           onToggle={() => toggle('summary.notes')}           tc={s.themeColor} />
           {v.summary.vat && (
             <div className="flex items-center gap-2 mt-1 pl-1">
               <span className="text-xs text-slate-400">อัตรา VAT</span>
@@ -176,7 +175,6 @@ export default function RightPanel({ doc, dispatch }: Props) {
         <Section title="Footer — ลายเซ็น">
           <Toggle label="ลายเซ็นผู้ซื้อ" on={v.footer.buyerSignature} onToggle={() => toggle('footer.buyerSignature')} tc={s.themeColor} />
           <Toggle label="ตราประทับ"      on={v.footer.stamp}          onToggle={() => toggle('footer.stamp')}          tc={s.themeColor} />
-          <Toggle label="บัญชีธนาคาร"   on={v.footer.bankInfo}       onToggle={() => toggle('footer.bankInfo')}       tc={s.themeColor} />
         </Section>
 
         {/* ─── Backup ─── */}

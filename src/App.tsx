@@ -1,4 +1,4 @@
-import { useReducer, useState } from 'react'
+import { useCallback, useMemo, useReducer, useRef, useState } from 'react'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
@@ -29,10 +29,13 @@ export default function App() {
   const [doc, dispatch] = useReducer(documentReducer, undefined, getInitialDoc)
   const [isPreview, setIsPreview] = useState(false)
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
+  const latestDocRef = useRef(doc)
+  latestDocRef.current = doc
 
   const { docRef, exportPdf, isExporting, pdfMode } = useExportPdf()
   const saveStatus = useAutoSave(doc)
-  const catalog = loadCatalog()
+  // โหลดจาก localStorage ครั้งเดียวตอน mount — ไม่ต้องโหลดซ้ำทุก render
+  const [catalog] = useState(() => loadCatalog())
 
   const displayPdfMode = pdfMode || isPreview
 
@@ -40,37 +43,40 @@ export default function App() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   )
 
-  function handleDragStart(e: DragStartEvent) {
+  const handleDragStart = useCallback((e: DragStartEvent) => {
     setActiveDragId(String(e.active.id))
-  }
+  }, [])
 
-  function handleDragEnd(e: DragEndEvent) {
+  const handleDragEnd = useCallback((e: DragEndEvent) => {
     const { active, over } = e
     setActiveDragId(null)
     const activeId = String(active.id)
 
     if (activeId.startsWith('palette:')) {
-      if (over) dispatch({ type: 'ADD_BLOCK', blockType: activeId.slice(8) as BlockType })
+      if (over) dispatch({ type: 'ADD_BLOCK', blockType: activeId.slice('palette:'.length) as BlockType })
       return
     }
 
-    // Block reorder
+    // Block reorder — ใช้ latestDocRef เพื่อหลีกเลี่ยง stale closure
     if (over && active.id !== over.id) {
-      const oldIdx = doc.blocks.findIndex(b => b.id === active.id)
-      const newIdx = doc.blocks.findIndex(b => b.id === over.id)
+      const blocks = latestDocRef.current.blocks
+      const oldIdx = blocks.findIndex(b => b.id === active.id)
+      const newIdx = blocks.findIndex(b => b.id === over.id)
       if (oldIdx !== -1 && newIdx !== -1) {
-        const ids = arrayMove(doc.blocks, oldIdx, newIdx).map(b => b.id)
-        dispatch({ type: 'REORDER_BLOCKS', ids })
+        dispatch({ type: 'REORDER_BLOCKS', ids: arrayMove(blocks, oldIdx, newIdx).map(b => b.id) })
       }
     }
-  }
+  }, [dispatch])
 
-  // Label shown in DragOverlay
-  const dragLabel = activeDragId?.startsWith('palette:')
-    ? BLOCK_CATALOG.find(c => c.type === activeDragId.slice(8))?.label ?? ''
-    : doc.blocks.find(b => b.id === activeDragId)
-        ? BLOCK_CATALOG.find(c => c.type === doc.blocks.find(b => b.id === activeDragId)?.type)?.label ?? ''
-        : ''
+  // คำนวณเฉพาะตอนกำลัง drag เท่านั้น
+  const dragLabel = useMemo(() => {
+    if (!activeDragId) return ''
+    if (activeDragId.startsWith('palette:')) {
+      return BLOCK_CATALOG.find(c => c.type === activeDragId.slice('palette:'.length))?.label ?? ''
+    }
+    const block = doc.blocks.find(b => b.id === activeDragId)
+    return block ? (BLOCK_CATALOG.find(c => c.type === block.type)?.label ?? '') : ''
+  }, [activeDragId, doc.blocks])
 
   return (
     <DndContext sensors={outerSensors} collisionDetection={closestCenter}
