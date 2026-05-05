@@ -53,9 +53,10 @@ export default function EditorPage() {
     if (!id) return
     if (id === 'new') {
       if (!user) return
+      const uid = user.id
       async function autofillCompanyForNewDoc() {
         try {
-          const profile = await getProfile(user.id)
+          const profile = await getProfile(uid)
           if (!profile) return
           dispatch({
             type: 'UPDATE_COMPANY',
@@ -151,6 +152,8 @@ export default function EditorPage() {
       </div>
     </div>
   )
+
+  console.log('Current Document Data:', doc)
 
   return (
     <EditorUI
