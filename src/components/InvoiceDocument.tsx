@@ -301,7 +301,7 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
 // ─────────────────────────────────────────
 // SortableRow — แถวที่ลากได้ + ปุ่มลบ + autocomplete
 // ─────────────────────────────────────────
-function SortableRow({ item, idx, doc, dispatch, catalog, v }: {
+function SortableRow({ item, idx, doc, dispatch, catalog, products, v }: {
   item: LineItem
   idx: number
   doc: DocumentData
@@ -409,7 +409,7 @@ function StaticRow({ item, idx, v }: { item: LineItem; idx: number; v: DocumentD
 }
 
 // ─── Autocomplete Description Input ───
-function DescriptionInput({ item, dispatch, catalog }: {
+function DescriptionInput({ item, dispatch, catalog, products }: {
   item: LineItem
   dispatch: React.Dispatch<DocumentAction>
   catalog: CatalogItem[]
