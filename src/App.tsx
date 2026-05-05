@@ -4,13 +4,12 @@ import { useAuth } from './context/AuthContext'
 import LoginPage from './components/LoginPage'
 import MainLayout from './layouts/MainLayout'
 import DashboardPage from './pages/DashboardPage'
-import DocumentsPage from './pages/DocumentsPage'
+import DocumentListPage from './pages/DocumentListPage'
 import EditorPage from './pages/EditorPage'
 import SettingsPage from './pages/SettingsPage'
 import CustomersPage from './pages/CustomersPage'
 import ProductsPage from './pages/ProductsPage'
 
-// ─── Loading Spinner (shared) ────────────────────────────────────────────────
 function LoadingScreen() {
   return (
     <div className="flex h-screen items-center justify-center bg-slate-50">
@@ -25,7 +24,6 @@ function LoadingScreen() {
   )
 }
 
-// ─── ProtectedRoute: ถ้าไม่ได้ login → redirect /login ──────────────────────
 function ProtectedRoute() {
   const { user, loading } = useAuth()
   if (loading) return <LoadingScreen />
@@ -33,7 +31,6 @@ function ProtectedRoute() {
   return <Outlet />
 }
 
-// ─── PublicRoute: ถ้า login แล้ว → redirect / ───────────────────────────────
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   if (loading) return <LoadingScreen />
@@ -41,36 +38,37 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-// ─── App ─────────────────────────────────────────────────────────────────────
 export default function App() {
   return (
     <BrowserRouter>
       <Toaster position="top-center" richColors />
       <Routes>
 
-        {/* Public: หน้า Login */}
         <Route path="/login" element={
           <PublicRoute><LoginPage /></PublicRoute>
         } />
 
-        {/* Protected: ทุกหน้าใน app ต้อง login ก่อน */}
         <Route element={<ProtectedRoute />}>
 
-          {/* หน้าที่ใช้ MainLayout (sidebar + content) */}
           <Route element={<MainLayout />}>
-            <Route path="/"            element={<DashboardPage />} />
-            <Route path="/documents"   element={<DocumentsPage />} />
-            <Route path="/customers"   element={<CustomersPage />} />
-            <Route path="/products"    element={<ProductsPage />} />
-            <Route path="/settings"    element={<SettingsPage />} />
+            <Route path="/" element={<DashboardPage />} />
+
+            {/* งานขาย — แยกตามประเภทเอกสาร */}
+            <Route path="/documents/quotations"    element={<DocumentListPage docType="quotation" />} />
+            <Route path="/documents/invoices"      element={<DocumentListPage docType="invoice" />} />
+            <Route path="/documents/receipts"      element={<DocumentListPage docType="receipt" />} />
+            <Route path="/documents/billing-notes" element={<DocumentListPage docType="billing-note" />} />
+            <Route path="/documents/tax-invoices"  element={<DocumentListPage docType="tax-invoice" />} />
+
+            <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/products"  element={<ProductsPage />} />
+            <Route path="/settings"  element={<SettingsPage />} />
           </Route>
 
-          {/* Editor: full-screen layout ของตัวเอง */}
           <Route path="/editor/:id" element={<EditorPage />} />
 
         </Route>
 
-        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
 
       </Routes>

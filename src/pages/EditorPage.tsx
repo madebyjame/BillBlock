@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
@@ -17,8 +17,9 @@ import type { BlockType } from '../types/document'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useCloudAutoSave } from '../hooks/useCloudAutoSave'
-import { updateDocument } from '../lib/documentApi'
+import { createDocument, updateDocument } from '../lib/documentApi'
 import type { DocumentRow } from '../lib/documentApi'
+import type { DocTypeCode } from '../types/document'
 import { getProfile } from '../lib/profileApi'
 import { listCustomers, type CustomerRow } from '../lib/customerApi'
 import { listProducts, type ProductRow } from '../lib/productApi'
@@ -31,8 +32,11 @@ function getLocalDraftOrDefault() {
   return defaultDocument
 }
 
+const VALID_DOC_TYPES = new Set<string>(['quotation', 'invoice', 'receipt', 'billing-note', 'tax-invoice'])
+
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
 
@@ -41,7 +45,7 @@ export default function EditorPage() {
     undefined,
     () => (id === 'local' ? getLocalDraftOrDefault() : defaultDocument),
   )
-  const [docLoading, setDocLoading] = useState(id !== 'new' && id !== 'local')
+  const [docLoading, setDocLoading] = useState(id !== 'local')
   const [docError, setDocError] = useState('')
 
   const latestDocRef = useRef(doc)
@@ -52,26 +56,18 @@ export default function EditorPage() {
     if (!id) return
     if (id === 'new') {
       if (!user) return
-      const uid = user.id
-      async function autofillCompanyForNewDoc() {
+      const typeParam = searchParams.get('type')
+      const docType = (typeParam && VALID_DOC_TYPES.has(typeParam) ? typeParam : 'quotation') as DocTypeCode
+      async function createAndRedirect() {
         try {
-          const profile = await getProfile(uid)
-          if (!profile) return
-          dispatch({
-            type: 'UPDATE_COMPANY',
-            data: {
-              name: profile.company_name || defaultDocument.company.name,
-              address: profile.address || defaultDocument.company.address,
-              phone: profile.phone || defaultDocument.company.phone,
-              email: profile.email || defaultDocument.company.email,
-              taxId: profile.tax_id || defaultDocument.company.taxId,
-            },
-          })
+          const newId = await createDocument(user!.id, docType)
+          navigate(`/editor/${newId}`, { replace: true })
         } catch {
-          toast.error('ไม่สามารถเติมข้อมูลบริษัทอัตโนมัติได้')
+          toast.error('สร้างเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
+          navigate(-1)
         }
       }
-      void autofillCompanyForNewDoc()
+      void createAndRedirect()
       return
     }
     if (id === 'local') return
