@@ -1,25 +1,79 @@
-import { useReducer } from 'react'
-import Sidebar from './components/Sidebar'
-import Canvas from './components/Canvas'
-import { blocksReducer, initialBlocks } from './store/blocksReducer'
-import { useExportPdf } from './hooks/useExportPdf'
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { Toaster } from 'sonner'
+import { useAuth } from './context/AuthContext'
+import LoginPage from './components/LoginPage'
+import MainLayout from './layouts/MainLayout'
+import DashboardPage from './pages/DashboardPage'
+import DocumentsPage from './pages/DocumentsPage'
+import EditorPage from './pages/EditorPage'
+import SettingsPage from './pages/SettingsPage'
+import CustomersPage from './pages/CustomersPage'
+import ProductsPage from './pages/ProductsPage'
 
-export default function App() {
-  const [blocks, dispatch] = useReducer(blocksReducer, initialBlocks)
-  const { canvasRef, exportPdf, isExporting } = useExportPdf()
-
+// ─── Loading Spinner (shared) ────────────────────────────────────────────────
+function LoadingScreen() {
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        onAddBlock={type => dispatch({ type: 'ADD_BLOCK', blockType: type })}
-        onExportPdf={() => exportPdf('bill-block-document.pdf')}
-        isExporting={isExporting}
-      />
-      <Canvas
-        blocks={blocks}
-        dispatch={dispatch}
-        canvasRef={canvasRef}
-      />
+    <div className="flex h-screen items-center justify-center bg-slate-50">
+      <div className="flex flex-col items-center gap-3 text-slate-400">
+        <svg className="h-6 w-6 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        <span className="text-sm">กำลังโหลด...</span>
+      </div>
     </div>
+  )
+}
+
+// ─── ProtectedRoute: ถ้าไม่ได้ login → redirect /login ──────────────────────
+function ProtectedRoute() {
+  const { user, loading } = useAuth()
+  if (loading) return <LoadingScreen />
+  if (!user) return <Navigate to="/login" replace />
+  return <Outlet />
+}
+
+// ─── PublicRoute: ถ้า login แล้ว → redirect / ───────────────────────────────
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+  if (loading) return <LoadingScreen />
+  if (user) return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
+// ─── App ─────────────────────────────────────────────────────────────────────
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Toaster position="top-center" richColors />
+      <Routes>
+
+        {/* Public: หน้า Login */}
+        <Route path="/login" element={
+          <PublicRoute><LoginPage /></PublicRoute>
+        } />
+
+        {/* Protected: ทุกหน้าใน app ต้อง login ก่อน */}
+        <Route element={<ProtectedRoute />}>
+
+          {/* หน้าที่ใช้ MainLayout (sidebar + content) */}
+          <Route element={<MainLayout />}>
+            <Route path="/"            element={<DashboardPage />} />
+            <Route path="/documents"   element={<DocumentsPage />} />
+            <Route path="/customers"   element={<CustomersPage />} />
+            <Route path="/products"    element={<ProductsPage />} />
+            <Route path="/settings"    element={<SettingsPage />} />
+          </Route>
+
+          {/* Editor: full-screen layout ของตัวเอง */}
+          <Route path="/editor/:id" element={<EditorPage />} />
+
+        </Route>
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+
+      </Routes>
+    </BrowserRouter>
   )
 }

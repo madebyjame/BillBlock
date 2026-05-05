@@ -1,51 +1,107 @@
 import { useRef, useState } from 'react'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
+import { flushSync } from 'react-dom'
 
-/**
- * Hook สำหรับ Export Canvas เป็น PDF
- * ใช้ html2canvas จับ screenshot แล้วใส่ใน jsPDF
- */
+function waitNextFrames(n = 2): Promise<void> {
+  let remaining = n
+  return new Promise(resolve => {
+    function tick() {
+      remaining -= 1
+      if (remaining <= 0) resolve()
+      else requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })
+}
+
 export function useExportPdf() {
-  const canvasRef = useRef<HTMLDivElement>(null)
+  const docRef = useRef<HTMLDivElement>(null)
   const [isExporting, setIsExporting] = useState(false)
+  const [pdfMode, setPdfMode] = useState(false)
 
   async function exportPdf(filename = 'document.pdf') {
-    if (!canvasRef.current) return
+    const el = docRef.current
+    if (!el) {
+      alert('ไม่พบเอกสาร กรุณาลองใหม่')
+      return
+    }
+
     setIsExporting(true)
 
+    // flushSync บังคับให้ React update DOM แบบ synchronous ทันที
+    // ก่อนที่ html2canvas จะ capture — ไม่งั้น input fields ยังอยู่
+    flushSync(() => setPdfMode(true))
+
     try {
-      const canvas = await html2canvas(canvasRef.current, {
-        scale: 2,        // ความละเอียดสูงขึ้น 2x
-        useCORS: true,   // รองรับรูปภาพจาก URL อื่น
+      await document.fonts.ready
+      await waitNextFrames(2)
+      await new Promise(r => setTimeout(r, 120))
+
+      // html2canvas (ตัวเดิม) ไม่รองรับสีแบบ oklch ที่ Tailwind v4 ใช้ — ใช้ fork ที่รองรับแทน
+      const html2canvas = (await import('html2canvas-pro')).default
+      const { default: jsPDF } = await import('jspdf')
+
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        foreignObjectRendering: false,
         logging: false,
+        backgroundColor: '#ffffff',
+        width: el.scrollWidth,
+        height: el.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: el.scrollWidth,
+        windowHeight: el.scrollHeight,
       })
 
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      })
+      if (!canvas.width || !canvas.height) {
+        throw new Error('ภาพเอกสารว่างเปล่า — ลองรีเฟรชหน้าแล้ว export ใหม่')
+      }
 
-      const pageWidth = pdf.internal.pageSize.getWidth()
-      const pageHeight = pdf.internal.pageSize.getHeight()
-      const imgWidth = pageWidth
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      let imgData: string
+      let imgFmt: 'PNG' | 'JPEG' = 'PNG'
+      try {
+        imgData = canvas.toDataURL('image/png')
+      } catch {
+        imgData = canvas.toDataURL('image/jpeg', 0.92)
+        imgFmt = 'JPEG'
+      }
 
-      // ถ้าเนื้อหายาวเกิน 1 หน้า ให้แบ่งหน้าอัตโนมัติ
-      let y = 0
-      while (y < imgHeight) {
-        if (y > 0) pdf.addPage()
-        pdf.addImage(imgData, 'PNG', 0, -y, imgWidth, imgHeight)
-        y += pageHeight
+      if (!imgData.startsWith('data:image')) {
+        throw new Error('สร้างภาพจากเอกสารไม่สำเร็จ — ตรวจสอบว่าใช้รูปที่อัปโหลดจากเครื่องเท่านั้น')
+      }
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+      const imgW = pageW
+      const imgH = (canvas.height * imgW) / canvas.width
+
+      // epsilon 0.5mm กัน floating-point ทำให้ขึ้นหน้าเปล่าเพิ่ม
+      let posY = 0
+      while (posY + 0.5 < imgH) {
+        if (posY > 0) pdf.addPage()
+        pdf.addImage(imgData, imgFmt, 0, -posY, imgW, imgH)
+        posY += pageH
       }
 
       pdf.save(filename)
+    } catch (err) {
+      console.error('[BillBlock] PDF export error:', err)
+      const msg = err instanceof Error ? err.message : 'Unknown error'
+      alert(
+        `Export PDF ไม่สำเร็จ:\n${msg}\n\n` +
+          'ถ้ามีรูปจากลิงก์ภายนอก ให้ลองบันทึกเป็นไฟล์แล้วอัปโหลดใหม่ หรือลองปิดโหมดดูตัวอย่างแล้วกด Export อีกครั้ง',
+      )
     } finally {
-      setIsExporting(false)
+      flushSync(() => {
+        setPdfMode(false)
+        setIsExporting(false)
+      })
     }
   }
 
-  return { canvasRef, exportPdf, isExporting }
+  return { docRef, exportPdf, isExporting, pdfMode }
 }
