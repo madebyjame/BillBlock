@@ -82,22 +82,23 @@ export default function RightPanel({ doc, dispatch }: Props) {
         {/* ═══ CONTENT TAB ═══ */}
         {activeTab === 'content' && (
           <>
-            {/* Blocks Palette */}
-            <Section title="เพิ่ม Block">
-              <p className="text-[10px] text-slate-400 leading-snug mb-2">ลากไปวางในพื้นที่เอกสาร</p>
-              <div className="space-y-1.5">
-                {BLOCK_CATALOG.map(cat => {
-                  const disabled = SINGLE_INSTANCE_TYPES.has(cat.type) && doc.blocks.some(b => b.type === cat.type)
-                  return (
-                    <PaletteCard key={cat.type} type={cat.type as BlockType} label={cat.label}
-                      desc={cat.desc} disabled={disabled} tc={s.themeColor} />
-                  )
-                })}
-              </div>
+            {/* Header */}
+            <Section title="ส่วนหัว — บริษัท">
+              <Toggle label="ที่อยู่"         on={v.header.address} onToggle={() => toggle('header.address')} tc={s.themeColor} />
+              <Toggle label="โทรศัพท์"        on={v.header.phone}   onToggle={() => toggle('header.phone')}   tc={s.themeColor} />
+              <Toggle label="อีเมล"           on={v.header.email}   onToggle={() => toggle('header.email')}   tc={s.themeColor} />
+              <Toggle label="เลขผู้เสียภาษี"  on={v.header.taxId}   onToggle={() => toggle('header.taxId')}   tc={s.themeColor} />
+            </Section>
+
+            {/* Doc Meta */}
+            <Section title="ข้อมูลเอกสาร">
+              <Toggle label="เงื่อนไขเครดิต" on={v.docMeta.credit}       onToggle={() => toggle('docMeta.credit')}       tc={s.themeColor} />
+              <Toggle label="พนักงานขาย"     on={v.docMeta.salesperson}  onToggle={() => toggle('docMeta.salesperson')}  tc={s.themeColor} />
+              <Toggle label="ชื่อโปรเจค"     on={v.docMeta.projectName}  onToggle={() => toggle('docMeta.projectName')}  tc={s.themeColor} />
             </Section>
 
             {/* Customer */}
-            <Section title="ข้อมูลลูกค้า">
+            <Section title="ลูกค้า">
               <Toggle label="เลขผู้เสียภาษี" on={v.customer.taxId}  onToggle={() => toggle('customer.taxId')}  tc={s.themeColor} />
               <Toggle label="สาขา"           on={v.customer.branch} onToggle={() => toggle('customer.branch')} tc={s.themeColor} />
             </Section>
@@ -109,20 +110,32 @@ export default function RightPanel({ doc, dispatch }: Props) {
               <Toggle label="ส่วนลดแถว"  on={v.table.discount} onToggle={() => toggle('table.discount')} tc={s.themeColor} />
             </Section>
 
-            {/* Summary */}
-            <Section title="สรุปยอด">
-              <Toggle label="จำนวนเป็นคำอ่าน" on={v.summary.thaiText}        onToggle={() => toggle('summary.thaiText')}        tc={s.themeColor} />
-              <Toggle label="ส่วนลดพิเศษ"     on={v.summary.specialDiscount} onToggle={() => toggle('summary.specialDiscount')} tc={s.themeColor} />
-              <Toggle label="VAT"             on={v.summary.vat}             onToggle={() => toggle('summary.vat')}             tc={s.themeColor} />
+            {/* VAT / Summary */}
+            <Section title="ภาษี & สรุปยอด">
+              <Toggle label="VAT 7%"           on={v.summary.vat}             onToggle={() => toggle('summary.vat')}             tc={s.themeColor} />
               {v.summary.vat && (
                 <div className="flex items-center gap-2 mt-1 pl-1">
-                  <span className="text-xs text-slate-400">อัตรา VAT</span>
+                  <span className="text-xs text-slate-400">อัตรา</span>
                   <input type="number" value={doc.summary.vatRate} min={0} max={100}
                     onChange={e => dispatch({ type: 'UPDATE_SUMMARY', data: { vatRate: parseFloat(e.target.value) || 0 } })}
                     className="w-14 rounded border border-slate-200 px-2 py-0.5 text-sm text-center focus:border-blue-400 focus:outline-none" />
                   <span className="text-xs text-slate-400">%</span>
                 </div>
               )}
+              <div className="flex rounded-md border border-slate-200 overflow-hidden text-xs mt-1">
+                <button
+                  onClick={() => setSetting({ vatMode: 'exclusive' })}
+                  className={`flex-1 py-1.5 font-medium transition-colors ${s.vatMode === 'exclusive' ? 'text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                  style={s.vatMode === 'exclusive' ? { backgroundColor: s.themeColor } : {}}
+                >แยก VAT</button>
+                <button
+                  onClick={() => setSetting({ vatMode: 'inclusive' })}
+                  className={`flex-1 py-1.5 font-medium transition-colors ${s.vatMode === 'inclusive' ? 'text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                  style={s.vatMode === 'inclusive' ? { backgroundColor: s.themeColor } : {}}
+                >รวม VAT</button>
+              </div>
+              <Toggle label="จำนวนเป็นคำอ่าน" on={v.summary.thaiText}        onToggle={() => toggle('summary.thaiText')}        tc={s.themeColor} />
+              <Toggle label="ส่วนลดพิเศษ"     on={v.summary.specialDiscount} onToggle={() => toggle('summary.specialDiscount')} tc={s.themeColor} />
             </Section>
           </>
         )}
@@ -130,22 +143,19 @@ export default function RightPanel({ doc, dispatch }: Props) {
         {/* ═══ LAYOUT TAB ═══ */}
         {activeTab === 'layout' && (
           <>
-            {/* Header */}
-            <Section title="ส่วนหัว — บริษัท">
-              <Toggle label="ที่อยู่"         on={v.header.address} onToggle={() => toggle('header.address')} tc={s.themeColor} />
-              <Toggle label="โทรศัพท์"        on={v.header.phone}   onToggle={() => toggle('header.phone')}   tc={s.themeColor} />
-              <Toggle label="อีเมล"           on={v.header.email}   onToggle={() => toggle('header.email')}   tc={s.themeColor} />
-              <Toggle label="เลขผู้เสียภาษี"  on={v.header.taxId}   onToggle={() => toggle('header.taxId')}   tc={s.themeColor} />
+            <Section title="เพิ่ม Block">
+              <p className="text-[10px] text-slate-400 leading-snug mb-2">ลากไปวางในพื้นที่เอกสาร หรือคลิกเพื่อเพิ่ม</p>
+              <div className="space-y-1.5">
+                {BLOCK_CATALOG.map(cat => {
+                  const disabled = SINGLE_INSTANCE_TYPES.has(cat.type) && doc.blocks.some(b => b.type === cat.type)
+                  return (
+                    <PaletteCard key={cat.type} type={cat.type as BlockType} label={cat.label}
+                      desc={cat.desc} disabled={disabled} tc={s.themeColor} />
+                  )
+                })}
+              </div>
             </Section>
 
-            {/* Doc Info */}
-            <Section title="ข้อมูลเอกสาร">
-              <Toggle label="เงื่อนไขเครดิต" on={v.docMeta.credit}       onToggle={() => toggle('docMeta.credit')}       tc={s.themeColor} />
-              <Toggle label="พนักงานขาย"     on={v.docMeta.salesperson}  onToggle={() => toggle('docMeta.salesperson')}  tc={s.themeColor} />
-              <Toggle label="ชื่อโปรเจค"     on={v.docMeta.projectName}  onToggle={() => toggle('docMeta.projectName')}  tc={s.themeColor} />
-            </Section>
-
-            {/* Footer */}
             <Section title="ส่วนท้าย — ลายเซ็น">
               <Toggle label="ลายเซ็นผู้ซื้อ" on={v.footer.buyerSignature} onToggle={() => toggle('footer.buyerSignature')} tc={s.themeColor} />
               <Toggle label="ตราประทับ"      on={v.footer.stamp}          onToggle={() => toggle('footer.stamp')}          tc={s.themeColor} />
@@ -192,27 +202,22 @@ export default function RightPanel({ doc, dispatch }: Props) {
               </select>
             </Section>
 
-            {/* VAT Mode */}
-            <Section title="วิธีคิด VAT">
-              <div className="flex rounded-md border border-slate-200 overflow-hidden text-xs">
-                <button
-                  onClick={() => setSetting({ vatMode: 'exclusive' })}
-                  className={`flex-1 py-1.5 font-medium transition-colors ${s.vatMode === 'exclusive' ? 'text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-                  style={s.vatMode === 'exclusive' ? { backgroundColor: s.themeColor } : {}}
-                >
-                  แยก VAT
-                </button>
-                <button
-                  onClick={() => setSetting({ vatMode: 'inclusive' })}
-                  className={`flex-1 py-1.5 font-medium transition-colors ${s.vatMode === 'inclusive' ? 'text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-                  style={s.vatMode === 'inclusive' ? { backgroundColor: s.themeColor } : {}}
-                >
-                  รวม VAT
-                </button>
+            {/* Logo & Signature hint */}
+            <Section title="โลโก้ & ลายเซ็น">
+              <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5 space-y-2">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <svg className="h-3.5 w-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span>คลิกกล่องโลโก้ในเอกสาร เพื่ออัปโหลดรูป</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <svg className="h-3.5 w-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span>คลิกช่องลายเซ็น เพื่ออัปโหลดลายเซ็นและตราประทับ</span>
+                </div>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                {s.vatMode === 'exclusive' ? 'ราคาสินค้ายังไม่รวม VAT' : 'ราคาสินค้ารวม VAT แล้ว'}
-              </p>
             </Section>
 
             {/* Backup */}
