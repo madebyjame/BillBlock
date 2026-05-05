@@ -520,17 +520,23 @@ function CustomerLookupInput({
 
   return (
     <div className="relative">
-      <input
-        type="text"
-        value={customer.name}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 200)}
-        onChange={(event) => {
-          onChange({ name: event.target.value })
-          setOpen(true)
-        }}
-        className="w-full rounded border-0 bg-transparent px-0.5 font-semibold text-slate-800 hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-      />
+      <div className="flex items-center gap-1">
+        <svg className="h-3 w-3 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          type="text"
+          value={customer.name}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 200)}
+          onChange={(event) => {
+            onChange({ name: event.target.value })
+            setOpen(true)
+          }}
+          placeholder="ค้นหาเพื่อเลือกอัตโนมัติ"
+          className="w-full rounded border-0 bg-transparent px-0.5 font-semibold text-slate-800 placeholder-slate-300 hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+        />
+      </div>
       {open && matches.length > 0 && (
         <div className="absolute top-full left-0 z-20 mt-1 w-80 rounded-md border border-slate-200 bg-white shadow-lg">
           {matches.map((row) => (

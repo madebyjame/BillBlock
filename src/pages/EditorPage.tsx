@@ -34,7 +34,7 @@ function getLocalDraftOrDefault() {
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { signOut, user } = useAuth()
+  const { user } = useAuth()
 
   const [doc, dispatch] = useReducer(
     documentReducer,
@@ -161,20 +161,18 @@ export default function EditorPage() {
       doc={doc}
       dispatch={dispatch}
       latestDocRef={latestDocRef}
-      signOut={signOut}
     />
   )
 }
 
 // ─── EditorUI ────────────────────────────────────────────────────────────────
 function EditorUI({
-  docId, doc, dispatch, latestDocRef, signOut,
+  docId, doc, dispatch, latestDocRef,
 }: {
   docId: string | undefined
   doc: ReturnType<typeof documentReducer>
   dispatch: React.Dispatch<Parameters<typeof documentReducer>[1]>
   latestDocRef: React.RefObject<ReturnType<typeof documentReducer>>
-  signOut: () => Promise<void>
 }) {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -326,7 +324,6 @@ function EditorUI({
             onSaveDraft={isCloudDoc ? () => void handleSave('draft') : undefined}
             onSaveAndIssue={isCloudDoc ? () => void handleSave('sent') : undefined}
             onExportPdf={handleExportPdf}
-            onSignOut={() => void signOut()}
           />
 
           <div className="flex flex-1 overflow-hidden">
@@ -365,14 +362,14 @@ function EditorUI({
 function TopActionBar({
   docType, docNumber, themeColor, saveStatus, isDirty,
   isPreview, isExporting, isSaving, isCloudDoc,
-  onBack, onPreview, onSaveDraft, onSaveAndIssue, onExportPdf, onSignOut,
+  onBack, onPreview, onSaveDraft, onSaveAndIssue, onExportPdf,
 }: {
   docType: string; docNumber: string; themeColor: string
   saveStatus: 'saved' | 'saving' | 'unsaved'; isDirty: boolean
   isPreview: boolean; isExporting: boolean; isSaving: boolean; isCloudDoc: boolean
   onBack: () => void; onPreview: () => void
   onSaveDraft?: () => void; onSaveAndIssue?: () => void
-  onExportPdf: () => void; onSignOut: () => void
+  onExportPdf: () => void
 }) {
   return (
     <header className="flex h-13 items-center gap-2 border-b border-slate-200 bg-white px-4 shrink-0" style={{ height: '52px' }}>
@@ -456,16 +453,6 @@ function TopActionBar({
         {isExporting ? 'กำลัง Export...' : 'Export PDF'}
       </button>
 
-      <div className="h-4 w-px bg-slate-200" />
-
-      {/* Sign out */}
-      <button onClick={onSignOut}
-        className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors">
-        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-        </svg>
-      </button>
     </header>
   )
 }
