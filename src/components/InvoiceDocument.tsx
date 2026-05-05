@@ -12,6 +12,7 @@ import { CSS } from '@dnd-kit/utilities'
 import type { DocumentData, LineItem, CatalogItem, DocumentBlock } from '../types/document'
 import { DOCUMENT_TYPES } from '../types/document'
 import type { DocumentAction } from '../store/documentStore'
+import { defaultDocument } from '../store/documentStore'
 import type { CustomerRow } from '../lib/customerApi'
 import type { ProductRow } from '../lib/productApi'
 import {
@@ -303,7 +304,7 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
 // ─────────────────────────────────────────
 // SortableRow — แถวที่ลากได้ + ปุ่มลบ + autocomplete
 // ─────────────────────────────────────────
-function SortableRow({ item, idx, doc, dispatch, catalog, v }: {
+function SortableRow({ item, idx, doc, dispatch, catalog, products, v }: {
   item: LineItem
   idx: number
   doc: DocumentData
