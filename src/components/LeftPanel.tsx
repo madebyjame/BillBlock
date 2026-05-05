@@ -5,9 +5,10 @@ interface Props {
   isPreview: boolean
   saveStatus: 'saved' | 'saving' | 'unsaved'
   themeColor: string
+  onSignOut: () => Promise<void>
 }
 
-export default function LeftPanel({ onExportPdf, isExporting, onPreview, isPreview, saveStatus, themeColor }: Props) {
+export default function LeftPanel({ onExportPdf, isExporting, onPreview, isPreview, saveStatus, themeColor, onSignOut }: Props) {
   return (
     <aside className="flex h-full w-44 flex-shrink-0 flex-col border-r border-slate-200 bg-white">
       {/* Brand */}
@@ -86,6 +87,18 @@ export default function LeftPanel({ onExportPdf, isExporting, onPreview, isPrevi
               Export PDF
             </>
           )}
+        </button>
+
+        {/* Sign Out */}
+        <button
+          onClick={() => void onSignOut()}
+          className="flex w-full items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          ออกจากระบบ
         </button>
       </div>
     </aside>

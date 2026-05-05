@@ -60,6 +60,7 @@ export interface DocumentData {
     accountName: string
     accountNumber: string
   }
+  blocks: DocumentBlock[]
   settings: DocumentSettings
   visibility: {
     header: { address: boolean; phone: boolean; email: boolean; taxId: boolean }
@@ -80,6 +81,24 @@ export interface CatalogItem {
 }
 
 export const DOCUMENT_TYPES = ['ใบเสนอราคา', 'ใบแจ้งหนี้', 'ใบเสร็จรับเงิน', 'ใบวางบิล', 'ใบกำกับภาษี']
+
+// ─── Block System ───
+export type BlockType = 'notes' | 'signature' | 'bankInfo' | 'customText' | 'divider'
+
+export interface DocumentBlock {
+  id: string
+  type: BlockType
+  content?: string   // customText เท่านั้น
+  heading?: string   // customText เท่านั้น
+}
+
+export const BLOCK_CATALOG: { type: BlockType; label: string; desc: string }[] = [
+  { type: 'notes',      label: 'หมายเหตุ',       desc: 'ข้อความเพิ่มเติมท้ายเอกสาร' },
+  { type: 'signature',  label: 'ลายเซ็น',         desc: 'ช่องลงนามผู้เกี่ยวข้อง' },
+  { type: 'bankInfo',   label: 'ข้อมูลธนาคาร',    desc: 'บัญชีรับชำระเงิน' },
+  { type: 'customText', label: 'ข้อความอิสระ',    desc: 'เพิ่มข้อความได้เอง' },
+  { type: 'divider',    label: 'เส้นคั่น',         desc: 'แบ่งส่วนด้วยเส้น' },
+]
 
 export interface SignaturePreset {
   sellerLabel: string
@@ -169,6 +188,9 @@ export const defaultDocument: DocumentData = {
     { id: '1', description: 'รายการสินค้า/บริการ', detail: '', quantity: 1, unit: 'ชิ้น', unitPrice: 0, discount: 0, discountType: 'percent' },
   ],
   notes: '',
+  blocks: [
+    { id: 'default-sig', type: 'signature' as BlockType },
+  ],
   summary: { specialDiscount: 0, specialDiscountType: 'amount', vatRate: 7 },
   footer: {
     sellerLabel: 'ในนาม บริษัท',

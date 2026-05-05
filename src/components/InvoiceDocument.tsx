@@ -1,7 +1,7 @@
-import { createContext, useContext, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor,
-  useSensor, useSensors, type DragEndEvent,
+  useSensor, useSensors, type DragEndEvent, useDroppable,
 } from '@dnd-kit/core'
 import {
   SortableContext, sortableKeyboardCoordinates,
@@ -9,7 +9,7 @@ import {
 } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { CSS } from '@dnd-kit/utilities'
-import type { DocumentData, LineItem, CatalogItem } from '../types/document'
+import type { DocumentData, LineItem, CatalogItem, DocumentBlock } from '../types/document'
 import { DOCUMENT_TYPES } from '../types/document'
 import type { DocumentAction } from '../store/documentStore'
 import {
@@ -32,7 +32,11 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
   const tc = doc.settings.themeColor   // theme color
   const sym = doc.settings.currencySymbol
 
-  const { subtotal, specialDiscountAmt, vatAmount, preTaxAmount, total } = calcDocSummary(doc)
+  const { subtotal, specialDiscountAmt, vatAmount, preTaxAmount, total } = useMemo(
+    () => calcDocSummary(doc),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [doc.items, doc.summary, doc.settings.vatMode, doc.visibility.summary],
+  )
 
   // ─── Row DnD sensors ───
   const sensors = useSensors(
@@ -40,14 +44,14 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
-  function handleRowDragEnd(e: DragEndEvent) {
+  const handleRowDragEnd = useCallback((e: DragEndEvent) => {
     const { active, over } = e
     if (!over || active.id === over.id) return
     const oldIdx = doc.items.findIndex(i => i.id === active.id)
     const newIdx = doc.items.findIndex(i => i.id === over.id)
-    const reordered = arrayMove(doc.items, oldIdx, newIdx)
-    dispatch({ type: 'REORDER_ITEMS', ids: reordered.map(i => i.id) })
-  }
+    dispatch({ type: 'REORDER_ITEMS', ids: arrayMove(doc.items, oldIdx, newIdx).map(i => i.id) })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc.items, dispatch])
 
   return (
     <div
@@ -218,125 +222,69 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog }: Prop
           )}
         </div>
 
-        {/* ═══ SECTION 3: Thai text + Notes | Summary ═══ */}
-        <div className="grid grid-cols-2 gap-8 py-4 border-b border-slate-200">
-          {/* ── ซ้าย ── */}
-          <div className="flex flex-col gap-3 text-sm">
+        {/* ═══ SECTION 3: Thai text | Summary ═══ */}
+        <div className="py-4 border-b border-slate-200">
+          <div className={`grid gap-8 ${v.summary.thaiText ? 'grid-cols-2' : ''}`}>
             {v.summary.thaiText && (
-              <p className="text-slate-500 italic">({numberToThaiText(total)})</p>
-            )}
-            {v.summary.notes && (
-              <div>
-                <p className="font-semibold mb-0.5" style={{ color: tc }}>หมายเหตุ</p>
-                {pdfMode
-                  ? <p className="text-slate-600 whitespace-pre-wrap">{doc.notes}</p>
-                  : <textarea value={doc.notes} rows={3}
-                      onChange={e => dispatch({ type: 'UPDATE_NOTES', notes: e.target.value })}
-                      placeholder="ระบุหมายเหตุ / เงื่อนไขเพิ่มเติม..."
-                      className="w-full border-0 bg-transparent text-sm text-slate-600 placeholder-slate-300 resize-none focus:outline-none" />
-                }
+              <div className="flex items-center text-sm">
+                <p className="text-slate-500 italic">({numberToThaiText(total)})</p>
               </div>
             )}
-          </div>
-
-          {/* ── ขวา: Summary ── */}
-          <div>
-            <table className="w-full text-sm">
-              <tbody>
-                <SummaryRow label="รวมเป็นเงิน" value={`${formatNumber(subtotal)} ${sym}`} />
-                {v.summary.specialDiscount && (
-                  <tr>
-                    <td className="py-1 pr-2 text-right text-slate-500 text-xs whitespace-nowrap">
-                      ส่วนลดพิเศษ{doc.summary.specialDiscountType === 'percent' ? ` ${doc.summary.specialDiscount}%` : ''}
-                    </td>
-                    <td className="py-1 text-right text-slate-700 tabular-nums w-36">
-                      {pdfMode
-                        ? `${formatNumber(specialDiscountAmt)} ${sym}`
-                        : <DiscountInput
-                            value={doc.summary.specialDiscount}
-                            discountType={doc.summary.specialDiscountType}
-                            sym={sym}
-                            onValue={v => dispatch({ type: 'UPDATE_SUMMARY', data: { specialDiscount: v } })}
-                            onType={t => dispatch({ type: 'UPDATE_SUMMARY', data: { specialDiscountType: t } })}
-                          />
-                      }
-                    </td>
-                  </tr>
-                )}
-                {v.summary.vat && (
-                  <>
-                    {doc.settings.vatMode === 'inclusive' && (
-                      <SummaryRow label={`ราคาก่อน VAT`} value={`${formatNumber(preTaxAmount)} ${sym}`} muted />
-                    )}
+            <div className={v.summary.thaiText ? '' : 'ml-auto w-1/2'}>
+              <table className="w-full text-sm">
+                <tbody>
+                  <SummaryRow label="รวมเป็นเงิน" value={`${formatNumber(subtotal)} ${sym}`} />
+                  {v.summary.specialDiscount && (
                     <tr>
-                      <td className="py-1 pr-2 text-right text-slate-500 whitespace-nowrap">
-                        {pdfMode
-                          ? `ภาษีมูลค่าเพิ่ม ${doc.summary.vatRate}%`
-                          : <span className="flex items-center justify-end gap-1">
-                              ภาษีมูลค่าเพิ่ม
-                              <input type="number" value={doc.summary.vatRate} min={0} max={100}
-                                onChange={e => dispatch({ type: 'UPDATE_SUMMARY', data: { vatRate: parseFloat(e.target.value) || 0 } })}
-                                className="w-9 border-b border-slate-200 bg-transparent text-center focus:border-blue-400 focus:outline-none" />
-                              %
-                            </span>
-                        }
+                      <td className="py-1 pr-2 text-right text-slate-500 text-xs whitespace-nowrap">
+                        ส่วนลดพิเศษ{doc.summary.specialDiscountType === 'percent' ? ` ${doc.summary.specialDiscount}%` : ''}
                       </td>
-                      <td className="py-1 text-right tabular-nums w-36 text-slate-700">
-                        {formatNumber(vatAmount)} {sym}
+                      <td className="py-1 text-right text-slate-700 tabular-nums w-36">
+                        {pdfMode
+                          ? `${formatNumber(specialDiscountAmt)} ${sym}`
+                          : <DiscountInput value={doc.summary.specialDiscount} discountType={doc.summary.specialDiscountType} sym={sym}
+                              onValue={v => dispatch({ type: 'UPDATE_SUMMARY', data: { specialDiscount: v } })}
+                              onType={t => dispatch({ type: 'UPDATE_SUMMARY', data: { specialDiscountType: t } })} />}
                       </td>
                     </tr>
-                  </>
-                )}
-                <tr className="border-t border-slate-300">
-                  <td className="pt-2 pr-2 text-right font-bold text-slate-800 whitespace-nowrap">จำนวนเงินรวมทั้งสิ้น</td>
-                  <td className="pt-2 text-right font-bold tabular-nums w-36 text-base whitespace-nowrap" style={{ color: tc }}>
-                    {formatNumber(total)} {sym}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                  )}
+                  {v.summary.vat && (
+                    <>
+                      {doc.settings.vatMode === 'inclusive' && (
+                        <SummaryRow label="ราคาก่อน VAT" value={`${formatNumber(preTaxAmount)} ${sym}`} muted />
+                      )}
+                      <tr>
+                        <td className="py-1 pr-2 text-right text-slate-500 whitespace-nowrap">
+                          {pdfMode
+                            ? `ภาษีมูลค่าเพิ่ม ${doc.summary.vatRate}%`
+                            : <span className="flex items-center justify-end gap-1">
+                                ภาษีมูลค่าเพิ่ม
+                                <input type="number" value={doc.summary.vatRate} min={0} max={100}
+                                  onChange={e => dispatch({ type: 'UPDATE_SUMMARY', data: { vatRate: parseFloat(e.target.value) || 0 } })}
+                                  className="w-9 border-b border-slate-200 bg-transparent text-center focus:border-blue-400 focus:outline-none" />
+                                %
+                              </span>}
+                        </td>
+                        <td className="py-1 text-right tabular-nums w-36 text-slate-700">{formatNumber(vatAmount)} {sym}</td>
+                      </tr>
+                    </>
+                  )}
+                  <tr className="border-t border-slate-300">
+                    <td className="pt-2 pr-2 text-right font-bold text-slate-800 whitespace-nowrap">จำนวนเงินรวมทั้งสิ้น</td>
+                    <td className="pt-2 text-right font-bold tabular-nums w-36 text-base whitespace-nowrap" style={{ color: tc }}>
+                      {formatNumber(total)} {sym}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
-        {/* ═══ SECTION 4: Signatures — mt-auto ดันลงล่างสุดหน้า A4 เสมอ ═══ */}
-        <div className="mt-auto pt-8">
-        <div className={`grid gap-8 ${v.footer.buyerSignature ? 'grid-cols-2' : 'grid-cols-1 max-w-xs ml-auto'}`}>
-          {v.footer.buyerSignature && (
-            <SignatureBox pdfMode={pdfMode} label={doc.footer.buyerLabel} title={doc.footer.buyerTitle}
-              onLabelChange={v => dispatch({ type: 'UPDATE_FOOTER', data: { buyerLabel: v } })}
-              onTitleChange={v => dispatch({ type: 'UPDATE_FOOTER', data: { buyerTitle: v } })} />
-          )}
-          <SignatureBox pdfMode={pdfMode}
-            label={doc.footer.sellerLabel} title={doc.footer.approverName}
-            onLabelChange={v => dispatch({ type: 'UPDATE_FOOTER', data: { sellerLabel: v } })}
-            onTitleChange={v => dispatch({ type: 'UPDATE_FOOTER', data: { approverName: v } })}
-            signatureUrl={doc.footer.signatureUrl}
-            signatureScale={doc.footer.signatureScale}
-            onScaleChange={s => dispatch({ type: 'UPDATE_FOOTER', data: { signatureScale: s } })}
-            stampUrl={v.footer.stamp ? doc.footer.stampUrl : undefined}
-            signatureDate={doc.footer.signatureDate}
-            showStamp={v.footer.stamp}
-            onSignatureUpload={url => dispatch({ type: 'UPDATE_FOOTER', data: { signatureUrl: url } })}
-            onStampUpload={url => dispatch({ type: 'UPDATE_FOOTER', data: { stampUrl: url } })}
-            onDateChange={d => dispatch({ type: 'UPDATE_FOOTER', data: { signatureDate: d } })}
-          />
+        {/* ═══ SECTION 4: Block Canvas — optional blocks, always pushed to bottom ═══ */}
+        <div className="mt-auto">
+          <BlockCanvas doc={doc} dispatch={dispatch} pdfMode={pdfMode} tc={tc} v={v} />
         </div>
-
-        {/* Bank info */}
-        {v.footer.bankInfo && (
-          <div className="mt-6 rounded border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">
-            <p className="font-semibold text-slate-600 mb-1">ชำระเงินผ่าน</p>
-            <F pdfMode={pdfMode} value={doc.footer.bankName} className="inline"
-              onChange={v => dispatch({ type: 'UPDATE_FOOTER', data: { bankName: v } })} />
-            {' · '}
-            <F pdfMode={pdfMode} value={doc.footer.accountName} className="inline"
-              onChange={v => dispatch({ type: 'UPDATE_FOOTER', data: { accountName: v } })} />
-            {' · '}
-            <F pdfMode={pdfMode} value={doc.footer.accountNumber} className="inline font-mono"
-              onChange={v => dispatch({ type: 'UPDATE_FOOTER', data: { accountNumber: v } })} />
-          </div>
-        )}
-        </div>{/* end mt-auto wrapper */}
       </div>
     </div>
   )
@@ -647,6 +595,138 @@ function F({ value, onChange, className = '', multiline = false, pdfMode }: {
     : <input type="text" value={value} onChange={e => onChange(e.target.value)} className={`border-0 bg-transparent w-full ${base}`} />
 }
 
+// ─────────────────────────────────────────
+// Block Canvas — sortable + droppable zone
+// ─────────────────────────────────────────
+export function BlockCanvas({ doc, dispatch, pdfMode, tc, v }: {
+  doc: DocumentData; dispatch: React.Dispatch<DocumentAction>
+  pdfMode: boolean; tc: string; v: DocumentData['visibility']
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'block-zone' })
+  return (
+    <div ref={setNodeRef} className="relative pt-2 pb-4">
+      {isOver && !pdfMode && (
+        <div className="absolute inset-0 rounded-xl border-2 border-blue-300 bg-blue-50/40 pointer-events-none"
+          style={{ animation: 'drop-glow 0.8s ease infinite' }} />
+      )}
+      {!pdfMode && doc.blocks.length === 0 && (
+        <div className="flex items-center justify-center py-8 rounded-xl border-2 border-dashed my-3 transition-colors duration-200"
+          style={{ borderColor: isOver ? '#93c5fd' : '#e2e8f0', backgroundColor: isOver ? '#eff6ff' : 'transparent' }}>
+          <p className="text-sm text-slate-300 select-none">← ลาก Block มาวางที่นี่</p>
+        </div>
+      )}
+      <SortableContext items={doc.blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
+        {doc.blocks.map(block => (
+          <SortableBlock key={block.id} block={block} doc={doc} dispatch={dispatch} pdfMode={pdfMode} tc={tc} v={v} />
+        ))}
+      </SortableContext>
+    </div>
+  )
+}
+
+function SortableBlock({ block, doc, dispatch, pdfMode, tc, v }: {
+  block: DocumentBlock; doc: DocumentData; dispatch: React.Dispatch<DocumentAction>
+  pdfMode: boolean; tc: string; v: DocumentData['visibility']
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id })
+  return (
+    <div ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 }}
+      className="group/blk relative block-enter">
+      {!pdfMode && (
+        <button {...attributes} {...listeners}
+          className="absolute -left-5 top-1/2 -translate-y-1/2 cursor-grab touch-none opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-300 hover:text-slate-500 active:cursor-grabbing">
+          <GripIcon />
+        </button>
+      )}
+      {!pdfMode && (
+        <button onClick={() => dispatch({ type: 'REMOVE_BLOCK', id: block.id })}
+          className="absolute -right-5 top-1/2 -translate-y-1/2 opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-200 hover:text-red-400">
+          <XSmallIcon />
+        </button>
+      )}
+      <BlockContent block={block} doc={doc} dispatch={dispatch} pdfMode={pdfMode} tc={tc} v={v} />
+    </div>
+  )
+}
+
+function BlockContent({ block, doc, dispatch, pdfMode, tc, v }: {
+  block: DocumentBlock; doc: DocumentData; dispatch: React.Dispatch<DocumentAction>
+  pdfMode: boolean; tc: string; v: DocumentData['visibility']
+}) {
+  switch (block.type) {
+    case 'notes':
+      return (
+        <div className="pt-4 pb-2 text-sm">
+          <p className="font-semibold mb-1" style={{ color: tc }}>หมายเหตุ</p>
+          {pdfMode
+            ? <p className="text-slate-600 whitespace-pre-wrap">{doc.notes}</p>
+            : <textarea value={doc.notes} rows={3}
+                onChange={e => dispatch({ type: 'UPDATE_NOTES', notes: e.target.value })}
+                placeholder="ระบุหมายเหตุ / เงื่อนไขเพิ่มเติม..."
+                className="w-full border-0 bg-transparent text-sm text-slate-600 placeholder-slate-300 resize-none focus:outline-none" />}
+        </div>
+      )
+    case 'signature':
+      return (
+        <div className={`grid gap-8 pt-6 ${v.footer.buyerSignature ? 'grid-cols-2' : 'grid-cols-1 max-w-xs ml-auto'}`}>
+          {v.footer.buyerSignature && (
+            <SignatureBox pdfMode={pdfMode} label={doc.footer.buyerLabel} title={doc.footer.buyerTitle}
+              onLabelChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { buyerLabel: val } })}
+              onTitleChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { buyerTitle: val } })} />
+          )}
+          <SignatureBox pdfMode={pdfMode}
+            label={doc.footer.sellerLabel} title={doc.footer.approverName}
+            onLabelChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { sellerLabel: val } })}
+            onTitleChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { approverName: val } })}
+            signatureUrl={doc.footer.signatureUrl} signatureScale={doc.footer.signatureScale}
+            onScaleChange={s => dispatch({ type: 'UPDATE_FOOTER', data: { signatureScale: s } })}
+            stampUrl={v.footer.stamp ? doc.footer.stampUrl : undefined}
+            signatureDate={doc.footer.signatureDate} showStamp={v.footer.stamp}
+            onSignatureUpload={url => dispatch({ type: 'UPDATE_FOOTER', data: { signatureUrl: url } })}
+            onStampUpload={url => dispatch({ type: 'UPDATE_FOOTER', data: { stampUrl: url } })}
+            onDateChange={d => dispatch({ type: 'UPDATE_FOOTER', data: { signatureDate: d } })} />
+        </div>
+      )
+    case 'bankInfo':
+      return (
+        <div className="mt-4 rounded border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">
+          <p className="font-semibold text-slate-600 mb-1">ชำระเงินผ่าน</p>
+          <F pdfMode={pdfMode} value={doc.footer.bankName} className="inline"
+            onChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { bankName: val } })} />
+          {' · '}
+          <F pdfMode={pdfMode} value={doc.footer.accountName} className="inline"
+            onChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { accountName: val } })} />
+          {' · '}
+          <F pdfMode={pdfMode} value={doc.footer.accountNumber} className="inline font-mono"
+            onChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { accountNumber: val } })} />
+        </div>
+      )
+    case 'customText':
+      return (
+        <div className="pt-4 pb-2 text-sm">
+          {pdfMode
+            ? <>
+                {block.heading && <p className="font-semibold mb-1" style={{ color: tc }}>{block.heading}</p>}
+                <p className="text-slate-600 whitespace-pre-wrap">{block.content}</p>
+              </>
+            : <>
+                <input value={block.heading ?? ''} placeholder="หัวข้อ (ไม่บังคับ)"
+                  onChange={e => dispatch({ type: 'UPDATE_BLOCK', id: block.id, data: { heading: e.target.value } })}
+                  className="w-full border-0 bg-transparent text-sm font-semibold text-slate-700 placeholder-slate-300 focus:outline-none mb-1" />
+                <textarea value={block.content ?? ''} rows={3} placeholder="พิมพ์ข้อความที่นี่..."
+                  onChange={e => dispatch({ type: 'UPDATE_BLOCK', id: block.id, data: { content: e.target.value } })}
+                  className="w-full border-0 bg-transparent text-sm text-slate-600 placeholder-slate-300 resize-none focus:outline-none" />
+              </>}
+        </div>
+      )
+    case 'divider':
+      return <div className="my-4 border-t border-slate-200" />
+    default:
+      return null
+  }
+}
+
 function GripIcon() {
   return (
     <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 16 16">
@@ -660,6 +740,14 @@ function TrashIcon() {
     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  )
+}
+
+function XSmallIcon() {
+  return (
+    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
     </svg>
   )
 }
