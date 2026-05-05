@@ -10,7 +10,7 @@ import {
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { CSS } from '@dnd-kit/utilities'
 import type { DocumentData, LineItem, CatalogItem, DocumentBlock } from '../types/document'
-import { DOCUMENT_TYPES, defaultDocument } from '../types/document'
+import { defaultDocument } from '../types/document'
 import type { DocumentAction } from '../store/documentStore'
 import type { CustomerRow } from '../lib/customerApi'
 import type { ProductRow } from '../lib/productApi'
@@ -142,15 +142,8 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
             <div className="absolute top-0 right-0 w-0 h-0"
               style={{ borderStyle: 'solid', borderWidth: '0 70px 70px 0', borderColor: `transparent ${tc} transparent transparent` }} />
 
-            {/* Document type */}
-            {pdfMode
-              ? <h1 className="text-3xl font-bold text-slate-800 mb-3 pr-16">{doc.docMeta.documentType}</h1>
-              : <select value={doc.docMeta.documentType}
-                  onChange={e => dispatch({ type: 'UPDATE_DOC_META', data: { documentType: e.target.value } })}
-                  className="text-3xl font-bold text-slate-800 mb-3 pr-16 bg-transparent border-0 cursor-pointer focus:outline-none hover:opacity-70 w-full">
-                  {DOCUMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-            }
+            {/* Document type — ล็อคแล้ว ไม่เปลี่ยนได้ */}
+            <h1 className="text-3xl font-bold text-slate-800 mb-3 pr-16">{doc.docMeta.documentType}</h1>
 
             <div className="border-t border-slate-200 pt-2">
               <table className="w-full text-sm">
@@ -234,6 +227,23 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
 
         {/* ═══ SECTION 3: Thai text | Summary ═══ */}
         <div className="py-4 border-b border-slate-200">
+          {!pdfMode && (
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                onClick={() => dispatch({ type: 'TOGGLE_VISIBILITY', path: 'summary.vat' })}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                  v.summary.vat
+                    ? 'bg-blue-50 border-blue-200 text-blue-700'
+                    : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'
+                }`}
+              >
+                <span className={`inline-block h-3.5 w-6 rounded-full relative transition-colors ${v.summary.vat ? 'bg-blue-500' : 'bg-slate-300'}`}>
+                  <span className={`absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white shadow-sm transition-transform ${v.summary.vat ? 'translate-x-2.5' : 'translate-x-0.5'}`} />
+                </span>
+                VAT 7%
+              </button>
+            </div>
+          )}
           <div className={`grid gap-8 ${v.summary.thaiText ? 'grid-cols-2' : ''}`}>
             {v.summary.thaiText && (
               <div className="flex items-center text-sm">
@@ -438,26 +448,39 @@ function DescriptionInput({ item, dispatch, catalog, products }: {
 
   return (
     <div ref={wrapRef} className="relative">
-      <input type="text" value={item.description}
-        onChange={e => { dispatch({ type: 'UPDATE_ITEM', id: item.id, field: 'description', value: e.target.value }); setOpen(true) }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 200)}
-        placeholder="ชื่อสินค้า/บริการ"
-        className="w-full border-0 bg-transparent text-sm text-slate-800 placeholder-slate-300 focus:outline-none" />
+      <div className="flex items-center gap-1">
+        <svg className="h-3 w-3 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input type="text" value={item.description}
+          onChange={e => { dispatch({ type: 'UPDATE_ITEM', id: item.id, field: 'description', value: e.target.value }); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 200)}
+          placeholder="ชื่อสินค้า/บริการ"
+          className="w-full border-0 bg-transparent text-sm text-slate-800 placeholder-slate-300 focus:outline-none" />
+      </div>
       <input type="text" value={item.detail}
         onChange={e => dispatch({ type: 'UPDATE_ITEM', id: item.id, field: 'detail', value: e.target.value })}
         placeholder="รายละเอียดเพิ่มเติม"
-        className="w-full border-0 bg-transparent text-xs text-slate-400 placeholder-slate-200 focus:outline-none" />
+        className="w-full border-0 bg-transparent text-xs text-slate-400 placeholder-slate-200 focus:outline-none pl-4" />
       {open && matches.length > 0 && (
-        <div className="absolute top-full left-0 z-20 w-72 rounded-md border border-slate-200 bg-white shadow-lg">
+        <div className="absolute top-full left-0 z-20 w-80 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+          <div className="px-3 py-1.5 border-b border-slate-100 flex items-center gap-1.5 text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            ผลการค้นหา
+          </div>
           {matches.slice(0, 8).map((match) => (
             <button key={match.key} onMouseDown={() => fill(match)}
-              className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-blue-50 border-b border-slate-50 last:border-0">
-              <div>
-                <p className="text-sm text-slate-800">{match.label}</p>
-                <p className="text-xs text-slate-400">{match.unit} · {formatNumber(match.unitPrice)} ฿</p>
+              className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-blue-50 border-b border-slate-50 last:border-0 transition-colors">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-800 truncate">{match.label}</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {match.unit} <span className="text-slate-300">|</span> {formatNumber(match.unitPrice)} ฿ <span className="text-slate-300">|</span> {match.discountType === 'percent' ? '% ส่วนลด' : '฿ ส่วนลด'}
+                </p>
               </div>
-              <span className="text-[10px] text-slate-300 ml-2">กรอก</span>
+              <span className="text-[10px] font-semibold text-blue-400 shrink-0 bg-blue-50 rounded px-1.5 py-0.5">กรอก</span>
             </button>
           ))}
         </div>
