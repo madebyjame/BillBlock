@@ -89,8 +89,9 @@ export default function EditorPage() {
         if (error) throw error
 
         if (data?.content) {
+          // Normalize ข้อมูลที่โหลดมาเพื่อให้แน่ใจว่ามีโครงสร้างครบถ้วนตามที่ Component คาดหวัง
           let loaded = normalizeDocumentDraft(
-            data.content as Parameters<typeof normalizeDocumentDraft>[0],
+            data.content as any
           )
 
           // ถ้าข้อมูลบริษัทยังเป็น placeholder (เอกสารใหม่) ให้ดึง profile มาใส่อัตโนมัติ

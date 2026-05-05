@@ -23,8 +23,15 @@ export function normalizeDocumentDraft(raw: Partial<DocumentData> | null | undef
     customer: { ...defaultDocument.customer, ...raw.customer },
     footer: { ...defaultDocument.footer, ...raw.footer },
     summary: { ...defaultDocument.summary, ...raw.summary },
-    items: Array.isArray(raw.items) && raw.items.length > 0 ? raw.items : defaultDocument.items,
-    blocks: Array.isArray(raw.blocks) ? raw.blocks : migrateBlocksFromVisibility(raw),
+    items: Array.isArray(raw.items) ? raw.items.map(item => ({
+      ...defaultDocument.items[0],
+      ...item,
+      id: item.id || generateId()
+    })) : defaultDocument.items,
+    blocks: Array.isArray(raw.blocks) ? raw.blocks.map(block => ({
+      ...block,
+      id: block.id || generateId()
+    })) : migrateBlocksFromVisibility(raw),
   }
 }
 
