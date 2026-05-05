@@ -82,6 +82,28 @@ export interface CatalogItem {
 
 export const DOCUMENT_TYPES = ['ใบเสนอราคา', 'ใบแจ้งหนี้', 'ใบเสร็จรับเงิน', 'ใบวางบิล', 'ใบกำกับภาษี']
 
+export type DocTypeCode = 'quotation' | 'invoice' | 'receipt' | 'billing-note' | 'tax-invoice'
+
+export const DOC_TYPE_CODES: Record<DocTypeCode, string> = {
+  quotation: 'ใบเสนอราคา',
+  invoice: 'ใบแจ้งหนี้',
+  receipt: 'ใบเสร็จรับเงิน',
+  'billing-note': 'ใบวางบิล',
+  'tax-invoice': 'ใบกำกับภาษี',
+}
+
+const THAI_TO_DOC_TYPE_CODE: Record<string, DocTypeCode> = {
+  'ใบเสนอราคา': 'quotation',
+  'ใบแจ้งหนี้': 'invoice',
+  'ใบเสร็จรับเงิน': 'receipt',
+  'ใบวางบิล': 'billing-note',
+  'ใบกำกับภาษี': 'tax-invoice',
+}
+
+export function thaiToDocTypeCode(thai: string): DocTypeCode {
+  return THAI_TO_DOC_TYPE_CODE[thai] ?? 'quotation'
+}
+
 // ─── Block System ───
 export type BlockType = 'notes' | 'signature' | 'bankInfo' | 'customText' | 'divider'
 
