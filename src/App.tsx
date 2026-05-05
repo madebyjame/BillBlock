@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useReducer, useRef, useState } from 'react'
+import { useAuth } from './context/AuthContext'
+import LoginPage from './components/LoginPage'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
@@ -26,6 +28,29 @@ function getInitialDoc() {
 }
 
 export default function App() {
+  const { user, loading, signOut } = useAuth()
+
+  // ─── Hard Gate: ยังโหลด session อยู่ → spinner ───
+  if (loading) return (
+    <div className="flex h-screen items-center justify-center bg-slate-50">
+      <div className="flex flex-col items-center gap-3 text-slate-400">
+        <svg className="h-6 w-6 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        <span className="text-sm">กำลังโหลด...</span>
+      </div>
+    </div>
+  )
+
+  // ─── Hard Gate: ยังไม่ได้ login → แสดงหน้า Login ───
+  if (!user) return <LoginPage />
+
+  // ─── Authenticated: แสดงแอปหลัก ───
+  return <AuthenticatedApp signOut={signOut} />
+}
+
+function AuthenticatedApp({ signOut }: { signOut: () => Promise<void> }) {
   const [doc, dispatch] = useReducer(documentReducer, undefined, getInitialDoc)
   const [isPreview, setIsPreview] = useState(false)
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
@@ -97,6 +122,7 @@ export default function App() {
           isPreview={isPreview}
           saveStatus={saveStatus}
           themeColor={doc.settings.themeColor}
+          onSignOut={signOut}
         />
 
         <main className="flex-1 overflow-y-auto overflow-x-auto p-6">
