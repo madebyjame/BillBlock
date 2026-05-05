@@ -53,9 +53,10 @@ export default function EditorPage() {
     if (!id) return
     if (id === 'new') {
       if (!user) return
+      const uid = user.id
       async function autofillCompanyForNewDoc() {
         try {
-          const profile = await getProfile(user.id)
+          const profile = await getProfile(uid)
           if (!profile) return
           dispatch({
             type: 'UPDATE_COMPANY',
@@ -89,8 +90,9 @@ export default function EditorPage() {
         if (error) throw error
 
         if (data?.content) {
+          // Normalize ข้อมูลที่โหลดมาเพื่อให้แน่ใจว่ามีโครงสร้างครบถ้วนตามที่ Component คาดหวัง
           let loaded = normalizeDocumentDraft(
-            data.content as Parameters<typeof normalizeDocumentDraft>[0],
+            data.content as any
           )
 
           // ถ้าข้อมูลบริษัทยังเป็น placeholder (เอกสารใหม่) ให้ดึง profile มาใส่อัตโนมัติ
@@ -151,6 +153,8 @@ export default function EditorPage() {
       </div>
     </div>
   )
+
+  console.log('Current Document Data:', doc)
 
   return (
     <EditorUI

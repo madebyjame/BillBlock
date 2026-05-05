@@ -45,8 +45,9 @@ export default function RightPanel({ doc, dispatch }: Props) {
   function toggle(path: string) { dispatch({ type: 'TOGGLE_VISIBILITY', path }) }
   function setSetting(data: Partial<DocumentData['settings']>) { dispatch({ type: 'UPDATE_SETTINGS', data }) }
 
-  const v = doc.visibility
-  const s = doc.settings
+  // ป้องกันกรณี doc หรือ nested objects เป็น undefined/null
+  const v = doc?.visibility || ({} as any)
+  const s = doc?.settings || ({} as any)
 
   return (
     <aside className="flex h-full w-56 flex-shrink-0 flex-col border-l border-slate-200 bg-white overflow-y-auto">
