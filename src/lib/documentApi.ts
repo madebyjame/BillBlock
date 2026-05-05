@@ -39,20 +39,23 @@ export async function createDocument(userId: string): Promise<string> {
   return (data as { id: string }).id
 }
 
-// ─── Update (auto-save) ───────────────────────────────────────────────────────
-export async function updateDocument(id: string, doc: DocumentData): Promise<void> {
+// ─── Update (auto-save + explicit save with optional status) ──────────────────
+export async function updateDocument(
+  id: string,
+  doc: DocumentData,
+  status?: DocumentRow['status'],
+): Promise<void> {
   const { total } = calcDocSummary(doc)
 
-  const { error } = await supabase
-    .from('documents')
-    .update({
-      doc_type: doc.docMeta.documentType,
-      total_amount: Math.round(total * 100) / 100,
-      content: doc,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id)
+  const patch: Record<string, unknown> = {
+    doc_type: doc.docMeta.documentType,
+    total_amount: Math.round(total * 100) / 100,
+    content: doc,
+    updated_at: new Date().toISOString(),
+  }
+  if (status) patch.status = status
 
+  const { error } = await supabase.from('documents').update(patch).eq('id', id)
   if (error) throw new Error(error.message)
 }
 

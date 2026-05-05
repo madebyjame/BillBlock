@@ -7,9 +7,17 @@ interface Props {
   themeColor: string
   onSignOut: () => Promise<void>
   onBack?: () => void
+  // Explicit save (cloud docs only)
+  isDirty?: boolean
+  isSaving?: boolean
+  onSaveDraft?: () => void
+  onSaveAndIssue?: () => void
 }
 
-export default function LeftPanel({ onExportPdf, isExporting, onPreview, isPreview, saveStatus, themeColor, onSignOut, onBack }: Props) {
+export default function LeftPanel({
+  onExportPdf, isExporting, onPreview, isPreview, saveStatus, themeColor,
+  onSignOut, onBack, isDirty, isSaving, onSaveDraft, onSaveAndIssue,
+}: Props) {
   return (
     <aside className="flex h-full w-44 flex-shrink-0 flex-col border-r border-slate-200 bg-white">
       {/* Brand / Back */}
@@ -39,7 +47,7 @@ export default function LeftPanel({ onExportPdf, isExporting, onPreview, isPrevi
 
       {/* Auto-save status */}
       <div className="border-b border-slate-100 px-4 py-2">
-        <SaveIndicator status={saveStatus} />
+        <SaveIndicator status={saveStatus} isDirty={isDirty} />
       </div>
 
       {/* Tips */}
@@ -55,9 +63,48 @@ export default function LeftPanel({ onExportPdf, isExporting, onPreview, isPrevi
         </div>
       </div>
 
+      {/* Explicit save buttons (cloud docs only) */}
+      {(onSaveDraft || onSaveAndIssue) && (
+        <div className="border-t border-slate-100 p-3 space-y-2">
+          {onSaveDraft && (
+            <button
+              onClick={onSaveDraft}
+              disabled={isSaving}
+              className="flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              {isSaving ? (
+                <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+              )}
+              บันทึก Draft
+            </button>
+          )}
+          {onSaveAndIssue && (
+            <button
+              onClick={onSaveAndIssue}
+              disabled={isSaving}
+              className="flex w-full items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold text-white transition-colors disabled:opacity-50"
+              style={{ backgroundColor: themeColor }}
+            >
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              ออกเอกสาร
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Preview + Export */}
       <div className="border-t border-slate-100 p-3 space-y-2">
-        {/* Preview toggle */}
         <button
           onClick={onPreview}
           className={`flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors border ${
@@ -73,7 +120,6 @@ export default function LeftPanel({ onExportPdf, isExporting, onPreview, isPrevi
           {isPreview ? 'ออกจาก Preview' : 'ดูตัวอย่าง'}
         </button>
 
-        {/* Export PDF */}
         <button
           onClick={onExportPdf}
           disabled={isExporting}
@@ -99,7 +145,6 @@ export default function LeftPanel({ onExportPdf, isExporting, onPreview, isPrevi
           )}
         </button>
 
-        {/* Sign Out */}
         <button
           onClick={() => void onSignOut()}
           className="flex w-full items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
@@ -115,7 +160,7 @@ export default function LeftPanel({ onExportPdf, isExporting, onPreview, isPrevi
   )
 }
 
-function SaveIndicator({ status }: { status: 'saved' | 'saving' | 'unsaved' }) {
+function SaveIndicator({ status, isDirty }: { status: 'saved' | 'saving' | 'unsaved'; isDirty?: boolean }) {
   if (status === 'saving') {
     return (
       <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
@@ -127,13 +172,21 @@ function SaveIndicator({ status }: { status: 'saved' | 'saving' | 'unsaved' }) {
       </div>
     )
   }
-  if (status === 'saved') {
+  if (status === 'saved' && !isDirty) {
     return (
       <div className="flex items-center gap-1.5 text-[11px] text-green-600">
         <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
         </svg>
         Draft Saved
+      </div>
+    )
+  }
+  if (isDirty) {
+    return (
+      <div className="flex items-center gap-1.5 text-[11px] text-amber-500">
+        <div className="h-2 w-2 rounded-full bg-amber-400" />
+        มีการเปลี่ยนแปลง
       </div>
     )
   }

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useBlocker } from 'react-router-dom'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
+import { toast } from 'sonner'
 import { PdfModeContext } from '../components/InvoiceDocument'
 import InvoiceDocument from '../components/InvoiceDocument'
 import LeftPanel from '../components/LeftPanel'
@@ -17,11 +18,10 @@ import type { BlockType } from '../types/document'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useCloudAutoSave } from '../hooks/useCloudAutoSave'
+import { updateDocument } from '../lib/documentApi'
+import type { DocumentRow } from '../lib/documentApi'
+import { getProfile } from '../lib/profileApi'
 
-// ─── Document Loading ─────────────────────────────────────────────────────────
-// id = 'new'   → เอกสารใหม่ (ใช้ defaultDocument)
-// id = 'local' → backward-compat โหลดจาก localStorage
-// id = UUID    → โหลดจาก Supabase (scaffold — จะ implement ใน Phase ถัดไป)
 function getLocalDraftOrDefault() {
   try {
     const draft = loadDraft()
@@ -33,10 +33,8 @@ function getLocalDraftOrDefault() {
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { signOut } = useAuth()
+  const { signOut, user } = useAuth()
 
-  // ─── Document State ───
-  // เริ่มต้นด้วย local draft (สำหรับ 'local') หรือ default (สำหรับ 'new' / UUID)
   const [doc, dispatch] = useReducer(
     documentReducer,
     undefined,
@@ -48,7 +46,7 @@ export default function EditorPage() {
   const latestDocRef = useRef(doc)
   latestDocRef.current = doc
 
-  // ─── โหลดจาก Supabase เมื่อ id เป็น UUID ───
+  // ─── โหลดจาก Supabase + auto-fill profile ────────────────────────────────
   useEffect(() => {
     if (!id || id === 'new' || id === 'local') return
 
@@ -63,11 +61,33 @@ export default function EditorPage() {
           .single()
 
         if (error) throw error
+
         if (data?.content) {
-          dispatch({
-            type: 'LOAD_DOCUMENT',
-            doc: normalizeDocumentDraft(data.content as Parameters<typeof normalizeDocumentDraft>[0]),
-          })
+          let loaded = normalizeDocumentDraft(
+            data.content as Parameters<typeof normalizeDocumentDraft>[0],
+          )
+
+          // ถ้าข้อมูลบริษัทยังเป็น placeholder (เอกสารใหม่) ให้ดึง profile มาใส่อัตโนมัติ
+          if (loaded.company.name === defaultDocument.company.name && user) {
+            try {
+              const profile = await getProfile(user.id)
+              if (profile) {
+                loaded = {
+                  ...loaded,
+                  company: {
+                    ...loaded.company,
+                    name: profile.company_name || loaded.company.name,
+                    address: profile.address || loaded.company.address,
+                    phone: profile.phone || loaded.company.phone,
+                    email: profile.email || loaded.company.email,
+                    taxId: profile.tax_id || loaded.company.taxId,
+                  },
+                }
+              }
+            } catch { /* profile เป็น optional — ไม่ต้องแสดง error */ }
+          }
+
+          dispatch({ type: 'LOAD_DOCUMENT', doc: loaded })
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'โหลดเอกสารไม่สำเร็จ'
@@ -78,9 +98,9 @@ export default function EditorPage() {
     }
 
     void loadFromCloud()
-  }, [id])
+  }, [id, user])
 
-  // ─── Loading / Error States ───
+  // ─── Loading / Error States ───────────────────────────────────────────────
   if (docLoading) return (
     <div className="flex h-screen items-center justify-center bg-slate-50">
       <div className="flex flex-col items-center gap-3 text-slate-400">
@@ -106,10 +126,18 @@ export default function EditorPage() {
     </div>
   )
 
-  return <EditorUI docId={id} doc={doc} dispatch={dispatch} latestDocRef={latestDocRef} signOut={signOut} />
+  return (
+    <EditorUI
+      docId={id}
+      doc={doc}
+      dispatch={dispatch}
+      latestDocRef={latestDocRef}
+      signOut={signOut}
+    />
+  )
 }
 
-// ─── EditorUI — แยกออกมาเพื่อไม่ให้ hooks ถูก call ตาม conditions ───
+// ─── EditorUI ────────────────────────────────────────────────────────────────
 function EditorUI({
   docId, doc, dispatch, latestDocRef, signOut,
 }: {
@@ -122,13 +150,71 @@ function EditorUI({
   const navigate = useNavigate()
   const [isPreview, setIsPreview] = useState(false)
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const isCloudDoc = !!docId && docId !== 'new' && docId !== 'local'
 
   const { docRef, exportPdf, isExporting, pdfMode } = useExportPdf()
-  const isCloudDoc = !!docId && docId !== 'new' && docId !== 'local'
   const localSaveStatus = useAutoSave(isCloudDoc ? null : doc)
   const cloudSaveStatus = useCloudAutoSave(isCloudDoc ? docId : undefined, doc)
   const saveStatus = isCloudDoc ? cloudSaveStatus : localSaveStatus
   const [catalog] = useState(() => loadCatalog())
+
+  // ─── isDirty tracking ────────────────────────────────────────────────────
+  const [isDirty, setIsDirty] = useState(false)
+  const isFirstDocChange = useRef(true)
+
+  useEffect(() => {
+    if (isFirstDocChange.current) { isFirstDocChange.current = false; return }
+    setIsDirty(true)
+  }, [doc])
+
+  // auto-save สำเร็จ → clear dirty (ข้อมูลปลอดภัยแล้ว)
+  useEffect(() => {
+    if (cloudSaveStatus === 'saved') setIsDirty(false)
+  }, [cloudSaveStatus])
+
+  // ─── Browser close / refresh guard ───────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty && isCloudDoc) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty, isCloudDoc])
+
+  // ─── In-app navigation guard (react-router) ───────────────────────────────
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      isDirty && isCloudDoc && currentLocation.pathname !== nextLocation.pathname,
+  )
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return
+    if (window.confirm('มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก\nต้องการออกจากหน้านี้หรือไม่?')) {
+      blocker.proceed()
+    } else {
+      blocker.reset()
+    }
+  }, [blocker])
+
+  // ─── Explicit save ────────────────────────────────────────────────────────
+  const handleSave = useCallback(async (targetStatus: DocumentRow['status'] = 'draft') => {
+    if (!docId || !isCloudDoc || isSaving) return
+    setIsSaving(true)
+    try {
+      await updateDocument(docId, latestDocRef.current!, targetStatus)
+      setIsDirty(false)
+      toast.success(targetStatus === 'draft' ? 'บันทึก Draft แล้ว' : 'ออกเอกสารแล้ว')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'บันทึกไม่สำเร็จ')
+    } finally {
+      setIsSaving(false)
+    }
+  }, [docId, isCloudDoc, isSaving, latestDocRef])
 
   const displayPdfMode = pdfMode || isPreview
 
@@ -189,6 +275,10 @@ function EditorUI({
             themeColor={doc.settings.themeColor}
             onSignOut={signOut}
             onBack={() => navigate('/documents')}
+            isDirty={isDirty && isCloudDoc}
+            isSaving={isSaving}
+            onSaveDraft={isCloudDoc ? () => void handleSave('draft') : undefined}
+            onSaveAndIssue={isCloudDoc ? () => void handleSave('sent') : undefined}
           />
 
           <main className="flex-1 overflow-y-auto overflow-x-auto p-6">
