@@ -752,7 +752,8 @@ function BlockContent({ block, doc, dispatch, pdfMode, tc, v }: {
       )
     case 'signature':
       return (
-        <div className={`grid gap-8 pt-6 ${v.footer.buyerSignature ? 'grid-cols-2' : 'grid-cols-1 max-w-xs ml-auto'}`}>
+        <div data-pdf-no-break style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+          className={`grid gap-8 pt-6 ${v.footer.buyerSignature ? 'grid-cols-2' : 'grid-cols-1 max-w-xs ml-auto'}`}>
           {v.footer.buyerSignature && (
             <SignatureBox pdfMode={pdfMode} label={doc.footer.buyerLabel} title={doc.footer.buyerTitle}
               onLabelChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { buyerLabel: val } })}
@@ -773,7 +774,8 @@ function BlockContent({ block, doc, dispatch, pdfMode, tc, v }: {
       )
     case 'bankInfo':
       return (
-        <div className="mt-4 rounded border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">
+        <div data-pdf-no-break style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+          className="mt-4 rounded border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">
           <p className="font-semibold text-slate-600 mb-1">ชำระเงินผ่าน</p>
           <F pdfMode={pdfMode} value={doc.footer.bankName} className="inline"
             onChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { bankName: val } })} />
