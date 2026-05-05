@@ -40,15 +40,18 @@ export default function DocumentsPage() {
   const navigate = useNavigate()
   const { rows, loading, error, refetch } = useDocuments()
   const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   async function handleCreate() {
     if (!user || creating) return
     setCreating(true)
+    setCreateError('')
     try {
       const id = await createDocument(user.id)
       navigate(`/editor/${id}`)
-    } catch {
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'สร้างเอกสารไม่สำเร็จ')
       setCreating(false)
     }
   }
@@ -67,6 +70,11 @@ export default function DocumentsPage() {
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
+      {createError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span className="font-medium">สร้างเอกสารไม่สำเร็จ:</span> {createError}
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">เอกสารทั้งหมด</h1>
         <button

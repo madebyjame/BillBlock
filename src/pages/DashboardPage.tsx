@@ -25,14 +25,17 @@ export default function DashboardPage() {
   const navigate = useNavigate()
   const { recentRows, loading, stats } = useDocuments()
   const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState('')
 
   async function handleCreate() {
     if (!user || creating) return
     setCreating(true)
+    setCreateError('')
     try {
       const id = await createDocument(user.id)
       navigate(`/editor/${id}`)
-    } catch {
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'สร้างเอกสารไม่สำเร็จ')
       setCreating(false)
     }
   }
@@ -45,6 +48,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick actions */}
+      {createError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span className="font-medium">สร้างเอกสารไม่สำเร็จ:</span> {createError}
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         <button
           onClick={() => void handleCreate()}
