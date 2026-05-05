@@ -17,17 +17,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // โหลด session ปัจจุบันทันทีตอน mount
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setUser(data.session?.user ?? null)
-      setLoading(false)
-    })
-
-    // subscribe การเปลี่ยนแปลง (login / logout / token refresh)
+    // onAuthStateChange fires immediately with INITIAL_SESSION (or null) —
+    // use it as the single source of truth to avoid the getSession() race
+    // condition that causes a white screen after login.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
+      setLoading(false)
     })
 
     return () => subscription.unsubscribe()

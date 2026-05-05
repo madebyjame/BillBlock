@@ -44,19 +44,21 @@ export function saveCatalog(entries: CatalogEntry[]) {
   }
 }
 
-/** Hook: auto-save doc ทุกครั้งที่เปลี่ยน + แสดงสถานะ */
-export function useAutoSave(doc: DocumentData) {
+/** Hook: auto-save doc ทุกครั้งที่เปลี่ยน + แสดงสถานะ (pass null เพื่อ disable) */
+export function useAutoSave(doc: DocumentData | null) {
   const [status, setStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const isFirstRender = useRef(true)
 
   useEffect(() => {
+    if (!doc) return
     if (isFirstRender.current) { isFirstRender.current = false; return }
 
     setStatus('unsaved')
     clearTimeout(timerRef.current)
 
     timerRef.current = setTimeout(() => {
+      if (!doc) return
       try {
         setStatus('saving')
         localStorage.setItem(STORAGE_KEY, JSON.stringify(doc))

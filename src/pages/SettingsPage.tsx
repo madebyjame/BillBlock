@@ -1,115 +1,82 @@
-import { useEffect, useState } from 'react'
+import type { ChangeEvent, FormEvent, ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Building2, Contact, MapPin } from 'lucide-react'
-import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
+import { getProfile, upsertProfile } from '../lib/profileApi'
+import type { Profile } from '../lib/profileApi'
 
-type ProfileForm = {
-  companyName: string
-  taxId: string
-  address: string
-  phone: string
-  email: string
-}
-
-const EMPTY_FORM: ProfileForm = {
-  companyName: '',
-  taxId: '',
+const EMPTY_FORM: Omit<Profile, 'id'> = {
+  company_name: '',
   address: '',
+  tax_id: '',
   phone: '',
   email: '',
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-function toStringOrEmpty(value: unknown): string {
-  return typeof value === 'string' ? value : ''
-}
-
 export default function SettingsPage() {
   const { user } = useAuth()
+  const [form, setForm] = useState(EMPTY_FORM)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState<ProfileForm>(EMPTY_FORM)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+  const savedTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const themeColor = typeof user?.user_metadata?.themeColor === 'string'
     ? user.user_metadata.themeColor
     : '#1e3a8a'
 
   useEffect(() => {
-    let active = true
-
-    async function loadProfile() {
-      if (!user?.id) {
-        if (active) setLoading(false)
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('company_name, tax_id, address, phone, email')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      if (!active) return
-
-      if (error) {
-        toast.error('ไม่สามารถเชื่อมต่อฐานข้อมูลได้')
-        setLoading(false)
-        return
-      }
-
-      if (isRecord(data)) {
-        setForm({
-          companyName: toStringOrEmpty(data.company_name),
-          taxId: toStringOrEmpty(data.tax_id),
-          address: toStringOrEmpty(data.address),
-          phone: toStringOrEmpty(data.phone),
-          email: toStringOrEmpty(data.email) || user.email || '',
-        })
-      } else {
-        setForm((prev) => ({ ...prev, email: user.email || prev.email }))
-      }
+    if (!user) {
       setLoading(false)
-    }
-
-    void loadProfile()
-    return () => {
-      active = false
-    }
-  }, [user?.id, user?.email])
-
-  async function handleSave() {
-    if (!user?.id || saving) return
-    setSaving(true)
-    const { error } = await supabase
-      .from('profiles')
-      .upsert(
-        {
-          id: user.id,
-          company_name: form.companyName,
-          tax_id: form.taxId,
-          address: form.address,
-          phone: form.phone,
-          email: form.email,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' },
-      )
-
-    if (error) {
-      toast.error('ไม่สามารถเชื่อมต่อฐานข้อมูลได้')
-      setSaving(false)
       return
     }
 
-    toast.success('บันทึกข้อมูลเรียบร้อยแล้ว')
-    setSaving(false)
+    getProfile(user.id)
+      .then((profile) => {
+        if (profile) {
+          setForm({
+            company_name: profile.company_name ?? '',
+            address: profile.address ?? '',
+            tax_id: profile.tax_id ?? '',
+            phone: profile.phone ?? '',
+            email: profile.email ?? user.email ?? '',
+          })
+        } else {
+          setForm((prev) => ({ ...prev, email: user.email ?? prev.email }))
+        }
+      })
+      .catch((err: unknown) => {
+        if (err instanceof Error) setError(err.message)
+      })
+      .finally(() => setLoading(false))
+  }, [user])
+
+  useEffect(() => () => clearTimeout(savedTimer.current), [])
+
+  function setField(field: keyof Omit<Profile, 'id'>) {
+    return (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setForm((prev) => ({ ...prev, [field]: event.target.value }))
+      setSaved(false)
+    }
   }
 
-  function updateField<K extends keyof ProfileForm>(key: K, value: ProfileForm[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }))
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!user || saving) return
+
+    setSaving(true)
+    setError('')
+    try {
+      await upsertProfile({ id: user.id, ...form })
+      setSaved(true)
+      clearTimeout(savedTimer.current)
+      savedTimer.current = setTimeout(() => setSaved(false), 3000)
+    } catch (err: unknown) {
+      if (err instanceof Error) setError(err.message)
+      else setError('บันทึกไม่สำเร็จ')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -119,7 +86,7 @@ export default function SettingsPage() {
       {loading ? (
         <SettingsSkeleton />
       ) : (
-        <div className="space-y-5">
+        <form onSubmit={(event) => void handleSave(event)} className="space-y-5">
           <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-700">
               <Building2 size={16} />
@@ -128,16 +95,16 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Field label="ชื่อบริษัท">
                 <input
-                  value={form.companyName}
-                  onChange={(event) => updateField('companyName', event.target.value)}
+                  value={form.company_name}
+                  onChange={setField('company_name')}
                   placeholder="บริษัท ตัวอย่าง จำกัด"
                   className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                 />
               </Field>
               <Field label="เลขประจำตัวผู้เสียภาษี">
                 <input
-                  value={form.taxId}
-                  onChange={(event) => updateField('taxId', event.target.value)}
+                  value={form.tax_id}
+                  onChange={setField('tax_id')}
                   placeholder="0000000000000"
                   className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                 />
@@ -153,7 +120,7 @@ export default function SettingsPage() {
             <Field label="ที่อยู่บริษัท">
               <textarea
                 value={form.address}
-                onChange={(event) => updateField('address', event.target.value)}
+                onChange={setField('address')}
                 placeholder="123 ถนนสุขุมวิท กรุงเทพฯ"
                 rows={4}
                 className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-400"
@@ -170,7 +137,7 @@ export default function SettingsPage() {
               <Field label="เบอร์โทร">
                 <input
                   value={form.phone}
-                  onChange={(event) => updateField('phone', event.target.value)}
+                  onChange={setField('phone')}
                   placeholder="02-xxx-xxxx"
                   className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                 />
@@ -178,7 +145,7 @@ export default function SettingsPage() {
               <Field label="อีเมล">
                 <input
                   value={form.email}
-                  onChange={(event) => updateField('email', event.target.value)}
+                  onChange={setField('email')}
                   placeholder="info@company.com"
                   className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                 />
@@ -186,23 +153,33 @@ export default function SettingsPage() {
             </div>
           </section>
 
-          <div className="pt-2">
+          {error && <p className="text-sm text-red-500">{error}</p>}
+
+          <div className="flex items-center gap-3 pt-2">
             <button
-              onClick={() => void handleSave()}
+              type="submit"
               disabled={saving}
               className="rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
               style={{ backgroundColor: themeColor }}
             >
               {saving ? 'กำลังบันทึก...' : 'บันทึก'}
             </button>
+            {saved && (
+              <span className="flex items-center gap-1.5 text-sm text-green-600">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                บันทึกแล้ว
+              </span>
+            )}
           </div>
-        </div>
+        </form>
       )}
     </div>
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
       <label className="mb-1 block text-xs font-medium text-slate-600">{label}</label>

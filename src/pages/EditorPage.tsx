@@ -16,6 +16,7 @@ import { BLOCK_CATALOG } from '../types/document'
 import type { BlockType } from '../types/document'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { useCloudAutoSave } from '../hooks/useCloudAutoSave'
 
 // ─── Document Loading ─────────────────────────────────────────────────────────
 // id = 'new'   → เอกสารใหม่ (ใช้ defaultDocument)
@@ -105,13 +106,14 @@ export default function EditorPage() {
     </div>
   )
 
-  return <EditorUI doc={doc} dispatch={dispatch} latestDocRef={latestDocRef} signOut={signOut} />
+  return <EditorUI docId={id} doc={doc} dispatch={dispatch} latestDocRef={latestDocRef} signOut={signOut} />
 }
 
 // ─── EditorUI — แยกออกมาเพื่อไม่ให้ hooks ถูก call ตาม conditions ───
 function EditorUI({
-  doc, dispatch, latestDocRef, signOut,
+  docId, doc, dispatch, latestDocRef, signOut,
 }: {
+  docId: string | undefined
   doc: ReturnType<typeof documentReducer>
   dispatch: React.Dispatch<Parameters<typeof documentReducer>[1]>
   latestDocRef: React.RefObject<ReturnType<typeof documentReducer>>
@@ -122,7 +124,10 @@ function EditorUI({
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
 
   const { docRef, exportPdf, isExporting, pdfMode } = useExportPdf()
-  const saveStatus = useAutoSave(doc)
+  const isCloudDoc = !!docId && docId !== 'new' && docId !== 'local'
+  const localSaveStatus = useAutoSave(isCloudDoc ? null : doc)
+  const cloudSaveStatus = useCloudAutoSave(isCloudDoc ? docId : undefined, doc)
+  const saveStatus = isCloudDoc ? cloudSaveStatus : localSaveStatus
   const [catalog] = useState(() => loadCatalog())
 
   const displayPdfMode = pdfMode || isPreview
