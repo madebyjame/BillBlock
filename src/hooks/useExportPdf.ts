@@ -13,6 +13,50 @@ function waitNextFrames(n = 2): Promise<void> {
   })
 }
 
+// Wait for every <img> inside the container to fully decode before capture.
+// Signature and stamp images are the main culprits for "missing" sections.
+async function waitForImages(container: HTMLElement): Promise<void> {
+  const imgs = Array.from(container.querySelectorAll<HTMLImageElement>('img'))
+  await Promise.all(
+    imgs.map(img => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve()
+      return new Promise<void>(res => {
+        img.onload = () => res()
+        img.onerror = () => res()          // broken image — don't block export
+        setTimeout(res, 5_000)             // safety timeout
+      })
+    }),
+  )
+}
+
+// Compute page-start offsets (in mm) avoiding cuts inside no-break zones.
+// If a normal page cut would fall inside a zone, we pull the cut back to the
+// zone's start so the whole block opens on the next page.
+function computePageStarts(
+  totalMM: number,
+  pageMM: number,
+  noBreakZones: Array<{ start: number; end: number }>,
+): number[] {
+  const starts: number[] = []
+  let pos = 0
+  while (pos + 0.5 < totalMM) {
+    starts.push(pos)
+    const natural = pos + pageMM
+    if (natural >= totalMM) break          // last partial page — already added
+
+    let cut = natural
+    for (const zone of noBreakZones) {
+      if (cut > zone.start && cut < zone.end) {
+        cut = zone.start                   // push zone to next page
+        break
+      }
+    }
+    // Safety: never go backwards (e.g. zone larger than a full page)
+    pos = cut > pos ? cut : natural
+  }
+  return starts
+}
+
 export function useExportPdf() {
   const docRef = useRef<HTMLDivElement>(null)
   const [isExporting, setIsExporting] = useState(false)
@@ -27,16 +71,38 @@ export function useExportPdf() {
 
     setIsExporting(true)
 
-    // flushSync บังคับให้ React update DOM แบบ synchronous ทันที
-    // ก่อนที่ html2canvas จะ capture — ไม่งั้น input fields ยังอยู่
+    // flushSync forces React to flush the PDF-mode DOM update synchronously
+    // so html2canvas sees static text, not live input elements.
     flushSync(() => setPdfMode(true))
 
     try {
+      // 1. Wait for fonts
       await document.fonts.ready
-      await waitNextFrames(2)
-      await new Promise(r => setTimeout(r, 120))
 
-      // html2canvas (ตัวเดิม) ไม่รองรับสีแบบ oklch ที่ Tailwind v4 ใช้ — ใช้ fork ที่รองรับแทน
+      // 2. Wait for ALL images (signature, stamp, logo) to finish loading
+      await waitForImages(el)
+
+      // 3. Give browser time to repaint after image loads + PDF-mode layout
+      await waitNextFrames(3)
+      await new Promise(r => setTimeout(r, 150))
+
+      // 4. Measure no-break zones now (PDF-mode layout is settled).
+      //    Positions are stored as fractions of total content height so they
+      //    can be converted to mm once we know imgH from the canvas.
+      const containerRect = el.getBoundingClientRect()
+      const totalPx = el.scrollHeight
+      const noBreakFractions = Array.from(
+        el.querySelectorAll<HTMLElement>('[data-pdf-no-break]'),
+      ).map(node => {
+        const rect = node.getBoundingClientRect()
+        return {
+          start: (rect.top - containerRect.top) / totalPx,
+          end: (rect.bottom - containerRect.top) / totalPx,
+        }
+      })
+
+      // html2canvas (standard) doesn't support oklch colours from Tailwind v4 —
+      // html2canvas-pro is a maintained fork that does.
       const html2canvas = (await import('html2canvas-pro')).default
       const { default: jsPDF } = await import('jspdf')
 
@@ -73,19 +139,24 @@ export function useExportPdf() {
       }
 
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-
-      const pageW = pdf.internal.pageSize.getWidth()
-      const pageH = pdf.internal.pageSize.getHeight()
+      const pageW = pdf.internal.pageSize.getWidth()   // 210 mm
+      const pageH = pdf.internal.pageSize.getHeight()  // 297 mm
       const imgW = pageW
       const imgH = (canvas.height * imgW) / canvas.width
 
-      // epsilon 0.5mm กัน floating-point ทำให้ขึ้นหน้าเปล่าเพิ่ม
-      let posY = 0
-      while (posY + 0.5 < imgH) {
-        if (posY > 0) pdf.addPage()
-        pdf.addImage(imgData, imgFmt, 0, -posY, imgW, imgH)
-        posY += pageH
-      }
+      // Convert fractional positions → mm now that imgH is known
+      const noBreakZones = noBreakFractions.map(f => ({
+        start: f.start * imgH,
+        end: f.end * imgH,
+      }))
+
+      // Smart page breaks — no zone gets sliced across pages
+      const pageStarts = computePageStarts(imgH, pageH, noBreakZones)
+
+      pageStarts.forEach((startY, i) => {
+        if (i > 0) pdf.addPage()
+        pdf.addImage(imgData, imgFmt, 0, -startY, imgW, imgH)
+      })
 
       pdf.save(filename)
     } catch (err) {

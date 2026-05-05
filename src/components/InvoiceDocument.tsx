@@ -12,6 +12,7 @@ import { CSS } from '@dnd-kit/utilities'
 import type { DocumentData, LineItem, CatalogItem, DocumentBlock } from '../types/document'
 import { defaultDocument } from '../types/document'
 import type { DocumentAction } from '../store/documentStore'
+import { defaultDocument } from '../store/documentStore'
 import type { CustomerRow } from '../lib/customerApi'
 import type { ProductRow } from '../lib/productApi'
 import {
@@ -600,7 +601,7 @@ function SignatureBox({ pdfMode, label, title, onLabelChange, onTitleChange,
 
       {/* Label */}
       {pdfMode
-        ? <p className="text-slate-600 mb-3 text-center">{label}</p>
+        ? <p className="text-slate-800 font-medium mb-3 text-center">{label}</p>
         : <F pdfMode={pdfMode} value={label} className="text-slate-600 mb-3 text-center" onChange={onLabelChange} />}
 
       {/* Signature + date — flex-1 ดันเส้นลงล่างสุดเสมอ */}
@@ -654,15 +655,15 @@ function SignatureBox({ pdfMode, label, title, onLabelChange, onTitleChange,
       {/* วันที่ */}
       {onDateChange && (
         pdfMode
-          ? <p className="text-xs text-slate-400 mb-1">{signatureDate ? formatDate(signatureDate) : ''}</p>
+          ? <p className="text-xs text-slate-700 mb-1">{signatureDate ? formatDate(signatureDate) : ''}</p>
           : <input type="date" value={signatureDate ?? ''} onChange={e => onDateChange(e.target.value)}
               className="text-xs text-slate-400 border-0 bg-transparent mb-1 focus:outline-none" />
       )}
 
       {/* เส้น + ชื่อ */}
-      <div className="w-full border-t border-slate-400 pt-1 text-center">
+      <div className={`w-full pt-1 text-center ${pdfMode ? 'border-t border-slate-600' : 'border-t border-slate-400'}`}>
         {pdfMode
-          ? <span className="text-xs text-slate-500">{title}</span>
+          ? <span className="text-xs text-slate-800 font-medium">{title}</span>
           : onTitleChange
             ? <F pdfMode={pdfMode} value={title} className="text-xs text-slate-500 text-center" onChange={onTitleChange} />
             : <span className="text-xs text-slate-500">{title}</span>
@@ -742,8 +743,8 @@ function SortableBlock({ block, doc, dispatch, pdfMode, tc, v }: {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id })
   return (
     <div ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 }}
-      className="group/blk relative block-enter">
+      style={pdfMode ? undefined : { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 }}
+      className={pdfMode ? 'relative' : 'group/blk relative block-enter'}>
       {!pdfMode && (
         <button {...attributes} {...listeners}
           className="absolute -left-5 top-1/2 -translate-y-1/2 cursor-grab touch-none opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-300 hover:text-slate-500 active:cursor-grabbing">
@@ -780,7 +781,8 @@ function BlockContent({ block, doc, dispatch, pdfMode, tc, v }: {
       )
     case 'signature':
       return (
-        <div className={`grid gap-8 pt-6 ${v.footer.buyerSignature ? 'grid-cols-2' : 'grid-cols-1 max-w-xs ml-auto'}`}>
+        <div data-pdf-no-break style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+          className={`grid gap-8 pt-6 ${v.footer.buyerSignature ? 'grid-cols-2' : 'grid-cols-1 max-w-xs ml-auto'}`}>
           {v.footer.buyerSignature && (
             <SignatureBox pdfMode={pdfMode} label={doc.footer.buyerLabel} title={doc.footer.buyerTitle}
               onLabelChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { buyerLabel: val } })}
@@ -801,8 +803,9 @@ function BlockContent({ block, doc, dispatch, pdfMode, tc, v }: {
       )
     case 'bankInfo':
       return (
-        <div className="mt-4 rounded border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">
-          <p className="font-semibold text-slate-600 mb-1">ชำระเงินผ่าน</p>
+        <div data-pdf-no-break style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+          className={`mt-4 rounded border p-3 text-xs ${pdfMode ? 'border-slate-300 bg-white text-slate-800' : 'border-slate-100 bg-slate-50 text-slate-500'}`}>
+          <p className={`font-semibold mb-1 ${pdfMode ? 'text-slate-900' : 'text-slate-600'}`}>ชำระเงินผ่าน</p>
           <F pdfMode={pdfMode} value={doc.footer.bankName} className="inline"
             onChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { bankName: val } })} />
           {' · '}
