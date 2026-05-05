@@ -409,7 +409,7 @@ function StaticRow({ item, idx, v }: { item: LineItem; idx: number; v: DocumentD
 }
 
 // ─── Autocomplete Description Input ───
-function DescriptionInput({ item, dispatch, catalog }: {
+function DescriptionInput({ item, dispatch, catalog, products }: {
   item: LineItem
   dispatch: React.Dispatch<DocumentAction>
   catalog: CatalogItem[]
