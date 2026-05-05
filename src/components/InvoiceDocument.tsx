@@ -32,14 +32,16 @@ interface Props {
 
 export default function InvoiceDocument({ doc, dispatch, docRef, catalog, customers, products }: Props) {
   const pdfMode = useContext(PdfModeContext)
-  const v = doc.visibility
-  const tc = doc.settings.themeColor   // theme color
-  const sym = doc.settings.currencySymbol
+  
+  // ป้องกันกรณี doc หรือ nested objects เป็น undefined/null แม้จะผ่าน normalize มาแล้ว
+  const v = doc?.visibility || defaultDocument.visibility
+  const tc = doc?.settings?.themeColor || defaultDocument.settings.themeColor
+  const sym = doc?.settings?.currencySymbol || defaultDocument.settings.currencySymbol
 
   const { subtotal, specialDiscountAmt, vatAmount, preTaxAmount, total } = useMemo(
-    () => calcDocSummary(doc),
+    () => calcDocSummary(doc || defaultDocument),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [doc.items, doc.summary, doc.settings.vatMode, doc.visibility.summary],
+    [doc?.items, doc?.summary, doc?.settings?.vatMode, doc?.visibility?.summary],
   )
 
   // ─── Row DnD sensors ───
