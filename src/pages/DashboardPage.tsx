@@ -4,11 +4,18 @@ import { useAuth } from '../context/AuthContext'
 import { useDocuments } from '../hooks/useDocuments'
 
 const DOC_TYPE_LABEL: Record<string, string> = {
-  invoice: 'ใบแจ้งหนี้',
-  quotation: 'ใบเสนอราคา',
-  receipt: 'ใบเสร็จรับเงิน',
-  'tax-invoice': 'ใบกำกับภาษี',
-  'delivery-note': 'ใบส่งของ',
+  quotation:      'ใบเสนอราคา',
+  invoice:        'ใบแจ้งหนี้',
+  receipt:        'ใบเสร็จรับเงิน',
+  'billing-note': 'ใบวางบิล',
+  'tax-invoice':  'ใบกำกับภาษี',
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  draft:     'ฉบับร่าง',
+  sent:      'ส่งแล้ว',
+  paid:      'ชำระแล้ว',
+  cancelled: 'ยกเลิก',
 }
 
 function fmtAmount(n: number) {
@@ -129,7 +136,7 @@ export default function DashboardPage() {
                         <td className="px-5 py-3">{fmtDate(row.created_at)}</td>
                         <td className="px-5 py-3">{fmtDate(row.updated_at)}</td>
                         <td className="px-5 py-3 text-right font-medium">฿ {fmtAmount(row.total_amount)}</td>
-                        <td className="px-5 py-3 text-slate-500">{row.status}</td>
+                        <td className="px-5 py-3 text-slate-500">{STATUS_LABEL[row.status] ?? row.status}</td>
                       </tr>
                     ))}
                   </tbody>
