@@ -28,9 +28,10 @@ interface Props {
   catalog: CatalogItem[]
   customers: CustomerRow[]
   products: ProductRow[]
+  onQuickAddCustomer?: (name: string) => void
 }
 
-export default function InvoiceDocument({ doc, dispatch, docRef, catalog, customers, products }: Props) {
+export default function InvoiceDocument({ doc, dispatch, docRef, catalog, customers, products, onQuickAddCustomer }: Props) {
   const pdfMode = useContext(PdfModeContext)
   
   // ป้องกันกรณี doc หรือ nested objects เป็น undefined/null แม้จะผ่าน normalize มาแล้ว
@@ -121,6 +122,7 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
                 customer={doc.customer}
                 customers={customers}
                 onChange={(data) => dispatch({ type: 'UPDATE_CUSTOMER', data })}
+                onQuickAdd={onQuickAddCustomer}
               />
               <F pdfMode={pdfMode} multiline value={doc.customer.address} className="text-slate-500"
                 onChange={val => dispatch({ type: 'UPDATE_CUSTOMER', data: { address: val } })} />
@@ -494,16 +496,20 @@ function CustomerLookupInput({
   customer,
   customers,
   onChange,
+  onQuickAdd,
 }: {
   pdfMode: boolean
   customer: DocumentData['customer']
   customers: CustomerRow[]
   onChange: (data: Partial<DocumentData['customer']>) => void
+  onQuickAdd?: (name: string) => void
 }) {
   const [open, setOpen] = useState(false)
-  const matches = customer.name.trim()
-    ? customers.filter((row) => row.name.toLowerCase().includes(customer.name.toLowerCase()) && row.name !== customer.name).slice(0, 8)
+  const typedName = customer.name.trim()
+  const matches = typedName
+    ? customers.filter((row) => row.name.toLowerCase().includes(typedName.toLowerCase()) && row.name !== customer.name).slice(0, 8)
     : []
+  const showQuickAdd = !!onQuickAdd && typedName.length > 0
 
   function applyCustomer(row: CustomerRow) {
     onChange({
@@ -517,6 +523,8 @@ function CustomerLookupInput({
   if (pdfMode) {
     return <span className="font-semibold text-slate-800">{customer.name}</span>
   }
+
+  const dropdownVisible = open && (matches.length > 0 || showQuickAdd)
 
   return (
     <div className="relative">
@@ -537,7 +545,7 @@ function CustomerLookupInput({
           className="w-full rounded border-0 bg-transparent px-0.5 font-semibold text-slate-800 placeholder-slate-300 hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
         />
       </div>
-      {open && matches.length > 0 && (
+      {dropdownVisible && (
         <div className="absolute top-full left-0 z-20 mt-1 w-80 rounded-md border border-slate-200 bg-white shadow-lg">
           {matches.map((row) => (
             <button
@@ -552,6 +560,20 @@ function CustomerLookupInput({
               <span className="ml-2 text-[10px] text-slate-300">เลือก</span>
             </button>
           ))}
+          {showQuickAdd && (
+            <>
+              {matches.length > 0 && <div className="border-t border-slate-100" />}
+              <button
+                onMouseDown={(e) => { e.preventDefault(); setOpen(false); onQuickAdd!(typedName) }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-blue-600 hover:bg-blue-50"
+              >
+                <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                เพิ่มลูกค้าใหม่ &ldquo;{typedName}&rdquo;
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { TrendingUp, Clock, FileText, Users, FilePlus, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { TrendingUp, Clock, FileText, Users, FilePlus, ChevronUp, ChevronDown, ChevronsUpDown, Pencil, CheckCircle2, XCircle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 
@@ -25,9 +25,16 @@ const STATUS_LABEL: Record<DashboardDoc['status'], string> = {
 
 const STATUS_CLASS: Record<DashboardDoc['status'], string> = {
   draft:     'bg-slate-200 text-slate-700',
-  sent:      'bg-blue-100 text-blue-700',
+  sent:      'bg-amber-100 text-amber-700',
   paid:      'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-500',
+}
+
+const STATUS_ICON: Record<DashboardDoc['status'], React.ReactNode> = {
+  draft:     <Pencil size={9} className="shrink-0" />,
+  sent:      <Clock size={9} className="shrink-0" />,
+  paid:      <CheckCircle2 size={9} className="shrink-0" />,
+  cancelled: <XCircle size={9} className="shrink-0" />,
 }
 
 const DOC_TYPE_LABEL: Record<string, string> = {
@@ -407,7 +414,8 @@ export default function DashboardPage() {
                     <td className="px-5 py-3 text-slate-400">{fmtDate(doc.created_at)}</td>
                     <td className="px-5 py-3 text-right font-medium text-slate-700">฿{fmtAmount(doc.total_amount)}</td>
                     <td className="px-5 py-3">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[doc.status]}`}>
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_CLASS[doc.status]}`}>
+                        {STATUS_ICON[doc.status]}
                         {STATUS_LABEL[doc.status]}
                       </span>
                     </td>
