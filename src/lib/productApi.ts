@@ -6,6 +6,8 @@ export interface ProductRow {
   name: string
   price: number
   unit: string
+  stock: number
+  category: string
   created_at?: string
   updated_at?: string
 }
@@ -14,12 +16,14 @@ export interface ProductInput {
   name: string
   price: number
   unit: string
+  stock: number
+  category: string
 }
 
 export async function listProducts(): Promise<ProductRow[]> {
   const { data, error } = await supabase
     .from('products')
-    .select('id, user_id, name, price, unit, created_at, updated_at')
+    .select('id, user_id, name, price, unit, stock, category, created_at, updated_at')
     .order('name', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []) as ProductRow[]
