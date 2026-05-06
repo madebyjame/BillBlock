@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { FilePlus, Plus, Search, ChevronDown, MoreVertical, Eye, Pencil, Download, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -47,7 +48,7 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-// ─── Clickable Status Badge ───────────────────────────────────────────────────
+// ─── Clickable Status Badge (portal dropdown — avoids table overflow clipping) ─
 
 function StatusBadge({
   row,
@@ -59,30 +60,43 @@ function StatusBadge({
   onChangeStatus: (id: string, status: DocumentRow['status']) => void
 }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const btnRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!open) return
-    function handleClick(e: Event) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
+    function handleClick() { setOpen(false) }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
+  function handleOpen(e: MouseEvent) {
+    e.stopPropagation()
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, left: r.left })
+    }
+    setOpen(o => !o)
+  }
+
   return (
-    <div ref={ref} className="relative inline-block">
+    <>
       <button
+        ref={btnRef}
         disabled={updating}
-        onClick={(e) => { e.stopPropagation(); setOpen(o => !o) }}
+        onClick={handleOpen}
         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-opacity disabled:opacity-50 ${STATUS_CLASS[row.status]}`}
       >
         {STATUS_LABEL[row.status]}
         <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
-      {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+      {open && createPortal(
+        <div
+          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
+          className="w-36 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           {ALL_STATUSES.map((s) => (
             <button
               key={s}
@@ -97,13 +111,14 @@ function StatusBadge({
               {STATUS_LABEL[s]}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   )
 }
 
-// ─── Kebab Menu ───────────────────────────────────────────────────────────────
+// ─── Kebab Menu (portal dropdown — avoids table overflow clipping) ────────────
 
 function KebabMenu({
   row,
@@ -117,30 +132,43 @@ function KebabMenu({
   onNavigate: (id: string) => void
 }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const btnRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!open) return
-    function handleClick(e: Event) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
+    function handleClick() { setOpen(false) }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
+  function handleOpen(e: MouseEvent) {
+    e.stopPropagation()
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, left: r.right - 176 })
+    }
+    setOpen(o => !o)
+  }
+
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
+        ref={btnRef}
         disabled={deleting}
-        onClick={(e) => { e.stopPropagation(); setOpen(o => !o) }}
+        onClick={handleOpen}
         className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40"
         aria-label="เมนู"
       >
         <MoreVertical size={15} />
       </button>
 
-      {open && (
-        <div className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+      {open && createPortal(
+        <div
+          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
+          className="w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           <button
             onClick={(e) => { e.stopPropagation(); setOpen(false); onNavigate(row.id) }}
             className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50"
@@ -170,9 +198,10 @@ function KebabMenu({
             <Trash2 size={13} />
             ลบเอกสาร
           </button>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   )
 }
 
@@ -310,10 +339,10 @@ export default function DocumentListPage({ docType }: Props) {
     setUpdatingStatusId(id)
     try {
       await updateDocumentStatus(id, status)
-      toast.success('อัปเดตสถานะเอกสารแล้ว')
+      toast.success(`อัปเดตสถานะเป็น "${STATUS_LABEL[status]}" เรียบร้อย`, { id: 'status-update' })
       refetch()
     } catch {
-      toast.error('อัปเดตสถานะไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
+      toast.error('อัปเดตสถานะไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', { id: 'status-update' })
     } finally {
       setUpdatingStatusId(null)
     }
