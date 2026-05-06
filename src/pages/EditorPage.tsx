@@ -20,7 +20,16 @@ import { useCloudAutoSave } from '../hooks/useCloudAutoSave'
 import { createDocument, updateDocument } from '../lib/documentApi'
 import type { DocumentRow } from '../lib/documentApi'
 import type { DocTypeCode } from '../types/document'
+import { thaiToDocTypeCode } from '../types/document'
 import { getProfile } from '../lib/profileApi'
+
+const DOC_TYPE_ROUTE: Record<DocTypeCode, string> = {
+  quotation:      '/documents/quotations',
+  invoice:        '/documents/invoices',
+  receipt:        '/documents/receipts',
+  'billing-note': '/documents/billing-notes',
+  'tax-invoice':  '/documents/tax-invoices',
+}
 import { listCustomers, type CustomerRow } from '../lib/customerApi'
 import { listProducts, type ProductRow } from '../lib/productApi'
 
@@ -294,7 +303,8 @@ function EditorUI({
 
   function handleBack() {
     if (isDirty && isCloudDoc && !window.confirm('มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก\nต้องการออกจากหน้านี้หรือไม่?')) return
-    navigate('/documents')
+    const typeCode = thaiToDocTypeCode(doc.docMeta.documentType)
+    navigate(DOC_TYPE_ROUTE[typeCode] ?? '/documents/quotations')
   }
 
   return (
