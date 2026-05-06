@@ -14,19 +14,23 @@ export default function MainLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100">
-      <Sidebar
-        collapsed={collapsed}
-        setCollapsed={setCollapsed}
-        mobileOpen={mobileOpen}
-        setMobileOpen={setMobileOpen}
-        userEmail={user?.email}
-        onSignOut={signOut}
-        themeColor={themeColor}
-      />
+      {/* Sidebar — hidden when printing */}
+      <div className="no-print contents">
+        <Sidebar
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          mobileOpen={mobileOpen}
+          setMobileOpen={setMobileOpen}
+          userEmail={user?.email}
+          onSignOut={signOut}
+          themeColor={themeColor}
+        />
+      </div>
 
       {/* ─── Content ─── */}
       <main className="flex-1 overflow-auto">
-        <div className="sticky top-0 z-20 flex h-14 items-center border-b border-slate-200 bg-white/95 px-4 backdrop-blur md:hidden">
+        {/* Mobile topbar — hidden when printing */}
+        <div className="no-print sticky top-0 z-20 flex h-14 items-center border-b border-slate-200 bg-white/95 px-4 backdrop-blur md:hidden">
           <button
             onClick={() => setMobileOpen((prev) => !prev)}
             className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition-colors hover:bg-slate-50"

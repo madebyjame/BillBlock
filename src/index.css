@@ -32,3 +32,56 @@
     display: block;
   }
 }
+
+/* ─── Print / PDF Layout ─────────────────────────────────────────────────────
+   ใช้กับ browser's built-in Print (Ctrl+P / Cmd+P)
+   เพื่อซ่อน UI chrome และจัดหน้ากระดาษ A4
+   ──────────────────────────────────────────────────────────────────────── */
+@media print {
+  /* ขนาดหน้าและ margin สำหรับ A4 */
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  /* Reset body background — ไม่ต้องพิมพ์พื้นหลังสีเทา */
+  html,
+  body,
+  #root {
+    height: auto !important;
+    background-color: #ffffff !important;
+  }
+
+  /* ซ่อน element ที่ไม่ต้องการพิมพ์ */
+  .no-print {
+    display: none !important;
+  }
+
+  /* ให้ main content ขยายเต็มหน้าโดยไม่มี overflow hidden */
+  main {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Document wrapper — เอา max-width ออก ให้เต็มหน้า A4 */
+  .print-full {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* หลีกเลี่ยงการตัดหน้ากลางตาราง */
+  tr,
+  td,
+  th {
+    page-break-inside: avoid;
+  }
+
+  /* ตัดหน้าก่อน section ใหม่ถ้าจำเป็น */
+  [data-pdf-no-break] {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
