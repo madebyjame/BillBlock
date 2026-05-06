@@ -1,7 +1,9 @@
 import type { MouseEvent } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, Search, FileUp, MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Search, FileUp, MoreVertical, Pencil, Trash2, Users } from 'lucide-react'
+import EmptyState from '../components/EmptyState'
+import TableSkeleton from '../components/TableSkeleton'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -240,8 +242,8 @@ export default function CustomersPage() {
         </div>
       )}
 
-      {loading ? <SkeletonTable /> : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        {loading ? <TableSkeleton cols={4} rows={6} hasCheckbox /> : (<>
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-500">
               <tr>
@@ -259,8 +261,16 @@ export default function CustomersPage() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-14 text-center text-slate-400">
-                    {rows.length === 0 ? 'ยังไม่มีข้อมูลลูกค้า' : 'ไม่พบลูกค้าที่ตรงกับเงื่อนไข'}
+                  <td colSpan={6}>
+                    <EmptyState
+                      icon={<Users size={22} />}
+                      title={rows.length === 0 ? 'ยังไม่มีข้อมูลลูกค้า' : 'ไม่พบลูกค้าที่ตรงกับเงื่อนไข'}
+                      description={
+                        rows.length === 0
+                          ? 'คลิก "เพิ่มข้อมูลใหม่" เพื่อเพิ่มข้อมูลลูกค้ารายการแรก'
+                          : 'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง'
+                      }
+                    />
                   </td>
                 </tr>
               ) : paginated.map(row => (
@@ -289,8 +299,8 @@ export default function CustomersPage() {
             </tbody>
           </table>
           <Pagination page={page} totalPages={totalPages} total={filtered.length} onPage={setPage} />
-        </div>
-      )}
+        </>)}
+      </div>
 
       {/* Modal */}
       {showModal && (
@@ -345,10 +355,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-function SkeletonTable() {
-  return (
-    <div className="animate-pulse rounded-xl border border-slate-200 bg-white p-4">
-      {[1, 2, 3, 4].map(i => <div key={i} className="mb-3 h-10 rounded bg-slate-100 last:mb-0" />)}
-    </div>
-  )
-}

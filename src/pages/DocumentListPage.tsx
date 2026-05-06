@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { FilePlus, Plus, Search, ChevronDown, MoreVertical, Eye, Pencil, Download, Trash2 } from 'lucide-react'
+import EmptyState from '../components/EmptyState'
+import TableSkeleton from '../components/TableSkeleton'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useDocumentsByType } from '../hooks/useDocumentsByType'
@@ -423,6 +425,10 @@ export default function DocumentListPage({ docType }: Props) {
 
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        {loading ? (
+          <TableSkeleton cols={5} rows={6} />
+        ) : (
+          <>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50 text-left">
@@ -435,46 +441,35 @@ export default function DocumentListPage({ docType }: Props) {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-16 text-center text-slate-400">
-                  <svg className="mx-auto mb-2 h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  กำลังโหลด...
-                </td>
-              </tr>
-            ) : error ? (
+            {error ? (
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center text-sm text-slate-400">{error}</td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-16 text-center text-slate-400">
-                  <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
-                    <FilePlus size={20} />
-                  </div>
-                  {rows.length === 0 ? (
-                    <>
-                      <p className="font-medium text-slate-600">ยังไม่มี{pageTitle}ในระบบ</p>
-                      <p className="mt-1 text-xs">คลิกปุ่มด้านบนเพื่อเริ่มสร้างเอกสาร</p>
-                      <button
-                        onClick={() => void handleCreate()}
-                        disabled={creating}
-                        className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                        style={{ backgroundColor: themeColor }}
-                      >
-                        <Plus size={14} />
-                        {createLabel}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <p className="font-medium text-slate-600">ไม่พบเอกสารที่ตรงกับเงื่อนไข</p>
-                      <p className="mt-1 text-xs">ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง</p>
-                    </>
-                  )}
+                <td colSpan={6}>
+                  <EmptyState
+                    icon={<FilePlus size={22} />}
+                    title={rows.length === 0 ? `ยังไม่มี${pageTitle}ในระบบ` : 'ไม่พบเอกสารที่ตรงกับเงื่อนไข'}
+                    description={
+                      rows.length === 0
+                        ? 'คลิกปุ่มด้านบนเพื่อเริ่มสร้างเอกสารรายการแรก'
+                        : 'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง'
+                    }
+                    action={
+                      rows.length === 0 ? (
+                        <button
+                          onClick={() => void handleCreate()}
+                          disabled={creating}
+                          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                          style={{ backgroundColor: themeColor }}
+                        >
+                          <Plus size={14} />
+                          {createLabel}
+                        </button>
+                      ) : undefined
+                    }
+                  />
                 </td>
               </tr>
             ) : paginated.map((row) => (
@@ -517,6 +512,8 @@ export default function DocumentListPage({ docType }: Props) {
           total={filtered.length}
           onPage={setPage}
         />
+          </>
+        )}
       </div>
     </div>
   )
