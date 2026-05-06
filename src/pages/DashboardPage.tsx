@@ -1,7 +1,31 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FilePlus, FileSearch } from 'lucide-react'
+import { TrendingUp, Clock, FileText, Users, FilePlus } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { useDocuments } from '../hooks/useDocuments'
+import { supabase } from '../lib/supabase'
+
+interface DashboardDoc {
+  id: string
+  doc_type: string
+  status: 'draft' | 'sent' | 'paid' | 'cancelled'
+  total_amount: number
+  created_at: string
+  content: unknown
+}
+
+const STATUS_LABEL: Record<DashboardDoc['status'], string> = {
+  draft:     'ฉบับร่าง',
+  sent:      'ส่งแล้ว',
+  paid:      'ชำระแล้ว',
+  cancelled: 'ยกเลิก',
+}
+
+const STATUS_CLASS: Record<DashboardDoc['status'], string> = {
+  draft:     'bg-slate-100 text-slate-500',
+  sent:      'bg-blue-100 text-blue-700',
+  paid:      'bg-green-100 text-green-700',
+  cancelled: 'bg-red-100 text-red-500',
+}
 
 const DOC_TYPE_LABEL: Record<string, string> = {
   quotation:      'ใบเสนอราคา',
@@ -9,13 +33,6 @@ const DOC_TYPE_LABEL: Record<string, string> = {
   receipt:        'ใบเสร็จรับเงิน',
   'billing-note': 'ใบวางบิล',
   'tax-invoice':  'ใบกำกับภาษี',
-}
-
-const STATUS_LABEL: Record<string, string> = {
-  draft:     'ฉบับร่าง',
-  sent:      'ส่งแล้ว',
-  paid:      'ชำระแล้ว',
-  cancelled: 'ยกเลิก',
 }
 
 function fmtAmount(n: number) {
@@ -26,147 +43,295 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+function getCustomerName(content: unknown): string {
+  if (content !== null && typeof content === 'object' && 'customer' in content) {
+    const c = (content as { customer?: { name?: unknown } }).customer
+    if (c && typeof c.name === 'string' && c.name.trim()) return c.name
+  }
+  return '—'
+}
+
+// ─── SVG Line Chart ───────────────────────────────────────────────────────────
+
+function LineChart({ data }: { data: { label: string; value: number }[] }) {
+  if (data.length < 2) return (
+    <div className="flex h-40 items-center justify-center text-sm text-slate-300">ยังไม่มีข้อมูลเพียงพอ</div>
+  )
+
+  const W = 560
+  const H = 150
+  const PX = 8
+  const PY = 12
+  const innerW = W - PX * 2
+  const innerH = H - PY * 2 - 20
+
+  const maxVal = Math.max(...data.map(d => d.value), 1)
+
+  const pts = data.map((d, i) => ({
+    x: PX + (i / (data.length - 1)) * innerW,
+    y: PY + (1 - d.value / maxVal) * innerH,
+    label: d.label,
+  }))
+
+  const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
+  const areaD = `${pathD} L ${pts[pts.length - 1].x.toFixed(1)} ${(PY + innerH).toFixed(1)} L ${pts[0].x.toFixed(1)} ${(PY + innerH).toFixed(1)} Z`
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 160 }}>
+      <defs>
+        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.12" />
+          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {[0, 0.5, 1].map((t) => (
+        <line
+          key={t}
+          x1={PX} y1={(PY + t * innerH).toFixed(1)}
+          x2={W - PX} y2={(PY + t * innerH).toFixed(1)}
+          stroke="#e2e8f0" strokeWidth="1"
+        />
+      ))}
+      <path d={areaD} fill="url(#areaGrad)" />
+      <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {pts.map((p) => (
+        <circle key={p.label} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="3.5" fill="white" stroke="#3b82f6" strokeWidth="2" />
+      ))}
+      {pts.map((p) => (
+        <text key={`lbl-${p.label}`} x={p.x.toFixed(1)} y={H - 2} textAnchor="middle" fill="#94a3b8" fontSize="11">
+          {p.label}
+        </text>
+      ))}
+    </svg>
+  )
+}
+
+// ─── Dashboard Page ───────────────────────────────────────────────────────────
+
 export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const { recentRows, loading, stats } = useDocuments()
+
+  const [loading, setLoading] = useState(true)
+  const [totalRevenue, setTotalRevenue] = useState(0)
+  const [pendingCollection, setPendingCollection] = useState(0)
+  const [quotationsValue, setQuotationsValue] = useState(0)
+  const [totalCustomers, setTotalCustomers] = useState(0)
+  const [monthlyData, setMonthlyData] = useState<{ label: string; value: number }[]>([])
+  const [recentDocs, setRecentDocs] = useState<DashboardDoc[]>([])
+
   const themeColor = typeof user?.user_metadata?.themeColor === 'string'
     ? user.user_metadata.themeColor
     : '#1e3a8a'
 
+  useEffect(() => {
+    void loadData()
+  }, [])
+
+  async function loadData() {
+    setLoading(true)
+    try {
+      const [docsRes, countRes] = await Promise.all([
+        supabase
+          .from('documents')
+          .select('id, doc_type, status, total_amount, created_at, content')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('customers')
+          .select('*', { count: 'exact', head: true }),
+      ])
+
+      const docs = (docsRes.data ?? []) as DashboardDoc[]
+
+      // KPI: Total Revenue — invoice + paid
+      setTotalRevenue(
+        docs
+          .filter(d => d.doc_type === 'invoice' && d.status === 'paid')
+          .reduce((sum, d) => sum + d.total_amount, 0)
+      )
+
+      // KPI: Pending Collection — invoice + sent
+      setPendingCollection(
+        docs
+          .filter(d => d.doc_type === 'invoice' && d.status === 'sent')
+          .reduce((sum, d) => sum + d.total_amount, 0)
+      )
+
+      // KPI: Quotations Value — quotation (all statuses)
+      setQuotationsValue(
+        docs
+          .filter(d => d.doc_type === 'quotation')
+          .reduce((sum, d) => sum + d.total_amount, 0)
+      )
+
+      // KPI: Total Customers
+      setTotalCustomers(countRes.count ?? 0)
+
+      // Monthly chart: paid invoices, last 6 months
+      const now = new Date()
+      const months = Array.from({ length: 6 }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1)
+        return {
+          key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+          label: d.toLocaleDateString('th-TH', { month: 'short' }),
+          value: 0,
+        }
+      })
+      for (const doc of docs.filter(d => d.doc_type === 'invoice' && d.status === 'paid')) {
+        const key = doc.created_at.slice(0, 7)
+        const m = months.find(m => m.key === key)
+        if (m) m.value += doc.total_amount
+      }
+      setMonthlyData(months.map(({ label, value }) => ({ label, value })))
+
+      // Recent docs: last 8
+      setRecentDocs(docs.slice(0, 8))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const kpiCards = [
+    {
+      label: 'รายได้รวม',
+      value: `฿${fmtAmount(totalRevenue)}`,
+      sub: 'Invoice ที่ชำระแล้ว',
+      icon: <TrendingUp size={18} />,
+      iconClass: 'bg-green-50 text-green-600',
+    },
+    {
+      label: 'รอเรียกเก็บ',
+      value: `฿${fmtAmount(pendingCollection)}`,
+      sub: 'Invoice ที่ยังค้างชำระ',
+      icon: <Clock size={18} />,
+      iconClass: 'bg-amber-50 text-amber-600',
+    },
+    {
+      label: 'ยอดเสนอราคา',
+      value: `฿${fmtAmount(quotationsValue)}`,
+      sub: 'ใบเสนอราคาทั้งหมด',
+      icon: <FileText size={18} />,
+      iconClass: 'bg-blue-50 text-blue-600',
+    },
+    {
+      label: 'ลูกค้าทั้งหมด',
+      value: totalCustomers.toLocaleString('th-TH'),
+      sub: 'จำนวนลูกค้าในระบบ',
+      icon: <Users size={18} />,
+      iconClass: 'bg-purple-50 text-purple-600',
+    },
+  ]
+
   return (
-    <div className="mx-auto max-w-7xl p-4 md:p-8">
-      <div className="mb-6 md:mb-8">
+    <div className="mx-auto max-w-5xl p-4 md:p-8">
+      {/* Header */}
+      <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
-        <p className="mt-1 text-sm text-slate-500">ยินดีต้อนรับ, {user?.email}</p>
+        <p className="mt-1 text-sm text-slate-400">ยินดีต้อนรับ, {user?.email}</p>
       </div>
 
-      {loading ? (
-        <DashboardSkeleton />
-      ) : (
-        <>
-          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-sm font-medium text-slate-500">ยอดรวมยอดขาย</p>
-              <p className="mt-3 text-2xl font-semibold text-slate-900">฿ {fmtAmount(stats.totalAmount)}</p>
-              <p className="mt-2 text-xs text-slate-400">ยอดรวมจากเอกสารทั้งหมด</p>
+      {/* KPI Cards */}
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {kpiCards.map((card) => (
+          <div key={card.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className={`mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl ${card.iconClass}`}>
+              {card.icon}
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-sm font-medium text-slate-500">เอกสารทั้งหมด</p>
-              <p className="mt-3 text-2xl font-semibold text-slate-900">{stats.total} รายการ</p>
-              <p className="mt-2 text-xs text-slate-400">รวมทุกรายการในระบบ</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-sm font-medium text-slate-500">เอกสารเดือนนี้</p>
-              <p className="mt-3 text-2xl font-semibold text-slate-900">฿ {fmtAmount(stats.thisMonthAmount)}</p>
-              <p className="mt-2 text-xs text-slate-400">{stats.thisMonth} เอกสารภายในเดือนปัจจุบัน</p>
-            </div>
-          </div>
-
-          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <button
-              onClick={() => navigate('/documents/quotations')}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-colors hover:bg-slate-50"
-            >
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-white" style={{ backgroundColor: themeColor }}>
-                <FilePlus size={18} />
-              </div>
-              <div>
-                <p className="font-semibold text-slate-800">สร้างเอกสารใหม่</p>
-                <p className="mt-0.5 text-xs text-slate-500">ใบเสนอราคา, ใบแจ้งหนี้ และอื่นๆ</p>
-              </div>
-            </button>
-
-            <button
-              onClick={() => navigate('/documents/quotations')}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-colors hover:bg-slate-50"
-            >
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100">
-                <FileSearch size={18} className="text-slate-500" />
-              </div>
-              <div>
-                <p className="font-semibold text-slate-800">เอกสารทั้งหมด</p>
-                <p className="mt-0.5 text-xs text-slate-500">ดูและจัดการเอกสารที่บันทึกไว้</p>
-              </div>
-            </button>
-          </div>
-
-          {recentRows.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-                <FilePlus size={28} />
-              </div>
-              <h2 className="text-lg font-semibold text-slate-800">ยังไม่มีเอกสารใบแรก</h2>
-              <p className="mt-1 text-sm text-slate-500">เริ่มสร้างเอกสารของคุณได้ที่นี่</p>
-              <button
-                onClick={() => navigate('/documents/quotations')}
-                className="mx-auto mt-6 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
-                style={{ backgroundColor: themeColor }}
-              >
-                <FileSearch size={16} />
-                สร้างเอกสารใหม่
-              </button>
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-                <p className="text-sm font-semibold text-slate-700">เอกสารล่าสุด</p>
-                <button
-                  onClick={() => navigate('/documents/quotations')}
-                  className="text-xs font-medium text-slate-500 transition-colors hover:text-slate-700"
-                >
-                  ดูทั้งหมด
-                </button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-sm">
-                  <thead className="bg-slate-50">
-                    <tr className="text-slate-500">
-                      <th className="px-5 py-3 font-medium">ประเภท</th>
-                      <th className="px-5 py-3 font-medium">วันที่สร้าง</th>
-                      <th className="px-5 py-3 font-medium">แก้ไขล่าสุด</th>
-                      <th className="px-5 py-3 text-right font-medium">ยอดรวม</th>
-                      <th className="px-5 py-3 font-medium">สถานะ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentRows.map((row) => (
-                      <tr key={row.id} className="border-t border-slate-100 text-slate-700">
-                        <td className="px-5 py-3 font-medium">{DOC_TYPE_LABEL[row.doc_type] ?? row.doc_type}</td>
-                        <td className="px-5 py-3">{fmtDate(row.created_at)}</td>
-                        <td className="px-5 py-3">{fmtDate(row.updated_at)}</td>
-                        <td className="px-5 py-3 text-right font-medium">฿ {fmtAmount(row.total_amount)}</td>
-                        <td className="px-5 py-3 text-slate-500">{STATUS_LABEL[row.status] ?? row.status}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
-
-function DashboardSkeleton() {
-  return (
-    <div className="animate-pulse">
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-        {[1, 2, 3].map((item) => (
-          <div key={item} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="h-3 w-24 rounded bg-slate-200" />
-            <div className="mt-4 h-8 w-36 rounded bg-slate-200" />
-            <div className="mt-3 h-3 w-40 rounded bg-slate-100" />
+            <p className="text-xs text-slate-400">{card.label}</p>
+            <p className="mt-0.5 text-xl font-bold leading-tight text-slate-800">
+              {loading ? <span className="inline-block h-6 w-24 animate-pulse rounded bg-slate-100" /> : card.value}
+            </p>
+            <p className="mt-0.5 text-[11px] text-slate-400">{card.sub}</p>
           </div>
         ))}
       </div>
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 h-4 w-32 rounded bg-slate-200" />
-        {[1, 2, 3, 4].map((row) => (
-          <div key={row} className="mb-3 h-10 rounded bg-slate-100 last:mb-0" />
-        ))}
+
+      {/* Line Chart */}
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-700">รายได้รายเดือน</h2>
+          <span className="text-xs text-slate-400">Invoice ที่ชำระแล้ว (6 เดือนล่าสุด)</span>
+        </div>
+        {loading ? (
+          <div className="flex h-40 items-center justify-center">
+            <svg className="h-5 w-5 animate-spin text-slate-300" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          </div>
+        ) : (
+          <LineChart data={monthlyData} />
+        )}
+      </div>
+
+      {/* Recent Transactions */}
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <h2 className="text-sm font-semibold text-slate-700">เอกสารล่าสุด</h2>
+          <button
+            onClick={() => navigate('/documents/invoices')}
+            className="text-xs font-medium text-slate-400 transition-colors hover:text-slate-600"
+          >
+            ดูทั้งหมด →
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="px-5 py-8">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="mb-3 h-9 animate-pulse rounded-lg bg-slate-100 last:mb-0" />
+            ))}
+          </div>
+        ) : recentDocs.length === 0 ? (
+          <div className="px-5 py-16 text-center">
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+              <FilePlus size={20} />
+            </div>
+            <p className="font-medium text-slate-600">ยังไม่มีเอกสารในระบบ</p>
+            <p className="mt-1 text-xs text-slate-400">เริ่มสร้างเอกสารใบแรกได้เลย</p>
+            <button
+              onClick={() => navigate('/documents/quotations')}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: themeColor }}
+            >
+              <FilePlus size={14} />
+              สร้างเอกสาร
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50 text-left">
+                  <th className="px-5 py-3 font-semibold text-slate-500">ชื่อลูกค้า</th>
+                  <th className="px-5 py-3 font-semibold text-slate-500">ประเภท</th>
+                  <th className="px-5 py-3 font-semibold text-slate-500">วันที่</th>
+                  <th className="px-5 py-3 text-right font-semibold text-slate-500">ยอดรวม</th>
+                  <th className="px-5 py-3 font-semibold text-slate-500">สถานะ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentDocs.map((doc) => (
+                  <tr
+                    key={doc.id}
+                    onClick={() => navigate(`/editor/${doc.id}`)}
+                    className="cursor-pointer border-b border-slate-50 transition-colors hover:bg-slate-50 last:border-0"
+                  >
+                    <td className="px-5 py-3 font-medium text-slate-700">{getCustomerName(doc.content)}</td>
+                    <td className="px-5 py-3 text-slate-500">{DOC_TYPE_LABEL[doc.doc_type] ?? doc.doc_type}</td>
+                    <td className="px-5 py-3 text-slate-400">{fmtDate(doc.created_at)}</td>
+                    <td className="px-5 py-3 text-right font-medium text-slate-700">฿{fmtAmount(doc.total_amount)}</td>
+                    <td className="px-5 py-3">
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[doc.status]}`}>
+                        {STATUS_LABEL[doc.status]}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )
