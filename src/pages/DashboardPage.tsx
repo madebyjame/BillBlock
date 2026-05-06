@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { TrendingUp, Clock, FileText, Users, FilePlus } from 'lucide-react'
+import { TrendingUp, Clock, FileText, Users, FilePlus, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 
@@ -13,6 +13,9 @@ interface DashboardDoc {
   content: unknown
 }
 
+type SortCol = 'created_at' | 'total_amount'
+type SortDir = 'asc' | 'desc'
+
 const STATUS_LABEL: Record<DashboardDoc['status'], string> = {
   draft:     'ฉบับร่าง',
   sent:      'ส่งแล้ว',
@@ -21,7 +24,7 @@ const STATUS_LABEL: Record<DashboardDoc['status'], string> = {
 }
 
 const STATUS_CLASS: Record<DashboardDoc['status'], string> = {
-  draft:     'bg-slate-100 text-slate-500',
+  draft:     'bg-slate-200 text-slate-700',
   sent:      'bg-blue-100 text-blue-700',
   paid:      'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-500',
@@ -43,6 +46,23 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+function fmtYAxis(n: number): string {
+  if (n === 0) return '0'
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`
+  if (n >= 1000) return `${Math.round(n / 1000)}k`
+  return n.toLocaleString('th-TH')
+}
+
+function niceMax(n: number): number {
+  if (n === 0) return 1000
+  const mag = Math.pow(10, Math.floor(Math.log10(n)))
+  const norm = n / mag
+  if (norm <= 1) return mag
+  if (norm <= 2) return 2 * mag
+  if (norm <= 5) return 5 * mag
+  return 10 * mag
+}
+
 function getCustomerName(content: unknown): string {
   if (content !== null && typeof content === 'object' && 'customer' in content) {
     const c = (content as { customer?: { name?: unknown } }).customer
@@ -51,59 +71,85 @@ function getCustomerName(content: unknown): string {
   return '—'
 }
 
-// ─── SVG Line Chart ───────────────────────────────────────────────────────────
+// ─── SVG Line Chart with Y-axis ───────────────────────────────────────────────
 
 function LineChart({ data }: { data: { label: string; value: number }[] }) {
   if (data.length < 2) return (
-    <div className="flex h-40 items-center justify-center text-sm text-slate-300">ยังไม่มีข้อมูลเพียงพอ</div>
+    <div className="flex h-44 items-center justify-center text-sm text-slate-300">ยังไม่มีข้อมูลเพียงพอ</div>
   )
 
   const W = 560
-  const H = 150
-  const PX = 8
-  const PY = 12
-  const innerW = W - PX * 2
-  const innerH = H - PY * 2 - 20
+  const H = 170
+  const PL = 52   // left padding for Y-axis labels
+  const PR = 8
+  const PT = 12
+  const PB = 22   // bottom padding for X-axis labels
 
-  const maxVal = Math.max(...data.map(d => d.value), 1)
+  const innerW = W - PL - PR
+  const innerH = H - PT - PB
+
+  const maxVal = Math.max(...data.map(d => d.value))
+  const yMax = niceMax(maxVal)
+  const yTicks = [0, yMax * 0.5, yMax]
 
   const pts = data.map((d, i) => ({
-    x: PX + (i / (data.length - 1)) * innerW,
-    y: PY + (1 - d.value / maxVal) * innerH,
+    x: PL + (i / (data.length - 1)) * innerW,
+    y: PT + (1 - d.value / yMax) * innerH,
     label: d.label,
+    value: d.value,
   }))
 
   const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
-  const areaD = `${pathD} L ${pts[pts.length - 1].x.toFixed(1)} ${(PY + innerH).toFixed(1)} L ${pts[0].x.toFixed(1)} ${(PY + innerH).toFixed(1)} Z`
+  const areaD = `${pathD} L ${pts[pts.length - 1].x.toFixed(1)} ${(PT + innerH).toFixed(1)} L ${pts[0].x.toFixed(1)} ${(PT + innerH).toFixed(1)} Z`
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 160 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 176 }}>
       <defs>
         <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.12" />
           <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
         </linearGradient>
       </defs>
-      {[0, 0.5, 1].map((t) => (
-        <line
-          key={t}
-          x1={PX} y1={(PY + t * innerH).toFixed(1)}
-          x2={W - PX} y2={(PY + t * innerH).toFixed(1)}
-          stroke="#e2e8f0" strokeWidth="1"
-        />
-      ))}
+
+      {/* Y-axis grid lines + labels */}
+      {yTicks.map((tick) => {
+        const y = (PT + (1 - tick / yMax) * innerH).toFixed(1)
+        return (
+          <g key={tick}>
+            <line x1={PL} y1={y} x2={W - PR} y2={y} stroke="#e2e8f0" strokeWidth="1" />
+            <text x={PL - 6} y={y} textAnchor="end" dominantBaseline="middle" fill="#94a3b8" fontSize="10">
+              {fmtYAxis(tick)}
+            </text>
+          </g>
+        )
+      })}
+
+      {/* Area + Line */}
       <path d={areaD} fill="url(#areaGrad)" />
       <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+
+      {/* Points */}
       {pts.map((p) => (
         <circle key={p.label} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="3.5" fill="white" stroke="#3b82f6" strokeWidth="2" />
       ))}
+
+      {/* X-axis labels */}
       {pts.map((p) => (
-        <text key={`lbl-${p.label}`} x={p.x.toFixed(1)} y={H - 2} textAnchor="middle" fill="#94a3b8" fontSize="11">
+        <text key={`x-${p.label}`} x={p.x.toFixed(1)} y={H - 4} textAnchor="middle" fill="#94a3b8" fontSize="11">
           {p.label}
         </text>
       ))}
     </svg>
   )
+}
+
+// ─── Sort Icon ────────────────────────────────────────────────────────────────
+
+function SortIcon({ col, sortCol, sortDir }: { col: SortCol; sortCol: SortCol; sortDir: SortDir }) {
+  if (col !== sortCol) return <ChevronsUpDown size={13} className="text-slate-300" />
+  return sortDir === 'asc'
+    ? <ChevronUp size={13} className="text-slate-500" />
+    : <ChevronDown size={13} className="text-slate-500" />
 }
 
 // ─── Dashboard Page ───────────────────────────────────────────────────────────
@@ -113,12 +159,15 @@ export default function DashboardPage() {
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
+  const [companyName, setCompanyName] = useState('')
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [pendingCollection, setPendingCollection] = useState(0)
   const [quotationsValue, setQuotationsValue] = useState(0)
   const [totalCustomers, setTotalCustomers] = useState(0)
   const [monthlyData, setMonthlyData] = useState<{ label: string; value: number }[]>([])
-  const [recentDocs, setRecentDocs] = useState<DashboardDoc[]>([])
+  const [allRecentDocs, setAllRecentDocs] = useState<DashboardDoc[]>([])
+  const [sortCol, setSortCol] = useState<SortCol>('created_at')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   const themeColor = typeof user?.user_metadata?.themeColor === 'string'
     ? user.user_metadata.themeColor
@@ -131,7 +180,7 @@ export default function DashboardPage() {
   async function loadData() {
     setLoading(true)
     try {
-      const [docsRes, countRes] = await Promise.all([
+      const [docsRes, countRes, profileRes] = await Promise.all([
         supabase
           .from('documents')
           .select('id, doc_type, status, total_amount, created_at, content')
@@ -139,35 +188,34 @@ export default function DashboardPage() {
         supabase
           .from('customers')
           .select('*', { count: 'exact', head: true }),
+        supabase
+          .from('profiles')
+          .select('company_name')
+          .maybeSingle(),
       ])
 
       const docs = (docsRes.data ?? []) as DashboardDoc[]
 
-      // KPI: Total Revenue — invoice + paid
+      setCompanyName(
+        typeof profileRes.data?.company_name === 'string' && profileRes.data.company_name.trim()
+          ? profileRes.data.company_name
+          : ''
+      )
+
       setTotalRevenue(
-        docs
-          .filter(d => d.doc_type === 'invoice' && d.status === 'paid')
-          .reduce((sum, d) => sum + d.total_amount, 0)
+        docs.filter(d => d.doc_type === 'invoice' && d.status === 'paid')
+          .reduce((s, d) => s + d.total_amount, 0)
       )
-
-      // KPI: Pending Collection — invoice + sent
       setPendingCollection(
-        docs
-          .filter(d => d.doc_type === 'invoice' && d.status === 'sent')
-          .reduce((sum, d) => sum + d.total_amount, 0)
+        docs.filter(d => d.doc_type === 'invoice' && d.status === 'sent')
+          .reduce((s, d) => s + d.total_amount, 0)
       )
-
-      // KPI: Quotations Value — quotation (all statuses)
       setQuotationsValue(
-        docs
-          .filter(d => d.doc_type === 'quotation')
-          .reduce((sum, d) => sum + d.total_amount, 0)
+        docs.filter(d => d.doc_type === 'quotation')
+          .reduce((s, d) => s + d.total_amount, 0)
       )
-
-      // KPI: Total Customers
       setTotalCustomers(countRes.count ?? 0)
 
-      // Monthly chart: paid invoices, last 6 months
       const now = new Date()
       const months = Array.from({ length: 6 }, (_, i) => {
         const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1)
@@ -183,26 +231,44 @@ export default function DashboardPage() {
         if (m) m.value += doc.total_amount
       }
       setMonthlyData(months.map(({ label, value }) => ({ label, value })))
-
-      // Recent docs: last 8
-      setRecentDocs(docs.slice(0, 8))
+      setAllRecentDocs(docs.slice(0, 20))
     } finally {
       setLoading(false)
     }
   }
 
+  function toggleSort(col: SortCol) {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortCol(col)
+      setSortDir('desc')
+    }
+  }
+
+  const recentDocs = [...allRecentDocs]
+    .sort((a, b) => {
+      const aVal = sortCol === 'created_at' ? a.created_at : a.total_amount
+      const bVal = sortCol === 'created_at' ? b.created_at : b.total_amount
+      const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    .slice(0, 8)
+
+  const displayName = companyName || 'ผู้ใช้งาน'
+
   const kpiCards = [
     {
       label: 'รายได้รวม',
       value: `฿${fmtAmount(totalRevenue)}`,
-      sub: 'Invoice ที่ชำระแล้ว',
+      sub: 'ใบแจ้งหนี้ที่ชำระแล้ว',
       icon: <TrendingUp size={18} />,
       iconClass: 'bg-green-50 text-green-600',
     },
     {
       label: 'รอเรียกเก็บ',
       value: `฿${fmtAmount(pendingCollection)}`,
-      sub: 'Invoice ที่ยังค้างชำระ',
+      sub: 'ใบแจ้งหนี้ที่ค้างชำระ',
       icon: <Clock size={18} />,
       iconClass: 'bg-amber-50 text-amber-600',
     },
@@ -227,7 +293,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
-        <p className="mt-1 text-sm text-slate-400">ยินดีต้อนรับ, {user?.email}</p>
+        <p className="mt-1 text-sm text-slate-400">ยินดีต้อนรับ, {displayName}</p>
       </div>
 
       {/* KPI Cards */}
@@ -239,7 +305,10 @@ export default function DashboardPage() {
             </div>
             <p className="text-xs text-slate-400">{card.label}</p>
             <p className="mt-0.5 text-xl font-bold leading-tight text-slate-800">
-              {loading ? <span className="inline-block h-6 w-24 animate-pulse rounded bg-slate-100" /> : card.value}
+              {loading
+                ? <span className="inline-block h-6 w-24 animate-pulse rounded bg-slate-100" />
+                : card.value
+              }
             </p>
             <p className="mt-0.5 text-[11px] text-slate-400">{card.sub}</p>
           </div>
@@ -250,10 +319,10 @@ export default function DashboardPage() {
       <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-700">รายได้รายเดือน</h2>
-          <span className="text-xs text-slate-400">Invoice ที่ชำระแล้ว (6 เดือนล่าสุด)</span>
+          <span className="text-xs text-slate-400">ใบแจ้งหนี้ที่ชำระแล้ว (6 เดือนล่าสุด)</span>
         </div>
         {loading ? (
-          <div className="flex h-40 items-center justify-center">
+          <div className="flex h-44 items-center justify-center">
             <svg className="h-5 w-5 animate-spin text-slate-300" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -305,8 +374,24 @@ export default function DashboardPage() {
                 <tr className="border-b border-slate-100 bg-slate-50 text-left">
                   <th className="px-5 py-3 font-semibold text-slate-500">ชื่อลูกค้า</th>
                   <th className="px-5 py-3 font-semibold text-slate-500">ประเภท</th>
-                  <th className="px-5 py-3 font-semibold text-slate-500">วันที่</th>
-                  <th className="px-5 py-3 text-right font-semibold text-slate-500">ยอดรวม</th>
+                  <th className="px-5 py-3 font-semibold text-slate-500">
+                    <button
+                      onClick={() => toggleSort('created_at')}
+                      className="inline-flex items-center gap-1 hover:text-slate-700"
+                    >
+                      วันที่
+                      <SortIcon col="created_at" sortCol={sortCol} sortDir={sortDir} />
+                    </button>
+                  </th>
+                  <th className="px-5 py-3 text-right font-semibold text-slate-500">
+                    <button
+                      onClick={() => toggleSort('total_amount')}
+                      className="inline-flex items-center gap-1 hover:text-slate-700 ml-auto"
+                    >
+                      ยอดรวม
+                      <SortIcon col="total_amount" sortCol={sortCol} sortDir={sortDir} />
+                    </button>
+                  </th>
                   <th className="px-5 py-3 font-semibold text-slate-500">สถานะ</th>
                 </tr>
               </thead>
