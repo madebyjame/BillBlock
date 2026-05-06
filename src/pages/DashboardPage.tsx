@@ -1,10 +1,7 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FilePlus, FileSearch } from 'lucide-react'
-import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useDocuments } from '../hooks/useDocuments'
-import { createDocument } from '../lib/documentApi'
 
 const DOC_TYPE_LABEL: Record<string, string> = {
   invoice: 'ใบแจ้งหนี้',
@@ -26,22 +23,9 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { recentRows, loading, stats } = useDocuments()
-  const [creating, setCreating] = useState(false)
   const themeColor = typeof user?.user_metadata?.themeColor === 'string'
     ? user.user_metadata.themeColor
     : '#1e3a8a'
-
-  async function handleCreate() {
-    if (!user || creating) return
-    setCreating(true)
-    try {
-      const id = await createDocument(user.id)
-      navigate(`/editor/${id}`)
-    } catch {
-      toast.error('สร้างเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
-      setCreating(false)
-    }
-  }
 
   return (
     <div className="mx-auto max-w-7xl p-4 md:p-8">
@@ -74,9 +58,8 @@ export default function DashboardPage() {
 
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <button
-              onClick={() => void handleCreate()}
-              disabled={creating}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-60"
+              onClick={() => navigate('/documents/quotations')}
+              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-colors hover:bg-slate-50"
             >
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-white" style={{ backgroundColor: themeColor }}>
                 <FilePlus size={18} />
@@ -88,7 +71,7 @@ export default function DashboardPage() {
             </button>
 
             <button
-              onClick={() => navigate('/documents')}
+              onClick={() => navigate('/documents/quotations')}
               className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-6 text-left shadow-sm transition-colors hover:bg-slate-50"
             >
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100">
@@ -109,9 +92,8 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold text-slate-800">ยังไม่มีเอกสารใบแรก</h2>
               <p className="mt-1 text-sm text-slate-500">เริ่มสร้างเอกสารของคุณได้ที่นี่</p>
               <button
-                onClick={() => void handleCreate()}
-                disabled={creating}
-                className="mx-auto mt-6 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+                onClick={() => navigate('/documents/quotations')}
+                className="mx-auto mt-6 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
                 style={{ backgroundColor: themeColor }}
               >
                 <FileSearch size={16} />
@@ -123,7 +105,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                 <p className="text-sm font-semibold text-slate-700">เอกสารล่าสุด</p>
                 <button
-                  onClick={() => navigate('/documents')}
+                  onClick={() => navigate('/documents/quotations')}
                   className="text-xs font-medium text-slate-500 transition-colors hover:text-slate-700"
                 >
                   ดูทั้งหมด

@@ -121,7 +121,7 @@ export default function EditorPage() {
     }
 
     void loadFromCloud()
-  }, [id, user])
+  }, [id, user, searchParams, navigate])
 
   // ─── Loading / Error States ───────────────────────────────────────────────
   if (docLoading) return (
@@ -141,15 +141,13 @@ export default function EditorPage() {
       <div className="text-center">
         <p className="mb-2 font-medium text-slate-700">โหลดเอกสารไม่สำเร็จ</p>
         <p className="mb-4 text-sm text-slate-400">{docError}</p>
-        <button onClick={() => navigate('/documents')}
+        <button onClick={() => navigate(-1)}
           className="rounded-lg bg-blue-700 px-4 py-2 text-sm text-white hover:bg-blue-800">
-          กลับไปรายการเอกสาร
+          กลับ
         </button>
       </div>
     </div>
   )
-
-  console.log('Current Document Data:', doc)
 
   return (
     <EditorUI
