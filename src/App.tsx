@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
-import { Toaster } from 'sonner'
 import { useAuth } from './context/AuthContext'
 import LoginPage from './components/LoginPage'
 import MainLayout from './layouts/MainLayout'
@@ -41,7 +40,6 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <BrowserRouter>
-      <Toaster position="top-center" richColors />
       <Routes>
 
         <Route path="/login" element={
