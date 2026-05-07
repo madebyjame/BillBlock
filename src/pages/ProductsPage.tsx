@@ -4,6 +4,13 @@ import { createPortal } from 'react-dom'
 import { Plus, Search, FileUp, MoreVertical, Pencil, Trash2, Box } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
+import { useEffect, useMemo, useState } from 'react'
+import { Plus, Search, FileUp, Box } from 'lucide-react'
+import EmptyState from '../components/EmptyState'
+import TableSkeleton from '../components/TableSkeleton'
+import { KebabMenu } from '../components/KebabMenu'
+import { Pagination } from '../components/Pagination'
+import { FormField } from '../components/FormField'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -103,6 +110,7 @@ function Pagination({ page, totalPages, total, onPage }: {
     </div>
   )
 }
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
@@ -167,6 +175,18 @@ export default function ProductsPage() {
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
+  }
+
+  async function handleBulkDelete() {
+    if (!confirm(`ลบสินค้า ${selectedIds.size} รายการ?`)) return
+    try {
+      await Promise.all([...selectedIds].map(id => deleteProduct(id)))
+      toast.success(`ลบสินค้า ${selectedIds.size} รายการแล้ว`)
+      setSelectedIds(new Set())
+      await loadRows()
+    } catch { toast.error('ลบไม่สำเร็จ กรุณาลองใหม่') }
+  }
+
   }
 
   async function handleBulkDelete() {
@@ -308,6 +328,16 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <KebabMenu onEdit={() => openEdit(row)} onDelete={() => void onDelete(row.id)} />
+                  <td className="px-4 py-3 text-right">
+                    <span className={`font-medium ${row.stock === 0 ? 'text-red-500' : 'text-slate-700'}`}>
+                      {row.stock.toLocaleString('th-TH')}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-600">
+                    {row.price.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <KebabMenu onEdit={() => openEdit(row)} onDelete={() => void onDelete(row.id)} deleteLabel="ลบสินค้า" />
                   </td>
                 </tr>
               ))}
@@ -346,6 +376,27 @@ export default function ProductsPage() {
                 <input type="number" min={0} value={form.price} onChange={e => setForm(p => ({ ...p, price: Number(e.target.value) || 0 }))}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
               </Field>
+              <FormField label="ชื่อสินค้า/บริการ">
+                <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </FormField>
+              <FormField label="หมวดหมู่">
+                <input value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
+                  placeholder="เช่น อาหาร, อุปกรณ์สำนักงาน"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </FormField>
+              <FormField label="หน่วย">
+                <input value={form.unit} onChange={e => setForm(p => ({ ...p, unit: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </FormField>
+              <FormField label="จำนวนคงเหลือ (Stock)">
+                <input type="number" min={0} value={form.stock} onChange={e => setForm(p => ({ ...p, stock: Number(e.target.value) || 0 }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </FormField>
+              <FormField label="ราคา/หน่วย">
+                <input type="number" min={0} value={form.price} onChange={e => setForm(p => ({ ...p, price: Number(e.target.value) || 0 }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </FormField>
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setShowModal(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600">ยกเลิก</button>

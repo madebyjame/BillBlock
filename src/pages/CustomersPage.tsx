@@ -4,6 +4,13 @@ import { createPortal } from 'react-dom'
 import { Plus, Search, FileUp, MoreVertical, Pencil, Trash2, Users } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
+import { useEffect, useMemo, useState } from 'react'
+import { Plus, Search, FileUp, Users } from 'lucide-react'
+import EmptyState from '../components/EmptyState'
+import TableSkeleton from '../components/TableSkeleton'
+import { KebabMenu } from '../components/KebabMenu'
+import { Pagination } from '../components/Pagination'
+import { FormField } from '../components/FormField'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -77,6 +84,7 @@ function KebabMenu({
     </>
   )
 }
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
 
@@ -154,6 +162,16 @@ export default function CustomersPage() {
       else paginated.forEach(r => next.add(r.id))
       return next
     })
+  }
+
+  function toggleOne(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
   }
 
   function toggleOne(id: string) {
@@ -293,6 +311,7 @@ export default function CustomersPage() {
                   <td className="px-4 py-3 text-slate-500">{row.email || '—'}</td>
                   <td className="px-4 py-3 text-right">
                     <KebabMenu onEdit={() => openEdit(row)} onDelete={() => void onDelete(row.id)} />
+                    <KebabMenu onEdit={() => openEdit(row)} onDelete={() => void onDelete(row.id)} deleteLabel="ลบลูกค้า" />
                   </td>
                 </tr>
               ))}
@@ -331,6 +350,27 @@ export default function CustomersPage() {
                   <textarea value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
                     className="min-h-24 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
                 </Field>
+              <FormField label="ชื่อลูกค้า/บริษัท">
+                <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </FormField>
+              <FormField label="เลขผู้เสียภาษี">
+                <input value={form.tax_id} onChange={e => setForm(p => ({ ...p, tax_id: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </FormField>
+              <FormField label="โทรศัพท์">
+                <input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </FormField>
+              <FormField label="อีเมล">
+                <input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </FormField>
+              <div className="md:col-span-2">
+                <FormField label="ที่อยู่">
+                  <textarea value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
+                    className="min-h-24 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+                </FormField>
               </div>
             </div>
             <div className="mt-5 flex justify-end gap-2">
@@ -346,12 +386,4 @@ export default function CustomersPage() {
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block text-sm">
-      <span className="mb-1 block text-xs font-medium text-slate-600">{label}</span>
-      {children}
-    </label>
-  )
-}
 

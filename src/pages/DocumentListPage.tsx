@@ -3,12 +3,16 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { FilePlus, Plus, Search, ChevronDown, MoreVertical, Eye, Pencil, Download, Trash2 } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
+import { FilePlus, Plus, Search, ChevronDown, MoreVertical, Eye, Pencil, Download, Trash2, Clock, CheckCircle2, XCircle, Copy, ArrowRightLeft } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useDocumentsByType } from '../hooks/useDocumentsByType'
-import { createDocument, deleteDocument, updateDocumentStatus } from '../lib/documentApi'
+import { createDocument, deleteDocument, updateDocumentStatus, duplicateDocument, convertToInvoice } from '../lib/documentApi'
 import type { DocumentRow } from '../lib/documentApi'
 import type { DocTypeCode } from '../types/document'
 import { DOC_TYPE_CODES } from '../types/document'
@@ -34,8 +38,16 @@ const STATUS_LABEL: Record<DocumentRow['status'], string> = {
 const STATUS_CLASS: Record<DocumentRow['status'], string> = {
   draft:     'bg-slate-200 text-slate-700',
   sent:      'bg-blue-100 text-blue-700',
+  sent:      'bg-amber-100 text-amber-700',
   paid:      'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-500',
+}
+
+const STATUS_ICON: Record<DocumentRow['status'], React.ReactNode> = {
+  draft:     <Pencil size={9} className="shrink-0" />,
+  sent:      <Clock size={9} className="shrink-0" />,
+  paid:      <CheckCircle2 size={9} className="shrink-0" />,
+  cancelled: <XCircle size={9} className="shrink-0" />,
 }
 
 const ALL_STATUSES = ['draft', 'sent', 'paid', 'cancelled'] as const
@@ -91,6 +103,11 @@ function StatusBadge({
       >
         {STATUS_LABEL[row.status]}
         <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-opacity disabled:opacity-50 ${STATUS_CLASS[row.status]}`}
+      >
+        {STATUS_ICON[row.status]}
+        {STATUS_LABEL[row.status]}
+        <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && createPortal(
@@ -132,6 +149,21 @@ function KebabMenu({
   deleting: boolean
   onDelete: (e: MouseEvent<HTMLButtonElement>, id: string) => void
   onNavigate: (id: string) => void
+  duplicating,
+  converting,
+  onDelete,
+  onNavigate,
+  onDuplicate,
+  onConvert,
+}: {
+  row: DocListRow
+  deleting: boolean
+  duplicating?: boolean
+  converting?: boolean
+  onDelete: (e: MouseEvent<HTMLButtonElement>, id: string) => void
+  onNavigate: (id: string) => void
+  onDuplicate: (id: string) => void
+  onConvert?: (id: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
@@ -192,6 +224,25 @@ function KebabMenu({
             <Download size={13} className="text-slate-400" />
             ดาวน์โหลด PDF
           </button>
+          <div className="my-1 border-t border-slate-100" />
+          <button
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onDuplicate(row.id) }}
+            disabled={duplicating}
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+          >
+            <Copy size={13} className="text-slate-400" />
+            {duplicating ? 'กำลังทำซ้ำ…' : 'ทำซ้ำเอกสาร'}
+          </button>
+          {row.doc_type === 'quotation' && onConvert && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setOpen(false); onConvert(row.id) }}
+              disabled={converting}
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+            >
+              <ArrowRightLeft size={13} className="text-slate-400" />
+              {converting ? 'กำลังแปลง…' : 'แปลงเป็นใบแจ้งหนี้'}
+            </button>
+          )}
           <div className="my-1 border-t border-slate-100" />
           <button
             onClick={(e) => { setOpen(false); onDelete(e, row.id) }}
@@ -278,6 +329,17 @@ export default function DocumentListPage({ docType }: Props) {
   const [creating, setCreating] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [convertingId, setConvertingId] = useState<string | null>(null)
+
+  // Search & Filter
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<DocumentRow['status'] | 'all'>('all')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
+
+  // Pagination
+  const [page, setPage] = useState(1)
 
   // Search & Filter
   const [search, setSearch] = useState('')
@@ -347,6 +409,34 @@ export default function DocumentListPage({ docType }: Props) {
       toast.error('อัปเดตสถานะไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', { id: 'status-update' })
     } finally {
       setUpdatingStatusId(null)
+    }
+  }
+
+  async function handleDuplicate(id: string) {
+    if (!user || duplicatingId) return
+    setDuplicatingId(id)
+    try {
+      const newId = await duplicateDocument(id, user.id)
+      toast.success('ทำซ้ำเอกสารเรียบร้อย')
+      navigate(`/editor/${newId}`)
+    } catch {
+      toast.error('ทำซ้ำเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
+    } finally {
+      setDuplicatingId(null)
+    }
+  }
+
+  async function handleConvert(id: string) {
+    if (!user || convertingId) return
+    setConvertingId(id)
+    try {
+      const newId = await convertToInvoice(id, user.id)
+      toast.success('แปลงเป็นใบแจ้งหนี้เรียบร้อย')
+      navigate(`/editor/${newId}`)
+    } catch {
+      toast.error('แปลงเป็นใบแจ้งหนี้ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
+    } finally {
+      setConvertingId(null)
     }
   }
 
@@ -499,6 +589,12 @@ export default function DocumentListPage({ docType }: Props) {
                     deleting={deletingId === row.id}
                     onDelete={handleDelete}
                     onNavigate={(id) => navigate(`/editor/${id}`)}
+                    duplicating={duplicatingId === row.id}
+                    converting={convertingId === row.id}
+                    onDelete={handleDelete}
+                    onNavigate={(id) => navigate(`/editor/${id}`)}
+                    onDuplicate={handleDuplicate}
+                    onConvert={docType === 'quotation' ? handleConvert : undefined}
                   />
                 </td>
               </tr>
