@@ -52,7 +52,7 @@ export default function StockAlertsWidget({ data }: Props) {
             const { badge, bar, label } = stockColor(p.stock)
             const pct = Math.min((p.stock / LOW_STOCK_THRESHOLD) * 100, 100)
             return (
-              <div key={p.id} className="rounded-lg border border-slate-100 p-2.5">
+              <button key={p.id} onClick={() => navigate('/products')} className="w-full rounded-lg border border-slate-100 p-2.5 text-left transition-colors hover:bg-slate-50">
                 <div className="flex items-start justify-between gap-2">
                   <p className="truncate text-xs font-medium text-slate-700">{p.name}</p>
                   <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${badge}`}>
@@ -65,7 +65,7 @@ export default function StockAlertsWidget({ data }: Props) {
                   </div>
                   <span className="shrink-0 text-[11px] text-slate-500">{p.stock} {p.unit || 'ชิ้น'}</span>
                 </div>
-              </div>
+              </button>
             )
           })}
           {data.lowStockProducts.length > 4 && (

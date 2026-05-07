@@ -51,6 +51,7 @@ export interface DashboardDoc {
   total_amount: number
   created_at: string
   content: unknown
+  doc_number?: string
 }
 
 export interface ProductAlert {

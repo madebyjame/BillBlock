@@ -65,7 +65,10 @@ export default function DashboardPage() {
           .maybeSingle(),
       ])
 
-      const docs = (docsRes.data ?? []) as DashboardDoc[]
+      const docs: DashboardDoc[] = (docsRes.data ?? []).map((r: Record<string, unknown>) => {
+        const c = r.content as { docMeta?: { number?: string } } | null
+        return { ...r, doc_number: c?.docMeta?.number ?? undefined } as DashboardDoc
+      })
       const now = new Date()
 
       const company =
