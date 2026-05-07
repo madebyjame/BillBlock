@@ -1,3 +1,9 @@
+import type { MouseEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Plus, Search, FileUp, MoreVertical, Pencil, Trash2, Users } from 'lucide-react'
+import EmptyState from '../components/EmptyState'
+import TableSkeleton from '../components/TableSkeleton'
 import { useEffect, useMemo, useState } from 'react'
 import { Plus, Search, FileUp, Users } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
@@ -14,6 +20,97 @@ import {
 
 const EMPTY_FORM: CustomerInput = { name: '', address: '', tax_id: '', email: '', phone: '' }
 const PAGE_SIZE = 10
+
+// ─── Kebab Menu (portal) ──────────────────────────────────────────────────────
+
+function KebabMenu({
+  onEdit, onDelete,
+}: {
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function close() { setOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+
+  function handleOpen(e: MouseEvent) {
+    e.stopPropagation()
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, left: r.right - 160 })
+    }
+    setOpen(o => !o)
+  }
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={handleOpen}
+        className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+        aria-label="เมนู"
+      >
+        <MoreVertical size={15} />
+      </button>
+      {open && createPortal(
+        <div
+          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
+          className="w-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <button
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit() }}
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 hover:bg-slate-50"
+          >
+            <Pencil size={13} className="text-slate-400" /> แก้ไข
+          </button>
+          <div className="border-t border-slate-100" />
+          <button
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete() }}
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-red-500 hover:bg-red-50"
+          >
+            <Trash2 size={13} /> ลบลูกค้า
+          </button>
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+// ─── Pagination ───────────────────────────────────────────────────────────────
+
+function Pagination({ page, totalPages, total, onPage }: {
+  page: number; totalPages: number; total: number; onPage: (p: number) => void
+}) {
+  if (totalPages <= 1) return null
+  const pages: (number | '…')[] = []
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || Math.abs(i - page) <= 1) pages.push(i)
+    else if (pages[pages.length - 1] !== '…') pages.push('…')
+  }
+  return (
+    <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
+      <p className="text-xs text-slate-400">{total} รายการ</p>
+      <div className="flex items-center gap-1">
+        <button disabled={page === 1} onClick={() => onPage(page - 1)} className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30">‹ ก่อนหน้า</button>
+        {pages.map((p, i) => p === '…'
+          ? <span key={`e${i}`} className="px-1 text-xs text-slate-300">…</span>
+          : <button key={p} onClick={() => onPage(p as number)} className={`min-w-7 rounded-lg px-2 py-1 text-xs transition-colors ${p === page ? 'bg-slate-800 font-semibold text-white' : 'text-slate-500 hover:bg-slate-100'}`}>{p}</button>
+        )}
+        <button disabled={page === totalPages} onClick={() => onPage(page + 1)} className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30">ถัดไป ›</button>
+      </div>
+    </div>
+  )
+}
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
@@ -65,6 +162,16 @@ export default function CustomersPage() {
       else paginated.forEach(r => next.add(r.id))
       return next
     })
+  }
+
+  function toggleOne(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
   }
 
   function toggleOne(id: string) {
@@ -203,6 +310,7 @@ export default function CustomersPage() {
                   <td className="px-4 py-3 text-slate-500">{row.phone || '—'}</td>
                   <td className="px-4 py-3 text-slate-500">{row.email || '—'}</td>
                   <td className="px-4 py-3 text-right">
+                    <KebabMenu onEdit={() => openEdit(row)} onDelete={() => void onDelete(row.id)} />
                     <KebabMenu onEdit={() => openEdit(row)} onDelete={() => void onDelete(row.id)} deleteLabel="ลบลูกค้า" />
                   </td>
                 </tr>
@@ -221,6 +329,27 @@ export default function CustomersPage() {
               {editingId ? 'แก้ไขข้อมูลลูกค้า' : 'เพิ่มข้อมูลลูกค้า'}
             </h2>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <Field label="ชื่อลูกค้า/บริษัท">
+                <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </Field>
+              <Field label="เลขผู้เสียภาษี">
+                <input value={form.tax_id} onChange={e => setForm(p => ({ ...p, tax_id: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </Field>
+              <Field label="โทรศัพท์">
+                <input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </Field>
+              <Field label="อีเมล">
+                <input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </Field>
+              <div className="md:col-span-2">
+                <Field label="ที่อยู่">
+                  <textarea value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
+                    className="min-h-24 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+                </Field>
               <FormField label="ชื่อลูกค้า/บริษัท">
                 <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />

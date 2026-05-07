@@ -1,3 +1,9 @@
+import type { MouseEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Plus, Search, FileUp, MoreVertical, Pencil, Trash2, Box } from 'lucide-react'
+import EmptyState from '../components/EmptyState'
+import TableSkeleton from '../components/TableSkeleton'
 import { useEffect, useMemo, useState } from 'react'
 import { Plus, Search, FileUp, Box } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
@@ -14,6 +20,97 @@ import {
 
 const EMPTY_FORM: ProductInput = { name: '', price: 0, unit: '', stock: 0, category: '' }
 const PAGE_SIZE = 10
+
+// ─── Kebab Menu (portal) ──────────────────────────────────────────────────────
+
+function KebabMenu({
+  onEdit, onDelete,
+}: {
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function close() { setOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+
+  function handleOpen(e: MouseEvent) {
+    e.stopPropagation()
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, left: r.right - 160 })
+    }
+    setOpen(o => !o)
+  }
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={handleOpen}
+        className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+        aria-label="เมนู"
+      >
+        <MoreVertical size={15} />
+      </button>
+      {open && createPortal(
+        <div
+          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
+          className="w-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <button
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit() }}
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 hover:bg-slate-50"
+          >
+            <Pencil size={13} className="text-slate-400" /> แก้ไข
+          </button>
+          <div className="border-t border-slate-100" />
+          <button
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete() }}
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-red-500 hover:bg-red-50"
+          >
+            <Trash2 size={13} /> ลบสินค้า
+          </button>
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
+
+// ─── Pagination ───────────────────────────────────────────────────────────────
+
+function Pagination({ page, totalPages, total, onPage }: {
+  page: number; totalPages: number; total: number; onPage: (p: number) => void
+}) {
+  if (totalPages <= 1) return null
+  const pages: (number | '…')[] = []
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || Math.abs(i - page) <= 1) pages.push(i)
+    else if (pages[pages.length - 1] !== '…') pages.push('…')
+  }
+  return (
+    <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
+      <p className="text-xs text-slate-400">{total} รายการ</p>
+      <div className="flex items-center gap-1">
+        <button disabled={page === 1} onClick={() => onPage(page - 1)} className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30">‹ ก่อนหน้า</button>
+        {pages.map((p, i) => p === '…'
+          ? <span key={`e${i}`} className="px-1 text-xs text-slate-300">…</span>
+          : <button key={p} onClick={() => onPage(p as number)} className={`min-w-7 rounded-lg px-2 py-1 text-xs transition-colors ${p === page ? 'bg-slate-800 font-semibold text-white' : 'text-slate-500 hover:bg-slate-100'}`}>{p}</button>
+        )}
+        <button disabled={page === totalPages} onClick={() => onPage(page + 1)} className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30">ถัดไป ›</button>
+      </div>
+    </div>
+  )
+}
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
@@ -78,6 +175,18 @@ export default function ProductsPage() {
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
+  }
+
+  async function handleBulkDelete() {
+    if (!confirm(`ลบสินค้า ${selectedIds.size} รายการ?`)) return
+    try {
+      await Promise.all([...selectedIds].map(id => deleteProduct(id)))
+      toast.success(`ลบสินค้า ${selectedIds.size} รายการแล้ว`)
+      setSelectedIds(new Set())
+      await loadRows()
+    } catch { toast.error('ลบไม่สำเร็จ กรุณาลองใหม่') }
+  }
+
   }
 
   async function handleBulkDelete() {
@@ -218,6 +327,16 @@ export default function ProductsPage() {
                     {row.price.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td className="px-4 py-3 text-right">
+                    <KebabMenu onEdit={() => openEdit(row)} onDelete={() => void onDelete(row.id)} />
+                  <td className="px-4 py-3 text-right">
+                    <span className={`font-medium ${row.stock === 0 ? 'text-red-500' : 'text-slate-700'}`}>
+                      {row.stock.toLocaleString('th-TH')}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-600">
+                    {row.price.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-4 py-3 text-right">
                     <KebabMenu onEdit={() => openEdit(row)} onDelete={() => void onDelete(row.id)} deleteLabel="ลบสินค้า" />
                   </td>
                 </tr>
@@ -236,6 +355,27 @@ export default function ProductsPage() {
               {editingId ? 'แก้ไขข้อมูลสินค้า' : 'เพิ่มข้อมูลสินค้า'}
             </h2>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <Field label="ชื่อสินค้า/บริการ">
+                <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </Field>
+              <Field label="หมวดหมู่">
+                <input value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
+                  placeholder="เช่น อาหาร, อุปกรณ์สำนักงาน"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </Field>
+              <Field label="หน่วย">
+                <input value={form.unit} onChange={e => setForm(p => ({ ...p, unit: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </Field>
+              <Field label="จำนวนคงเหลือ (Stock)">
+                <input type="number" min={0} value={form.stock} onChange={e => setForm(p => ({ ...p, stock: Number(e.target.value) || 0 }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </Field>
+              <Field label="ราคา/หน่วย">
+                <input type="number" min={0} value={form.price} onChange={e => setForm(p => ({ ...p, price: Number(e.target.value) || 0 }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
+              </Field>
               <FormField label="ชื่อสินค้า/บริการ">
                 <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none" />
@@ -268,6 +408,15 @@ export default function ProductsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block text-sm">
+      <span className="mb-1 block text-xs font-medium text-slate-600">{label}</span>
+      {children}
+    </label>
   )
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { TrendingUp, Clock, FileText, Users, FilePlus, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { TrendingUp, Clock, FileText, Users, FilePlus, ChevronUp, ChevronDown, ChevronsUpDown, Pencil, CheckCircle2, XCircle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useDashboardLayout } from '../hooks/useDashboardLayout'
@@ -29,6 +30,7 @@ const STATUS_LABEL: Record<DashboardDoc['status'], string> = {
 const STATUS_CLASS: Record<DashboardDoc['status'], string> = {
   draft:     'bg-slate-200 text-slate-700',
   sent:      'bg-blue-100 text-blue-700',
+  sent:      'bg-amber-100 text-amber-700',
   paid:      'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-500',
 }
@@ -88,6 +90,10 @@ function LineChart({ data }: { data: { label: string; value: number }[] }) {
   const PR = 8
   const PT = 12
   const PB = 22   // bottom padding for X-axis labels
+
+  const innerW = W - PL - PR
+  const innerH = H - PT - PB
+
 
   const innerW = W - PL - PR
   const innerH = H - PT - PB
