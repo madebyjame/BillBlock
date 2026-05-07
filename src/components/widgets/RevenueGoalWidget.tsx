@@ -84,7 +84,7 @@ export default function RevenueGoalWidget({ data }: Props) {
   }
 
   return (
-    <div className="flex h-full flex-col rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-5 text-white -m-5 md:-m-5">
+    <div className="flex h-full flex-col bg-gradient-to-br from-blue-600 to-indigo-700 p-5 text-white">
       <div className="mb-auto">
         <div className="flex items-start justify-between">
           <div>

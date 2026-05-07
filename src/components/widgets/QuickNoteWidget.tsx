@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import type { ChangeEvent } from 'react'
 import { StickyNote } from 'lucide-react'
 
 const NOTE_KEY = 'billblock_quick_note'
@@ -12,7 +13,7 @@ export default function QuickNoteWidget() {
   const [text, setText] = useState<string>(loadNote)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+  function handleChange(e: ChangeEvent<HTMLTextAreaElement>) {
     const val = e.target.value.slice(0, MAX_CHARS)
     setText(val)
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -24,7 +25,7 @@ export default function QuickNoteWidget() {
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
 
   return (
-    <div className="flex h-full flex-col rounded-2xl bg-amber-50 -m-5 md:-m-5 p-5">
+    <div className="flex h-full flex-col bg-amber-50 p-5">
       <div className="mb-2 flex items-center gap-2">
         <StickyNote size={14} className="text-amber-500" />
         <p className="text-xs font-semibold uppercase tracking-widest text-amber-600">โน้ตด่วน</p>
