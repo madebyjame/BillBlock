@@ -537,6 +537,30 @@ export default function DocumentListPage({ docType }: Props) {
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
+                <td colSpan={6} className="px-4 py-16 text-center text-slate-400">
+                  <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                    <FilePlus size={20} />
+                  </div>
+                  {rows.length === 0 ? (
+                    <>
+                      <p className="font-medium text-slate-600">ยังไม่มี{pageTitle}ในระบบ</p>
+                      <p className="mt-1 text-xs">คลิกปุ่มด้านบนเพื่อเริ่มสร้างเอกสาร</p>
+                      <button
+                        onClick={() => void handleCreate()}
+                        disabled={creating}
+                        className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                        style={{ backgroundColor: themeColor }}
+                      >
+                        <Plus size={14} />
+                        {createLabel}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium text-slate-600">ไม่พบเอกสารที่ตรงกับเงื่อนไข</p>
+                      <p className="mt-1 text-xs">ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง</p>
+                    </>
+                  )}
                 <td colSpan={6}>
                   <EmptyState
                     icon={<FilePlus size={22} />}
