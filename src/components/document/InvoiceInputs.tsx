@@ -31,19 +31,21 @@ export function DescriptionInput({ item, dispatch, catalog, products }: {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  const matches = item.description.length > 0
+  type MatchOption = { key: string; label: string; unit: string; unitPrice: number; discountType: 'percent' | 'amount'; product_id?: string }
+
+  const matches: MatchOption[] = item.description.length > 0
     ? [
         ...catalog
           .filter((c) => c.description.toLowerCase().includes(item.description.toLowerCase()) && c.description !== item.description)
           .map((c) => ({ key: `catalog:${c.description}`, label: c.description, unit: c.unit, unitPrice: c.unitPrice, discountType: c.discountType as 'percent' | 'amount' })),
         ...products
           .filter((p) => p.name.toLowerCase().includes(item.description.toLowerCase()) && p.name !== item.description)
-          .map((p) => ({ key: `product:${p.id}`, label: p.name, unit: p.unit, unitPrice: p.price, discountType: 'percent' as const })),
+          .map((p) => ({ key: `product:${p.id}`, label: p.name, unit: p.unit, unitPrice: p.price, discountType: 'percent' as const, product_id: p.id })),
       ]
     : []
 
-  function fill(match: { label: string; unit: string; unitPrice: number; discountType: 'percent' | 'amount' }) {
-    dispatch({ type: 'FILL_ITEM', id: item.id, data: { description: match.label, unit: match.unit, unitPrice: match.unitPrice, discountType: match.discountType } })
+  function fill(match: MatchOption) {
+    dispatch({ type: 'FILL_ITEM', id: item.id, data: { description: match.label, unit: match.unit, unitPrice: match.unitPrice, discountType: match.discountType, product_id: match.product_id } })
     setOpen(false)
   }
 

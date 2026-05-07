@@ -66,3 +66,82 @@ export async function deleteProduct(id: string): Promise<void> {
   const { error } = await supabase.from('products').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
+
+export async function getProductById(id: string): Promise<ProductRow | null> {
+  const { data, error } = await supabase
+    .from('products')
+    .select(SELECT_FIELDS)
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data as ProductRow | null
+}
+
+/**
+ * Compute committed quantities per product from sent (unpaid) invoices.
+ * "Committed" = items on invoices with status='sent' that reference a product_id.
+ * Requires LineItem.product_id to be populated (set since product_id was added to LineItem).
+ */
+export async function computeCommittedQtys(): Promise<Map<string, number>> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return new Map()
+
+  const { data } = await supabase
+    .from('documents')
+    .select('content')
+    .eq('doc_type', 'invoice')
+    .eq('status', 'sent')
+
+  const map = new Map<string, number>()
+  for (const doc of data ?? []) {
+    const items = (doc.content as { items?: { product_id?: string; quantity?: number }[] })?.items ?? []
+    for (const item of items) {
+      if (item.product_id && item.quantity && item.quantity > 0) {
+        map.set(item.product_id, (map.get(item.product_id) ?? 0) + item.quantity)
+      }
+    }
+  }
+  return map
+}
+
+/**
+ * Compute monthly sales qty + revenue for a specific product from paid invoices.
+ * Returns last N months chronologically.
+ */
+export async function getProductMonthlySales(
+  productId: string,
+  months = 6,
+): Promise<{ label: string; qty: number; revenue: number }[]> {
+  const { data } = await supabase
+    .from('documents')
+    .select('content, created_at')
+    .eq('doc_type', 'invoice')
+    .eq('status', 'paid')
+
+  const now = new Date()
+  const buckets = new Map<string, { qty: number; revenue: number }>()
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    buckets.set(key, { qty: 0, revenue: 0 })
+  }
+
+  for (const doc of data ?? []) {
+    const month = (doc.created_at as string).slice(0, 7)
+    if (!buckets.has(month)) continue
+    const items = (doc.content as { items?: { product_id?: string; quantity?: number; unitPrice?: number }[] })?.items ?? []
+    for (const item of items) {
+      if (item.product_id !== productId) continue
+      const qty = item.quantity ?? 0
+      const bucket = buckets.get(month)!
+      bucket.qty += qty
+      bucket.revenue += qty * (item.unitPrice ?? 0)
+    }
+  }
+
+  return [...buckets.entries()].map(([key, val]) => {
+    const [y, m] = key.split('-').map(Number)
+    const label = new Date(y, m - 1, 1).toLocaleDateString('th-TH', { month: 'short' })
+    return { label, ...val }
+  })
+}

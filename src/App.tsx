@@ -10,6 +10,7 @@ import CustomersPage from './pages/CustomersPage'
 import ProductsPage from './pages/ProductsPage'
 import StockAdjustmentPage from './pages/StockAdjustmentPage'
 import StockMovementPage from './pages/StockMovementPage'
+import ProductDetailPage from './pages/ProductDetailPage'
 
 function LoadingScreen() {
   return (
@@ -61,9 +62,10 @@ export default function App() {
             <Route path="/documents/tax-invoices"  element={<DocumentListPage docType="tax-invoice" />} />
 
             {/* คลังสินค้า */}
-            <Route path="/inventory/products"    element={<ProductsPage />} />
-            <Route path="/inventory/adjustments" element={<StockAdjustmentPage />} />
-            <Route path="/inventory/movements"   element={<StockMovementPage />} />
+            <Route path="/inventory/products"      element={<ProductsPage />} />
+            <Route path="/inventory/products/:id" element={<ProductDetailPage />} />
+            <Route path="/inventory/adjustments"  element={<StockAdjustmentPage />} />
+            <Route path="/inventory/movements"    element={<StockMovementPage />} />
 
             {/* Legacy redirect — keep old /products link working */}
             <Route path="/products" element={<Navigate to="/inventory/products" replace />} />
