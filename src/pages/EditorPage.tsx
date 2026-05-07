@@ -317,7 +317,11 @@ function EditorUI({
   async function handleQuickAddSubmit(name: string) {
     if (!user) return
     try {
-      await createCustomer(user.id, { name, address: '', tax_id: '', email: '', phone: '' })
+      await createCustomer(user.id, {
+        name, address: '', tax_id: '', email: '', phone: '',
+        contact_person: '', status: 'active', tags: [],
+        billing_address: '', shipping_address: '', credit_term: '', salesperson: '',
+      })
       const updated = await listCustomers()
       setCustomers(updated)
       dispatch({ type: 'UPDATE_CUSTOMER', data: { name } })
