@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
+  ArrowLeftRight,
   Box,
   Building2,
   ChevronsLeft,
@@ -8,8 +9,10 @@ import {
   ClipboardList,
   FileCheck,
   FileText,
+  History,
   LayoutDashboard,
   LogOut,
+  Package,
   Receipt,
   Settings,
   Tag,
@@ -32,16 +35,21 @@ const TOP_NAV = [
 ]
 
 const SALES_NAV = [
-  { to: '/documents/quotations',    label: 'ใบเสนอราคา',    Icon: FileText },
-  { to: '/documents/invoices',      label: 'ใบแจ้งหนี้',    Icon: FileCheck },
+  { to: '/documents/quotations',    label: 'ใบเสนอราคา',     Icon: FileText },
+  { to: '/documents/invoices',      label: 'ใบแจ้งหนี้',     Icon: FileCheck },
   { to: '/documents/receipts',      label: 'ใบเสร็จรับเงิน', Icon: Receipt },
-  { to: '/documents/billing-notes', label: 'ใบวางบิล',      Icon: ClipboardList },
-  { to: '/documents/tax-invoices',  label: 'ใบกำกับภาษี',   Icon: Building2 },
+  { to: '/documents/billing-notes', label: 'ใบวางบิล',       Icon: ClipboardList },
+  { to: '/documents/tax-invoices',  label: 'ใบกำกับภาษี',    Icon: Building2 },
+]
+
+const INVENTORY_NAV = [
+  { to: '/inventory/products',    label: 'รายการสินค้า',       Icon: Box },
+  { to: '/inventory/adjustments', label: 'รับเข้า/ปรับสต็อก', Icon: ArrowLeftRight },
+  { to: '/inventory/movements',   label: 'ประวัติสต็อก',       Icon: History },
 ]
 
 const BOTTOM_NAV = [
   { to: '/customers', label: 'ลูกค้า',  end: false, Icon: Users },
-  { to: '/products',  label: 'สินค้า',  end: false, Icon: Box },
   { to: '/settings',  label: 'ตั้งค่า', end: false, Icon: Settings },
 ]
 
@@ -66,6 +74,16 @@ function NavItem({ to, label, end = false, Icon, collapsed, onClick, themeColor 
       <Icon size={16} className="shrink-0" />
       {!collapsed && <span className="truncate">{label}</span>}
     </NavLink>
+  )
+}
+
+function SectionLabel({ label, Icon, collapsed }: { label: string; Icon: React.ElementType; collapsed: boolean }) {
+  if (collapsed) return <div className="mb-1 h-px bg-slate-800 mx-2" />
+  return (
+    <div className="mb-1 flex items-center gap-1.5 px-3">
+      <Icon size={10} className="text-slate-500" />
+      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+    </div>
   )
 }
 
@@ -115,21 +133,23 @@ export default function Sidebar({
             <NavItem key={item.to} {...item} collapsed={collapsed} onClick={close} themeColor={themeColor} />
           ))}
 
-          {/* งานขาย section */}
+          {/* งานขาย */}
           <div className="pt-3">
-            {!collapsed && (
-              <div className="mb-1 flex items-center gap-1.5 px-3">
-                <Tag size={10} className="text-slate-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">งานขาย</span>
-              </div>
-            )}
-            {collapsed && <div className="mb-1 h-px bg-slate-800 mx-2" />}
+            <SectionLabel label="งานขาย" Icon={Tag} collapsed={collapsed} />
             {SALES_NAV.map(item => (
               <NavItem key={item.to} {...item} collapsed={collapsed} onClick={close} themeColor={themeColor} />
             ))}
           </div>
 
-          {/* Bottom nav */}
+          {/* คลังสินค้า */}
+          <div className="pt-3">
+            <SectionLabel label="คลังสินค้า" Icon={Package} collapsed={collapsed} />
+            {INVENTORY_NAV.map(item => (
+              <NavItem key={item.to} {...item} collapsed={collapsed} onClick={close} themeColor={themeColor} />
+            ))}
+          </div>
+
+          {/* ลูกค้า + ตั้งค่า */}
           <div className="pt-3">
             {!collapsed && <div className="mb-1 h-px bg-slate-800" />}
             {BOTTOM_NAV.map(item => (
