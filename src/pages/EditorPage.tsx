@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core'
@@ -13,7 +13,7 @@ import { useAutoSave, loadDraft, loadCatalog } from '../hooks/useAutoSave'
 import { normalizeDocumentDraft, stripEphemeralBlobUrls } from '../utils/documentDraft'
 import { validateDocumentForExport } from '../utils/validateExport'
 import { BLOCK_CATALOG } from '../types/document'
-import type { BlockType } from '../types/document'
+import type { BlockType, DocumentData } from '../types/document'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useCloudAutoSave } from '../hooks/useCloudAutoSave'
@@ -30,7 +30,7 @@ const DOC_TYPE_ROUTE: Record<DocTypeCode, string> = {
   'billing-note': '/documents/billing-notes',
   'tax-invoice':  '/documents/tax-invoices',
 }
-import { listCustomers, type CustomerRow } from '../lib/customerApi'
+import { listCustomers, createCustomer, type CustomerRow } from '../lib/customerApi'
 import { listProducts, type ProductRow } from '../lib/productApi'
 
 function getLocalDraftOrDefault() {
@@ -96,7 +96,7 @@ export default function EditorPage() {
         if (data?.content) {
           // Normalize ข้อมูลที่โหลดมาเพื่อให้แน่ใจว่ามีโครงสร้างครบถ้วนตามที่ Component คาดหวัง
           let loaded = normalizeDocumentDraft(
-            data.content as any
+            data.content as unknown as DocumentData
           )
 
           // ถ้าข้อมูลบริษัทยังเป็น placeholder (เอกสารใหม่) ให้ดึง profile มาใส่อัตโนมัติ
@@ -184,6 +184,8 @@ function EditorUI({
   const [isSaving, setIsSaving] = useState(false)
   const [customers, setCustomers] = useState<CustomerRow[]>([])
   const [products, setProducts] = useState<ProductRow[]>([])
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const [quickAddName, setQuickAddName] = useState('')
 
   const isCloudDoc = !!docId && docId !== 'new' && docId !== 'local'
 
@@ -307,6 +309,25 @@ function EditorUI({
     navigate(DOC_TYPE_ROUTE[typeCode] ?? '/documents/quotations')
   }
 
+  function handleOpenQuickAdd(name: string) {
+    setQuickAddName(name)
+    setQuickAddOpen(true)
+  }
+
+  async function handleQuickAddSubmit(name: string) {
+    if (!user) return
+    try {
+      await createCustomer(user.id, { name, address: '', tax_id: '', email: '', phone: '' })
+      const updated = await listCustomers()
+      setCustomers(updated)
+      dispatch({ type: 'UPDATE_CUSTOMER', data: { name } })
+      setQuickAddOpen(false)
+      toast.success(`เพิ่มลูกค้า "${name}" เรียบร้อย`)
+    } catch {
+      toast.error('เพิ่มลูกค้าไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
+    }
+  }
+
   return (
     <DndContext sensors={outerSensors} collisionDetection={closestCenter}
       onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -341,7 +362,7 @@ function EditorUI({
                   </div>
                 )}
                 <div className="shadow-lg rounded-sm">
-                  <InvoiceDocument doc={doc} dispatch={dispatch} docRef={docRef} catalog={catalog} customers={customers} products={products} />
+                  <InvoiceDocument doc={doc} dispatch={dispatch} docRef={docRef} catalog={catalog} customers={customers} products={products} onQuickAddCustomer={handleOpenQuickAdd} />
                 </div>
               </div>
             </main>
@@ -358,6 +379,15 @@ function EditorUI({
           </div>
         ) : null}
       </DragOverlay>
+
+      {quickAddOpen && (
+        <QuickAddCustomerModal
+          initialName={quickAddName}
+          themeColor={doc.settings.themeColor}
+          onClose={() => setQuickAddOpen(false)}
+          onSubmit={handleQuickAddSubmit}
+        />
+      )}
     </DndContext>
   )
 }
@@ -495,6 +525,75 @@ function SaveStatus({ status, isDirty }: { status: 'saved' | 'saving' | 'unsaved
     <div className="flex items-center gap-1.5 text-[11px] text-slate-300">
       <div className="h-2 w-2 rounded-full bg-slate-200" />
       ยังไม่บันทึก
+    </div>
+  )
+}
+
+// ─── Quick Add Customer Modal ─────────────────────────────────────────────────
+function QuickAddCustomerModal({
+  initialName,
+  themeColor,
+  onClose,
+  onSubmit,
+}: {
+  initialName: string
+  themeColor: string
+  onClose: () => void
+  onSubmit: (name: string) => Promise<void>
+}) {
+  const [name, setName] = useState(initialName)
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) return
+    setSaving(true)
+    await onSubmit(name.trim())
+    setSaving(false)
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="mb-4 text-base font-bold text-slate-800">เพิ่มลูกค้าใหม่</h2>
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">ชื่อลูกค้า / บริษัท <span className="text-red-400">*</span></label>
+            <input
+              autoFocus
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+              placeholder="เช่น บริษัท ABC จำกัด"
+            />
+          </div>
+          <p className="text-xs text-slate-400">สามารถแก้ไขข้อมูลเพิ่มเติมได้ในหน้าลูกค้า</p>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-lg border border-slate-200 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !name.trim()}
+              className="flex-1 rounded-lg py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: themeColor }}
+            >
+              {saving ? 'กำลังเพิ่ม...' : 'เพิ่มลูกค้า'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

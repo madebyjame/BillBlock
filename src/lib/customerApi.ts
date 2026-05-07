@@ -21,9 +21,12 @@ export interface CustomerInput {
 }
 
 export async function listCustomers(): Promise<CustomerRow[]> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
   const { data, error } = await supabase
     .from('customers')
     .select('id, user_id, name, address, tax_id, email, phone, created_at, updated_at')
+    .eq('user_id', user.id)
     .order('name', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []) as CustomerRow[]
