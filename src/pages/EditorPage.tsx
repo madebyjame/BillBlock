@@ -13,7 +13,7 @@ import { useAutoSave, loadDraft, loadCatalog } from '../hooks/useAutoSave'
 import { normalizeDocumentDraft, stripEphemeralBlobUrls } from '../utils/documentDraft'
 import { validateDocumentForExport } from '../utils/validateExport'
 import { BLOCK_CATALOG } from '../types/document'
-import type { BlockType } from '../types/document'
+import type { BlockType, DocumentData } from '../types/document'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useCloudAutoSave } from '../hooks/useCloudAutoSave'
@@ -96,7 +96,7 @@ export default function EditorPage() {
         if (data?.content) {
           // Normalize ข้อมูลที่โหลดมาเพื่อให้แน่ใจว่ามีโครงสร้างครบถ้วนตามที่ Component คาดหวัง
           let loaded = normalizeDocumentDraft(
-            data.content as any
+            data.content as unknown as DocumentData
           )
 
           // ถ้าข้อมูลบริษัทยังเป็น placeholder (เอกสารใหม่) ให้ดึง profile มาใส่อัตโนมัติ
