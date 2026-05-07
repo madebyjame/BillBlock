@@ -1,4 +1,8 @@
 import type { MouseEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
+import { FilePlus, Plus, Search, ChevronDown, MoreVertical, Eye, Pencil, Download, Trash2 } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
@@ -33,6 +37,7 @@ const STATUS_LABEL: Record<DocumentRow['status'], string> = {
 
 const STATUS_CLASS: Record<DocumentRow['status'], string> = {
   draft:     'bg-slate-200 text-slate-700',
+  sent:      'bg-blue-100 text-blue-700',
   sent:      'bg-amber-100 text-amber-700',
   paid:      'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-500',
@@ -94,6 +99,10 @@ function StatusBadge({
         ref={btnRef}
         disabled={updating}
         onClick={handleOpen}
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-opacity disabled:opacity-50 ${STATUS_CLASS[row.status]}`}
+      >
+        {STATUS_LABEL[row.status]}
+        <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-opacity disabled:opacity-50 ${STATUS_CLASS[row.status]}`}
       >
         {STATUS_ICON[row.status]}
@@ -133,6 +142,13 @@ function StatusBadge({
 function KebabMenu({
   row,
   deleting,
+  onDelete,
+  onNavigate,
+}: {
+  row: DocListRow
+  deleting: boolean
+  onDelete: (e: MouseEvent<HTMLButtonElement>, id: string) => void
+  onNavigate: (id: string) => void
   duplicating,
   converting,
   onDelete,
@@ -315,6 +331,15 @@ export default function DocumentListPage({ docType }: Props) {
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
   const [convertingId, setConvertingId] = useState<string | null>(null)
+
+  // Search & Filter
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<DocumentRow['status'] | 'all'>('all')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
+
+  // Pagination
+  const [page, setPage] = useState(1)
 
   // Search & Filter
   const [search, setSearch] = useState('')
@@ -512,6 +537,30 @@ export default function DocumentListPage({ docType }: Props) {
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
+                <td colSpan={6} className="px-4 py-16 text-center text-slate-400">
+                  <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                    <FilePlus size={20} />
+                  </div>
+                  {rows.length === 0 ? (
+                    <>
+                      <p className="font-medium text-slate-600">ยังไม่มี{pageTitle}ในระบบ</p>
+                      <p className="mt-1 text-xs">คลิกปุ่มด้านบนเพื่อเริ่มสร้างเอกสาร</p>
+                      <button
+                        onClick={() => void handleCreate()}
+                        disabled={creating}
+                        className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                        style={{ backgroundColor: themeColor }}
+                      >
+                        <Plus size={14} />
+                        {createLabel}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium text-slate-600">ไม่พบเอกสารที่ตรงกับเงื่อนไข</p>
+                      <p className="mt-1 text-xs">ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง</p>
+                    </>
+                  )}
                 <td colSpan={6}>
                   <EmptyState
                     icon={<FilePlus size={22} />}
@@ -562,6 +611,8 @@ export default function DocumentListPage({ docType }: Props) {
                   <KebabMenu
                     row={row}
                     deleting={deletingId === row.id}
+                    onDelete={handleDelete}
+                    onNavigate={(id) => navigate(`/editor/${id}`)}
                     duplicating={duplicatingId === row.id}
                     converting={convertingId === row.id}
                     onDelete={handleDelete}
