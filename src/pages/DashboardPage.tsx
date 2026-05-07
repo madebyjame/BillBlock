@@ -8,15 +8,6 @@ import { useDashboardLayout } from '../hooks/useDashboardLayout'
 import BentoGrid from '../components/BentoGrid'
 import type { DashboardData, DashboardDoc, ProductAlert, SpenderEntry } from '../types/dashboard'
 
-interface DashboardDoc {
-  id: string
-  doc_type: string
-  status: 'draft' | 'sent' | 'paid' | 'cancelled'
-  total_amount: number
-  created_at: string
-  content: unknown
-}
-
 type SortCol = 'created_at' | 'total_amount'
 type SortDir = 'asc' | 'desc'
 
@@ -50,6 +41,7 @@ function fmtAmount(n: number) {
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })
 }
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtYAxis(n: number): string {
@@ -86,10 +78,10 @@ function LineChart({ data }: { data: { label: string; value: number }[] }) {
 
   const W = 560
   const H = 170
-  const PL = 52   // left padding for Y-axis labels
+  const PL = 52
   const PR = 8
   const PT = 12
-  const PB = 22   // bottom padding for X-axis labels
+  const PB = 22
 
   const innerW = W - PL - PR
   const innerH = H - PT - PB
@@ -121,7 +113,6 @@ function LineChart({ data }: { data: { label: string; value: number }[] }) {
         </linearGradient>
       </defs>
 
-      {/* Y-axis grid lines + labels */}
       {yTicks.map((tick) => {
         const y = (PT + (1 - tick / yMax) * innerH).toFixed(1)
         return (
@@ -134,16 +125,13 @@ function LineChart({ data }: { data: { label: string; value: number }[] }) {
         )
       })}
 
-      {/* Area + Line */}
       <path d={areaD} fill="url(#areaGrad)" />
       <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 
-      {/* Points */}
       {pts.map((p) => (
         <circle key={p.label} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="3.5" fill="white" stroke="#3b82f6" strokeWidth="2" />
       ))}
 
-      {/* X-axis labels */}
       {pts.map((p) => (
         <text key={`x-${p.label}`} x={p.x.toFixed(1)} y={H - 4} textAnchor="middle" fill="#94a3b8" fontSize="11">
           {p.label}
@@ -152,6 +140,7 @@ function LineChart({ data }: { data: { label: string; value: number }[] }) {
     </svg>
   )
 }
+
 const LOW_STOCK_THRESHOLD = 10
 
 // ─── Sort Icon ────────────────────────────────────────────────────────────────
@@ -169,6 +158,12 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
 
+  const themeColor = typeof user?.user_metadata?.themeColor === 'string'
+    ? user.user_metadata.themeColor
+    : '#1e3a8a'
+
+  const { layout, updateLayout } = useDashboardLayout()
+
   const [loading, setLoading] = useState(true)
   const [companyName, setCompanyName] = useState('')
   const [totalRevenue, setTotalRevenue] = useState(0)
@@ -179,16 +174,6 @@ export default function DashboardPage() {
   const [allRecentDocs, setAllRecentDocs] = useState<DashboardDoc[]>([])
   const [sortCol, setSortCol] = useState<SortCol>('created_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
-
-  const themeColor = typeof user?.user_metadata?.themeColor === 'string'
-    ? user.user_metadata.themeColor
-    : '#1e3a8a'
-  const { layout, updateLayout } = useDashboardLayout()
-
-  const themeColor =
-    typeof user?.user_metadata?.themeColor === 'string'
-      ? user.user_metadata.themeColor
-      : '#1e3a8a'
 
   const [dashData, setDashData] = useState<DashboardData>({
     loading: true,
@@ -212,12 +197,18 @@ export default function DashboardPage() {
 
   async function loadData() {
     setLoading(true)
+    setDashData(prev => ({ ...prev, loading: true }))
     try {
-      const [docsRes, countRes, profileRes] = await Promise.all([
+      const [docsRes, productsRes, countRes, profileRes] = await Promise.all([
         supabase
           .from('documents')
           .select('id, doc_type, status, total_amount, created_at, content')
           .order('created_at', { ascending: false }),
+        supabase
+          .from('products')
+          .select('id, name, stock, unit')
+          .lt('stock', LOW_STOCK_THRESHOLD)
+          .order('stock', { ascending: true }),
         supabase
           .from('customers')
           .select('*', { count: 'exact', head: true }),
@@ -228,13 +219,15 @@ export default function DashboardPage() {
       ])
 
       const docs = (docsRes.data ?? []) as DashboardDoc[]
+      const now = new Date()
 
-      setCompanyName(
+      const company =
         typeof profileRes.data?.company_name === 'string' && profileRes.data.company_name.trim()
           ? profileRes.data.company_name
           : ''
-      )
 
+      // ── Old-style KPI states ─────────────────────────────────────────────────
+      setCompanyName(company)
       setTotalRevenue(
         docs.filter(d => d.doc_type === 'invoice' && d.status === 'paid')
           .reduce((s, d) => s + d.total_amount, 0)
@@ -249,7 +242,6 @@ export default function DashboardPage() {
       )
       setTotalCustomers(countRes.count ?? 0)
 
-      const now = new Date()
       const months = Array.from({ length: 6 }, (_, i) => {
         const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1)
         return {
@@ -265,99 +257,63 @@ export default function DashboardPage() {
       }
       setMonthlyData(months.map(({ label, value }) => ({ label, value })))
       setAllRecentDocs(docs.slice(0, 20))
+
+      // ── BentoGrid data ───────────────────────────────────────────────────────
+      const cutoff30d = new Date(now.getTime() - 30 * 86_400_000).toISOString()
+      const revenue30d = docs
+        .filter(d => d.doc_type === 'invoice' && d.status === 'paid' && d.created_at >= cutoff30d)
+        .reduce((s, d) => s + d.total_amount, 0)
+
+      const sparklineDays = 14
+      const sparklineMap = new Map<string, number>()
+      for (let i = sparklineDays - 1; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
+        sparklineMap.set(d.toISOString().slice(0, 10), 0)
+      }
+      for (const doc of docs) {
+        if (doc.doc_type !== 'invoice' || doc.status !== 'paid') continue
+        const key = doc.created_at.slice(0, 10)
+        if (sparklineMap.has(key)) sparklineMap.set(key, (sparklineMap.get(key) ?? 0) + doc.total_amount)
+      }
+      const sparkline = [...sparklineMap.entries()].map(([key, value]) => ({
+        label: new Date(key).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }),
+        value,
+      }))
+
+      const pendingDocs = docs.filter(d => d.doc_type === 'invoice' && d.status === 'sent')
+
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+      const spenderMap = new Map<string, number>()
+      for (const doc of docs) {
+        if (doc.doc_type !== 'invoice' || doc.status !== 'paid') continue
+        if (doc.created_at < monthStart) continue
+        const name = getCustomerName(doc.content)
+        spenderMap.set(name, (spenderMap.get(name) ?? 0) + doc.total_amount)
+      }
+      const topSpenders: SpenderEntry[] = [...spenderMap.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([name, total]) => ({ name, total }))
+
+      const lowStockProducts: ProductAlert[] = (productsRes.data ?? []) as ProductAlert[]
+
+      setDashData({
+        loading: false,
+        revenue30d,
+        pendingAmount: pendingDocs.reduce((s, d) => s + d.total_amount, 0),
+        pendingCount: pendingDocs.length,
+        sparkline,
+        pendingDocs,
+        recentDocs: docs.slice(0, 20),
+        lowStockProducts,
+        topSpenders,
+        customerCount: countRes.count ?? 0,
+        companyName: company,
+        themeColor,
+      })
     } finally {
       setLoading(false)
-    setDashData(prev => ({ ...prev, loading: true }))
-
-    const [docsRes, productsRes, countRes, profileRes] = await Promise.all([
-      supabase
-        .from('documents')
-        .select('id, doc_type, status, total_amount, created_at, content')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('products')
-        .select('id, name, stock, unit')
-        .lt('stock', LOW_STOCK_THRESHOLD)
-        .order('stock', { ascending: true }),
-      supabase
-        .from('customers')
-        .select('*', { count: 'exact', head: true }),
-      supabase
-        .from('profiles')
-        .select('company_name')
-        .maybeSingle(),
-    ])
-
-    const docs = (docsRes.data ?? []) as DashboardDoc[]
-    const now = new Date()
-
-    // ── Revenue: last 30 days ────────────────────────────────────────────────
-    const cutoff30d = new Date(now.getTime() - 30 * 86_400_000).toISOString()
-    const revenue30d = docs
-      .filter(d => d.doc_type === 'invoice' && d.status === 'paid' && d.created_at >= cutoff30d)
-      .reduce((s, d) => s + d.total_amount, 0)
-
-    // ── Sparkline: 14-day daily paid invoices ────────────────────────────────
-    const sparklineDays = 14
-    const sparklineMap = new Map<string, number>()
-    for (let i = sparklineDays - 1; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
-      const key = d.toISOString().slice(0, 10)
-      sparklineMap.set(key, 0)
     }
-    for (const doc of docs) {
-      if (doc.doc_type !== 'invoice' || doc.status !== 'paid') continue
-      const key = doc.created_at.slice(0, 10)
-      if (sparklineMap.has(key)) {
-        sparklineMap.set(key, (sparklineMap.get(key) ?? 0) + doc.total_amount)
-      }
-    }
-    const sparkline = [...sparklineMap.entries()].map(([key, value]) => ({
-      label: new Date(key).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }),
-      value,
-    }))
-
-    // ── Pending invoices ─────────────────────────────────────────────────────
-    const pendingDocs = docs.filter(d => d.doc_type === 'invoice' && d.status === 'sent')
-    const pendingAmount = pendingDocs.reduce((s, d) => s + d.total_amount, 0)
-
-    // ── Top spenders: this month ─────────────────────────────────────────────
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-    const spenderMap = new Map<string, number>()
-    for (const doc of docs) {
-      if (doc.doc_type !== 'invoice' || doc.status !== 'paid') continue
-      if (doc.created_at < monthStart) continue
-      const name = getCustomerName(doc.content)
-      spenderMap.set(name, (spenderMap.get(name) ?? 0) + doc.total_amount)
-    }
-    const topSpenders: SpenderEntry[] = [...spenderMap.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([name, total]) => ({ name, total }))
-
-    // ── Low-stock products ───────────────────────────────────────────────────
-    const lowStockProducts: ProductAlert[] = (productsRes.data ?? []) as ProductAlert[]
-
-    // ── Company name ─────────────────────────────────────────────────────────
-    const companyName =
-      typeof profileRes.data?.company_name === 'string' && profileRes.data.company_name.trim()
-        ? profileRes.data.company_name
-        : ''
-
-    setDashData({
-      loading: false,
-      revenue30d,
-      pendingAmount,
-      pendingCount: pendingDocs.length,
-      sparkline,
-      pendingDocs,
-      recentDocs: docs.slice(0, 20),
-      lowStockProducts,
-      topSpenders,
-      customerCount: countRes.count ?? 0,
-      companyName,
-      themeColor,
-    })
   }
 
   function toggleSort(col: SortCol) {
@@ -378,7 +334,7 @@ export default function DashboardPage() {
     })
     .slice(0, 8)
 
-  const displayName = companyName || 'ผู้ใช้งาน'
+  const displayName = companyName || user?.email?.split('@')[0] || 'ผู้ใช้งาน'
 
   const kpiCards = [
     {
@@ -410,7 +366,6 @@ export default function DashboardPage() {
       iconClass: 'bg-purple-50 text-purple-600',
     },
   ]
-  const displayName = dashData.companyName || user?.email?.split('@')[0] || 'ผู้ใช้งาน'
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-8">
@@ -458,7 +413,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Transactions */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <h2 className="text-sm font-semibold text-slate-700">เอกสารล่าสุด</h2>
           <button
@@ -510,7 +465,7 @@ export default function DashboardPage() {
                   <th className="px-5 py-3 text-right font-semibold text-slate-500">
                     <button
                       onClick={() => toggleSort('total_amount')}
-                      className="inline-flex items-center gap-1 hover:text-slate-700 ml-auto"
+                      className="ml-auto inline-flex items-center gap-1 hover:text-slate-700"
                     >
                       ยอดรวม
                       <SortIcon col="total_amount" sortCol={sortCol} sortDir={sortDir} />
@@ -541,8 +496,6 @@ export default function DashboardPage() {
             </table>
           </div>
         )}
-      </div>
-        <p className="mt-0.5 text-sm text-slate-400">ยินดีต้อนรับ, {displayName}</p>
       </div>
 
       {/* Bento Grid */}

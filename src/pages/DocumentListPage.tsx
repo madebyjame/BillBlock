@@ -1,9 +1,5 @@
-import type { MouseEvent } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
-import { FilePlus, Plus, Search, ChevronDown, MoreVertical, Eye, Pencil, Download, Trash2 } from 'lucide-react'
-import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { FilePlus, Plus, Search, ChevronDown, MoreVertical, Eye, Pencil, Download, Trash2, Clock, CheckCircle2, XCircle, Copy, ArrowRightLeft } from 'lucide-react'
@@ -37,13 +33,12 @@ const STATUS_LABEL: Record<DocumentRow['status'], string> = {
 
 const STATUS_CLASS: Record<DocumentRow['status'], string> = {
   draft:     'bg-slate-200 text-slate-700',
-  sent:      'bg-blue-100 text-blue-700',
   sent:      'bg-amber-100 text-amber-700',
   paid:      'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-500',
 }
 
-const STATUS_ICON: Record<DocumentRow['status'], React.ReactNode> = {
+const STATUS_ICON: Record<DocumentRow['status'], ReactNode> = {
   draft:     <Pencil size={9} className="shrink-0" />,
   sent:      <Clock size={9} className="shrink-0" />,
   paid:      <CheckCircle2 size={9} className="shrink-0" />,
@@ -99,10 +94,6 @@ function StatusBadge({
         ref={btnRef}
         disabled={updating}
         onClick={handleOpen}
-        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-opacity disabled:opacity-50 ${STATUS_CLASS[row.status]}`}
-      >
-        {STATUS_LABEL[row.status]}
-        <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-opacity disabled:opacity-50 ${STATUS_CLASS[row.status]}`}
       >
         {STATUS_ICON[row.status]}
@@ -126,7 +117,7 @@ function StatusBadge({
               }}
               className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-slate-50 ${s === row.status ? 'font-semibold' : ''}`}
             >
-              <span className={`h-1.5 w-1.5 rounded-full ${s === 'draft' ? 'bg-slate-400' : s === 'sent' ? 'bg-blue-400' : s === 'paid' ? 'bg-green-400' : 'bg-red-400'}`} />
+              <span className={`h-1.5 w-1.5 rounded-full ${s === 'draft' ? 'bg-slate-400' : s === 'sent' ? 'bg-amber-400' : s === 'paid' ? 'bg-green-400' : 'bg-red-400'}`} />
               {STATUS_LABEL[s]}
             </button>
           ))}
@@ -142,13 +133,6 @@ function StatusBadge({
 function KebabMenu({
   row,
   deleting,
-  onDelete,
-  onNavigate,
-}: {
-  row: DocListRow
-  deleting: boolean
-  onDelete: (e: MouseEvent<HTMLButtonElement>, id: string) => void
-  onNavigate: (id: string) => void
   duplicating,
   converting,
   onDelete,
@@ -332,22 +316,10 @@ export default function DocumentListPage({ docType }: Props) {
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
   const [convertingId, setConvertingId] = useState<string | null>(null)
 
-  // Search & Filter
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<DocumentRow['status'] | 'all'>('all')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
-
-  // Pagination
-  const [page, setPage] = useState(1)
-
-  // Search & Filter
-  const [search, setSearch] = useState('')
-  const [filterStatus, setFilterStatus] = useState<DocumentRow['status'] | 'all'>('all')
-  const [filterDateFrom, setFilterDateFrom] = useState('')
-  const [filterDateTo, setFilterDateTo] = useState('')
-
-  // Pagination
   const [page, setPage] = useState(1)
 
   const themeColor = typeof user?.user_metadata?.themeColor === 'string'
@@ -357,10 +329,8 @@ export default function DocumentListPage({ docType }: Props) {
   const pageTitle = DOC_TYPE_CODES[docType]
   const createLabel = DOC_CREATE_LABEL[docType]
 
-  // Reset page when filter changes
   useEffect(() => { setPage(1) }, [search, filterStatus, filterDateFrom, filterDateTo])
 
-  // Filtered rows (frontend — TODO: move to backend query params when API supports it)
   const filtered = rows.filter((row) => {
     if (search) {
       const q = search.toLowerCase()
@@ -465,7 +435,7 @@ export default function DocumentListPage({ docType }: Props) {
 
       {/* Search & Filter Bar */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-48">
+        <div className="relative min-w-48 flex-1">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
@@ -506,7 +476,7 @@ export default function DocumentListPage({ docType }: Props) {
         {(search || filterStatus !== 'all' || filterDateFrom || filterDateTo) && (
           <button
             onClick={() => { setSearch(''); setFilterStatus('all'); setFilterDateFrom(''); setFilterDateTo('') }}
-            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            className="text-xs text-slate-400 transition-colors hover:text-slate-600"
           >
             ล้างตัวกรอง ✕
           </button>
@@ -519,119 +489,93 @@ export default function DocumentListPage({ docType }: Props) {
           <TableSkeleton cols={5} rows={6} />
         ) : (
           <>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50 text-left">
-              <th className="px-4 py-3 font-semibold text-slate-500">วันที่</th>
-              <th className="px-4 py-3 font-semibold text-slate-500">เลขที่เอกสาร</th>
-              <th className="px-4 py-3 font-semibold text-slate-500">ชื่อลูกค้า</th>
-              <th className="px-4 py-3 text-right font-semibold text-slate-500">ยอดรวมสุทธิ</th>
-              <th className="px-4 py-3 font-semibold text-slate-500">สถานะ</th>
-              <th className="w-10 px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {error ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-sm text-slate-400">{error}</td>
-              </tr>
-            ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-16 text-center text-slate-400">
-                  <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
-                    <FilePlus size={20} />
-                  </div>
-                  {rows.length === 0 ? (
-                    <>
-                      <p className="font-medium text-slate-600">ยังไม่มี{pageTitle}ในระบบ</p>
-                      <p className="mt-1 text-xs">คลิกปุ่มด้านบนเพื่อเริ่มสร้างเอกสาร</p>
-                      <button
-                        onClick={() => void handleCreate()}
-                        disabled={creating}
-                        className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                        style={{ backgroundColor: themeColor }}
-                      >
-                        <Plus size={14} />
-                        {createLabel}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <p className="font-medium text-slate-600">ไม่พบเอกสารที่ตรงกับเงื่อนไข</p>
-                      <p className="mt-1 text-xs">ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง</p>
-                    </>
-                  )}
-                <td colSpan={6}>
-                  <EmptyState
-                    icon={<FilePlus size={22} />}
-                    title={rows.length === 0 ? `ยังไม่มี${pageTitle}ในระบบ` : 'ไม่พบเอกสารที่ตรงกับเงื่อนไข'}
-                    description={
-                      rows.length === 0
-                        ? 'คลิกปุ่มด้านบนเพื่อเริ่มสร้างเอกสารรายการแรก'
-                        : 'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง'
-                    }
-                    action={
-                      rows.length === 0 ? (
-                        <button
-                          onClick={() => void handleCreate()}
-                          disabled={creating}
-                          className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                          style={{ backgroundColor: themeColor }}
-                        >
-                          <Plus size={14} />
-                          {createLabel}
-                        </button>
-                      ) : undefined
-                    }
-                  />
-                </td>
-              </tr>
-            ) : paginated.map((row) => (
-              <tr
-                key={row.id}
-                onClick={() => navigate(`/editor/${row.id}`)}
-                className="cursor-pointer border-b border-slate-50 transition-colors hover:bg-slate-50 last:border-0"
-              >
-                <td className="px-4 py-3 text-slate-500">{fmtDate(row.created_at)}</td>
-                <td className="px-4 py-3">
-                  <span className="font-mono font-medium text-blue-600 hover:underline">
-                    {row.doc_number}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-slate-700">{row.customer_name}</td>
-                <td className="px-4 py-3 text-right font-medium text-slate-700">{fmtAmount(row.total_amount)}</td>
-                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                  <StatusBadge
-                    row={row}
-                    updating={updatingStatusId === row.id}
-                    onChangeStatus={handleChangeStatus}
-                  />
-                </td>
-                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                  <KebabMenu
-                    row={row}
-                    deleting={deletingId === row.id}
-                    onDelete={handleDelete}
-                    onNavigate={(id) => navigate(`/editor/${id}`)}
-                    duplicating={duplicatingId === row.id}
-                    converting={convertingId === row.id}
-                    onDelete={handleDelete}
-                    onNavigate={(id) => navigate(`/editor/${id}`)}
-                    onDuplicate={handleDuplicate}
-                    onConvert={docType === 'quotation' ? handleConvert : undefined}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50 text-left">
+                  <th className="px-4 py-3 font-semibold text-slate-500">วันที่</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">เลขที่เอกสาร</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">ชื่อลูกค้า</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-500">ยอดรวมสุทธิ</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">สถานะ</th>
+                  <th className="w-10 px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {error ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-sm text-slate-400">{error}</td>
+                  </tr>
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>
+                      <EmptyState
+                        icon={<FilePlus size={22} />}
+                        title={rows.length === 0 ? `ยังไม่มี${pageTitle}ในระบบ` : 'ไม่พบเอกสารที่ตรงกับเงื่อนไข'}
+                        description={
+                          rows.length === 0
+                            ? 'คลิกปุ่มด้านบนเพื่อเริ่มสร้างเอกสารรายการแรก'
+                            : 'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง'
+                        }
+                        action={
+                          rows.length === 0 ? (
+                            <button
+                              onClick={() => void handleCreate()}
+                              disabled={creating}
+                              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                              style={{ backgroundColor: themeColor }}
+                            >
+                              <Plus size={14} />
+                              {createLabel}
+                            </button>
+                          ) : undefined
+                        }
+                      />
+                    </td>
+                  </tr>
+                ) : paginated.map((row) => (
+                  <tr
+                    key={row.id}
+                    onClick={() => navigate(`/editor/${row.id}`)}
+                    className="cursor-pointer border-b border-slate-50 transition-colors hover:bg-slate-50 last:border-0"
+                  >
+                    <td className="px-4 py-3 text-slate-500">{fmtDate(row.created_at)}</td>
+                    <td className="px-4 py-3">
+                      <span className="font-mono font-medium text-blue-600 hover:underline">
+                        {row.doc_number}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">{row.customer_name}</td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-700">{fmtAmount(row.total_amount)}</td>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <StatusBadge
+                        row={row}
+                        updating={updatingStatusId === row.id}
+                        onChangeStatus={handleChangeStatus}
+                      />
+                    </td>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <KebabMenu
+                        row={row}
+                        deleting={deletingId === row.id}
+                        duplicating={duplicatingId === row.id}
+                        converting={convertingId === row.id}
+                        onDelete={handleDelete}
+                        onNavigate={(id) => navigate(`/editor/${id}`)}
+                        onDuplicate={handleDuplicate}
+                        onConvert={docType === 'quotation' ? handleConvert : undefined}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          total={filtered.length}
-          onPage={setPage}
-        />
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              total={filtered.length}
+              onPage={setPage}
+            />
           </>
         )}
       </div>
