@@ -92,7 +92,7 @@ export function documentReducer(state: DocumentData, action: DocumentAction): Do
       if (SINGLE_INSTANCE.includes(action.blockType) && state.blocks.some(b => b.type === action.blockType)) return state
       const nb: DocumentBlock = { id: generateId(), type: action.blockType, content: action.blockType === 'customText' ? '' : undefined }
       const arr = [...state.blocks]
-      action.atIndex !== undefined ? arr.splice(action.atIndex, 0, nb) : arr.push(nb)
+      if (action.atIndex !== undefined) arr.splice(action.atIndex, 0, nb); else arr.push(nb)
       return { ...state, blocks: arr }
     }
     case 'REMOVE_BLOCK':

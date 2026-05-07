@@ -33,8 +33,6 @@ export default function CustomersPage() {
     ? user.user_metadata.themeColor : '#1e3a8a'
 
   useEffect(() => { void loadRows() }, [])
-  useEffect(() => { setPage(1) }, [search])
-  useEffect(() => { setSelectedIds(new Set()) }, [page])
 
   async function loadRows() {
     setLoading(true)
@@ -70,7 +68,7 @@ export default function CustomersPage() {
   function toggleOne(id: string) {
     setSelectedIds(prev => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id); else next.add(id)
       return next
     })
   }
@@ -137,7 +135,7 @@ export default function CustomersPage() {
         <Search size={16} className="text-slate-400" />
         <input
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => { setSearch(e.target.value); setPage(1) }}
           placeholder="ค้นหาชื่อลูกค้า / เลขผู้เสียภาษี / เบอร์โทร"
           className="w-full border-0 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
         />
@@ -208,7 +206,7 @@ export default function CustomersPage() {
               ))}
             </tbody>
           </table>
-          <Pagination page={page} totalPages={totalPages} total={filtered.length} onPage={setPage} />
+          <Pagination page={page} totalPages={totalPages} total={filtered.length} onPage={p => { setPage(p); setSelectedIds(new Set()) }} />
         </>)}
       </div>
 

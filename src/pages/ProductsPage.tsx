@@ -34,8 +34,6 @@ export default function ProductsPage() {
     ? user.user_metadata.themeColor : '#1e3a8a'
 
   useEffect(() => { void loadRows() }, [])
-  useEffect(() => { setPage(1) }, [search, filterCategory])
-  useEffect(() => { setSelectedIds(new Set()) }, [page])
 
   async function loadRows() {
     setLoading(true)
@@ -75,7 +73,7 @@ export default function ProductsPage() {
   function toggleOne(id: string) {
     setSelectedIds(prev => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id); else next.add(id)
       return next
     })
   }
@@ -143,14 +141,14 @@ export default function ProductsPage() {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setPage(1) }}
             placeholder="ค้นหาชื่อสินค้า/บริการ หรือ หน่วย"
             className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
           />
         </div>
         <select
           value={filterCategory}
-          onChange={e => setFilterCategory(e.target.value)}
+          onChange={e => { setFilterCategory(e.target.value); setPage(1) }}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-slate-400"
         >
           <option value="all">ทุกหมวดหมู่</option>
@@ -224,7 +222,7 @@ export default function ProductsPage() {
               ))}
             </tbody>
           </table>
-          <Pagination page={page} totalPages={totalPages} total={filtered.length} onPage={setPage} />
+          <Pagination page={page} totalPages={totalPages} total={filtered.length} onPage={p => { setPage(p); setSelectedIds(new Set()) }} />
         </>)}
       </div>
 
