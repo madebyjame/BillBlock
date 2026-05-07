@@ -1,13 +1,14 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo } from 'react'
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor,
   useSensor, useSensors, type DragEndEvent, useDroppable,
 } from '@dnd-kit/core'
 import {
   SortableContext, sortableKeyboardCoordinates,
-  verticalListSortingStrategy, arrayMove,
+  verticalListSortingStrategy, arrayMove, useSortable,
 } from '@dnd-kit/sortable'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
+import { CSS } from '@dnd-kit/utilities'
 import type { DocumentData, CatalogItem, DocumentBlock } from '../types/document'
 import { defaultDocument } from '../types/document'
 import type { DocumentAction } from '../store/documentStore'
@@ -16,8 +17,9 @@ import type { ProductRow } from '../lib/productApi'
 import {
   calcDocSummary, formatNumber, formatDate, numberToThaiText,
 } from '../utils/calculations'
+import { readImageFileAsDataUrl } from '../utils/fileToDataUrl'
 import { GripIcon, XSmallIcon, LogoPlaceholder } from './document/DocumentIcons'
-import { F, DescriptionInput, CustomerLookupInput, DiscountInput } from './document/InvoiceInputs'
+import { F, CustomerLookupInput, DiscountInput } from './document/InvoiceInputs'
 import { SortableRow, StaticRow, MetaRow, SummaryRow } from './document/InvoiceRows'
 import { SignatureBox } from './document/SignatureBox'
 
