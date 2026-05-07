@@ -8,6 +8,13 @@ export interface CustomerRow {
   tax_id: string
   email: string
   phone: string
+  contact_person: string
+  status: string
+  tags: string[]
+  billing_address: string
+  shipping_address: string
+  credit_term: string
+  salesperson: string
   created_at?: string
   updated_at?: string
 }
@@ -18,14 +25,23 @@ export interface CustomerInput {
   tax_id: string
   email: string
   phone: string
+  contact_person: string
+  status: string
+  tags: string[]
+  billing_address: string
+  shipping_address: string
+  credit_term: string
+  salesperson: string
 }
+
+const SELECT_FIELDS = 'id, user_id, name, address, tax_id, email, phone, contact_person, status, tags, billing_address, shipping_address, credit_term, salesperson, created_at, updated_at'
 
 export async function listCustomers(): Promise<CustomerRow[]> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
   const { data, error } = await supabase
     .from('customers')
-    .select('id, user_id, name, address, tax_id, email, phone, created_at, updated_at')
+    .select(SELECT_FIELDS)
     .eq('user_id', user.id)
     .order('name', { ascending: true })
   if (error) throw new Error(error.message)

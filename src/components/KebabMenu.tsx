@@ -7,10 +7,12 @@ export function KebabMenu({
   onEdit,
   onDelete,
   deleteLabel = 'ลบ',
+  extraItems = [],
 }: {
   onEdit: () => void
   onDelete: () => void
   deleteLabel?: string
+  extraItems?: { label: string; onClick: () => void }[]
 }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
@@ -54,6 +56,15 @@ export function KebabMenu({
           >
             <Pencil size={13} className="text-slate-400" /> แก้ไข
           </button>
+          {extraItems.map(item => (
+            <button
+              key={item.label}
+              onClick={(e) => { e.stopPropagation(); setOpen(false); item.onClick() }}
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 hover:bg-slate-50"
+            >
+              {item.label}
+            </button>
+          ))}
           <div className="border-t border-slate-100" />
           <button
             onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete() }}
