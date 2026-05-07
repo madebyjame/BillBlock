@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -6,9 +6,9 @@ import {
   KeyboardSensor,
   useSensor,
   useSensors,
-  DragEndEvent,
-  DragStartEvent,
   DragOverlay,
+  type DragEndEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core'
 import {
   SortableContext,
@@ -20,7 +20,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { motion } from 'framer-motion'
 import { GripVertical, LayoutDashboard, Check, Layers } from 'lucide-react'
-import { WidgetId, WIDGET_META, PRESET_TEMPLATES } from '../types/dashboard'
+import { type WidgetId, WIDGET_META, PRESET_TEMPLATES } from '../types/dashboard'
 import type { DashboardData } from '../types/dashboard'
 import QuickActionsWidget from './widgets/QuickActionsWidget'
 import RevenueGoalWidget from './widgets/RevenueGoalWidget'
