@@ -39,10 +39,14 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
   const tc = doc?.settings?.themeColor || defaultDocument.settings.themeColor
   const sym = doc?.settings?.currencySymbol || defaultDocument.settings.currencySymbol
 
+  const docItems = doc?.items
+  const docSummaryMeta = doc?.summary
+  const docVatMode = doc?.settings?.vatMode
+  const docVisibilitySummary = doc?.visibility?.summary
+
   const { subtotal, specialDiscountAmt, vatAmount, preTaxAmount, total } = useMemo(
-    () => calcDocSummary(doc || defaultDocument),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [doc?.items, doc?.summary, doc?.settings?.vatMode, doc?.visibility?.summary],
+    () => calcDocSummary(doc ?? defaultDocument),
+    [docItems, docSummaryMeta, docVatMode, docVisibilitySummary],
   )
 
   // ─── Row DnD sensors ───
@@ -51,14 +55,15 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
+  const items = doc.items
+
   const handleRowDragEnd = useCallback((e: DragEndEvent) => {
     const { active, over } = e
     if (!over || active.id === over.id) return
-    const oldIdx = doc.items.findIndex(i => i.id === active.id)
-    const newIdx = doc.items.findIndex(i => i.id === over.id)
-    dispatch({ type: 'REORDER_ITEMS', ids: arrayMove(doc.items, oldIdx, newIdx).map(i => i.id) })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.items, dispatch])
+    const oldIdx = items.findIndex(i => i.id === active.id)
+    const newIdx = items.findIndex(i => i.id === over.id)
+    dispatch({ type: 'REORDER_ITEMS', ids: arrayMove(items, oldIdx, newIdx).map(i => i.id) })
+  }, [items, dispatch])
 
   return (
     <div
