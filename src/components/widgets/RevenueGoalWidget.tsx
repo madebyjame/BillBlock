@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Target, Pencil, Check, X } from 'lucide-react'
 import type { DashboardData } from '../../types/dashboard'
 

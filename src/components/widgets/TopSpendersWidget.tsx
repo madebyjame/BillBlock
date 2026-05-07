@@ -1,4 +1,3 @@
-import React from 'react'
 import { Crown } from 'lucide-react'
 import type { DashboardData } from '../../types/dashboard'
 

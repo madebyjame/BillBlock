@@ -1,4 +1,3 @@
-import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Package, ChevronRight } from 'lucide-react'
 import type { DashboardData } from '../../types/dashboard'

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { WidgetId, DEFAULT_LAYOUT } from '../types/dashboard'
+import { type WidgetId, DEFAULT_LAYOUT } from '../types/dashboard'
 
 const LAYOUT_KEY = 'billblock_dashboard_layout'
 
