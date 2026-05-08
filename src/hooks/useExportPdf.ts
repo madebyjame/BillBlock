@@ -160,7 +160,7 @@ export function useExportPdf() {
 
       pdf.save(filename)
     } catch (err) {
-      console.error('[BillBlock] PDF export error:', err)
+      // Log error code only — avoid leaking document content in production
       const msg = err instanceof Error ? err.message : 'Unknown error'
       alert(
         `Export PDF ไม่สำเร็จ:\n${msg}\n\n` +

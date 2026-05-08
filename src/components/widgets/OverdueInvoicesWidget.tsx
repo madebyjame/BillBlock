@@ -6,13 +6,6 @@ function fmtAmount(n: number) {
   return n.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 
-function getCustomerName(content: unknown): string {
-  if (content !== null && typeof content === 'object' && 'customer' in content) {
-    const c = (content as { customer?: { name?: unknown } }).customer
-    if (c && typeof c.name === 'string' && c.name.trim()) return c.name
-  }
-  return 'ไม่ระบุชื่อ'
-}
 
 interface Props {
   data: Pick<DashboardData, 'pendingAmount' | 'pendingCount' | 'pendingDocs' | 'loading'>
@@ -70,7 +63,7 @@ export default function OverdueInvoicesWidget({ data }: Props) {
                 className="flex items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-slate-50 border border-slate-100"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-medium text-slate-700">{getCustomerName(doc.content)}</p>
+                  <p className="truncate text-xs font-medium text-slate-700">{doc.customer_name ?? 'ไม่ระบุชื่อ'}</p>
                   <p className="text-[11px] text-slate-400">
                     {new Date(doc.created_at).toLocaleDateString('th-TH', { day: '2-digit', month: 'short' })}
                   </p>

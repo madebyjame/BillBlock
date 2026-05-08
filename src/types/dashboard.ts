@@ -52,8 +52,9 @@ export interface DashboardDoc {
   status: 'draft' | 'sent' | 'paid' | 'cancelled'
   total_amount: number
   created_at: string
-  content: unknown
+  content?: unknown
   doc_number?: string
+  customer_name?: string
 }
 
 export interface ProductAlert {

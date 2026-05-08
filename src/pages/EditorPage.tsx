@@ -89,6 +89,7 @@ export default function EditorPage() {
           .from('documents')
           .select('content')
           .eq('id', id)
+          .eq('user_id', user!.id)
           .single()
 
         if (error) throw error
