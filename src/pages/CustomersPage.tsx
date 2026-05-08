@@ -275,8 +275,8 @@ export default function CustomersPage() {
     if (!user || saving || !form.name.trim()) return
     setSaving(true)
     try {
-      if (editingId) { await updateCustomer(editingId, form); toast.success('อัปเดตข้อมูลลูกค้าแล้ว') }
-      else { await createCustomer(user.id, form); toast.success('เพิ่มข้อมูลลูกค้าแล้ว') }
+      if (editingId) { await updateCustomer(editingId, form); toast.success('เรียบร้อย! อัปเดตข้อมูลลูกค้าแล้ว') }
+      else { await createCustomer(user.id, form); toast.success('เรียบร้อย! เพิ่มลูกค้าใหม่แล้ว') }
       setShowModal(false)
       await loadRows()
     } catch (err) {
