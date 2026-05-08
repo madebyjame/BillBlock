@@ -1,6 +1,5 @@
 import { supabase } from './supabase'
-import { PLAN_LIMITS, PlanLimitError } from './planLimits'
-import type { Plan } from './planLimits'
+import { checkPlanLimit } from './planLimits'
 
 export interface CustomerRow {
   id: string
@@ -51,16 +50,7 @@ export async function listCustomers(): Promise<CustomerRow[]> {
 }
 
 export async function createCustomer(userId: string, input: CustomerInput): Promise<void> {
-  const { data: planData } = await supabase.rpc('get_user_plan', { uid: userId })
-  const plan = (planData as Plan) ?? 'free'
-  const limit = PLAN_LIMITS[plan].customers
-  if (isFinite(limit)) {
-    const { count } = await supabase
-      .from('customers')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-    if ((count ?? 0) >= limit) throw new PlanLimitError('customers', limit)
-  }
+  await checkPlanLimit(userId, 'customers')
 
   const { error } = await supabase
     .from('customers')

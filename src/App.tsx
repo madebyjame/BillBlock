@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
+import { PlanProvider } from './context/PlanContext'
 import LoginPage from './components/LoginPage'
 import MainLayout from './layouts/MainLayout'
 import DashboardPage from './pages/DashboardPage'
@@ -31,7 +32,7 @@ function ProtectedRoute() {
   const { user, loading } = useAuth()
   if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/login" replace />
-  return <Outlet />
+  return <PlanProvider><Outlet /></PlanProvider>
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -72,16 +73,14 @@ export default function App() {
             <Route path="/documents/tax-invoices"  element={<DocumentListPage docType="tax-invoice" />} />
 
             {/* คลังสินค้า */}
-            <Route path="/inventory/products"      element={<ProductsPage />} />
+            <Route path="/inventory/products"     element={<ProductsPage />} />
             <Route path="/inventory/products/:id" element={<ProductDetailPage />} />
             <Route path="/inventory/adjustments"  element={<StockAdjustmentPage />} />
             <Route path="/inventory/movements"    element={<StockMovementPage />} />
 
-            {/* Legacy redirect — keep old /products link working */}
-            <Route path="/products" element={<Navigate to="/inventory/products" replace />} />
-
-            <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/settings"  element={<SettingsPage />} />
+            <Route path="/products"   element={<Navigate to="/inventory/products" replace />} />
+            <Route path="/customers"  element={<CustomersPage />} />
+            <Route path="/settings"   element={<SettingsPage />} />
           </Route>
 
           <Route path="/editor/:id" element={<EditorPage />} />
