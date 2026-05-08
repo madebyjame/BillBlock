@@ -3,8 +3,7 @@ import { defaultDocument, DOC_TYPE_CODES, thaiToDocTypeCode } from '../types/doc
 import type { DocumentData, DocTypeCode } from '../types/document'
 import { calcDocSummary } from '../utils/calculations'
 import { getProfile } from './profileApi'
-import { PLAN_LIMITS, PlanLimitError } from './planLimits'
-import type { Plan } from './planLimits'
+import { checkPlanLimit } from './planLimits'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface DocumentRow {
@@ -32,21 +31,7 @@ export async function createDocument(
   const year = new Date().getFullYear()
   const prefix = DOC_NUMBER_PREFIX[docType]
 
-  // Plan limit check — count docs created this calendar month
-  const { data: planData } = await supabase.rpc('get_user_plan', { uid: userId })
-  const plan = (planData as Plan) ?? 'free'
-  const limit = PLAN_LIMITS[plan].docsPerMonth
-  if (isFinite(limit)) {
-    const startOfMonth = new Date()
-    startOfMonth.setDate(1)
-    startOfMonth.setHours(0, 0, 0, 0)
-    const { count: monthCount } = await supabase
-      .from('documents')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .gte('created_at', startOfMonth.toISOString())
-    if ((monthCount ?? 0) >= limit) throw new PlanLimitError('documents', limit)
-  }
+  await checkPlanLimit(userId, 'documents')
 
   // Count existing docs of this type for sequential number
   const { count } = await supabase

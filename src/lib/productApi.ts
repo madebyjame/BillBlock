@@ -1,6 +1,5 @@
 import { supabase } from './supabase'
-import { PLAN_LIMITS, PlanLimitError } from './planLimits'
-import type { Plan } from './planLimits'
+import { checkPlanLimit } from './planLimits'
 
 export interface ProductRow {
   id: string
@@ -47,16 +46,7 @@ export async function listProducts(): Promise<ProductRow[]> {
 }
 
 export async function createProduct(userId: string, input: ProductInput): Promise<string> {
-  const { data: planData } = await supabase.rpc('get_user_plan', { uid: userId })
-  const plan = (planData as Plan) ?? 'free'
-  const limit = PLAN_LIMITS[plan].products
-  if (isFinite(limit)) {
-    const { count } = await supabase
-      .from('products')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-    if ((count ?? 0) >= limit) throw new PlanLimitError('products', limit)
-  }
+  await checkPlanLimit(userId, 'products')
 
   const { data, error } = await supabase
     .from('products')
@@ -102,6 +92,7 @@ export async function computeCommittedQtys(): Promise<Map<string, number>> {
   const { data } = await supabase
     .from('documents')
     .select('content')
+    .eq('user_id', user.id)
     .eq('doc_type', 'invoice')
     .eq('status', 'sent')
 
@@ -125,9 +116,13 @@ export async function getProductMonthlySales(
   productId: string,
   months = 6,
 ): Promise<{ label: string; qty: number; revenue: number }[]> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
   const { data } = await supabase
     .from('documents')
     .select('content, created_at')
+    .eq('user_id', user.id)
     .eq('doc_type', 'invoice')
     .eq('status', 'paid')
 
