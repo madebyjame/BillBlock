@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Building2,
   Check,
+  CheckCircle2,
   Contact,
   CreditCard,
   FileText,
@@ -10,15 +11,19 @@ import {
   Settings2,
   Upload,
   X,
+  Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { getProfile, upsertProfile, uploadCompanyFile } from '../lib/profileApi'
 import type { Profile } from '../lib/profileApi'
+import { usePlan } from '../hooks/usePlan'
+import { PLAN_LABELS } from '../lib/planLimits'
+import { supabase } from '../lib/supabase'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type TabId = 'company' | 'design' | 'payment' | 'defaults'
+type TabId = 'company' | 'design' | 'payment' | 'defaults' | 'billing'
 type FormState = Omit<Profile, 'id'>
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -30,10 +35,11 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { id: 'company',  label: 'ข้อมูลองค์กร',    icon: <Building2 size={15} /> },
-  { id: 'design',   label: 'หน้าตาเอกสาร',   icon: <FileText  size={15} /> },
+  { id: 'company',  label: 'ข้อมูลองค์กร',    icon: <Building2  size={15} /> },
+  { id: 'design',   label: 'หน้าตาเอกสาร',   icon: <FileText   size={15} /> },
   { id: 'payment',  label: 'ช่องทางรับเงิน',  icon: <CreditCard size={15} /> },
-  { id: 'defaults', label: 'ตั้งค่าเริ่มต้น', icon: <Settings2 size={15} /> },
+  { id: 'defaults', label: 'ตั้งค่าเริ่มต้น', icon: <Settings2  size={15} /> },
+  { id: 'billing',  label: 'แผน & Billing',   icon: <Zap        size={15} /> },
 ]
 
 const THEME_COLORS: { label: string; value: string }[] = [
@@ -202,6 +208,9 @@ export default function SettingsPage() {
       )}
       {activeTab === 'defaults' && (
         <DefaultsTab form={form} update={update} />
+      )}
+      {activeTab === 'billing' && (
+        <BillingTab />
       )}
 
       {/* ── Sticky save footer (shows only when dirty) ── */}
@@ -556,6 +565,196 @@ function DefaultsTab({
   )
 }
 
+// ─── Tab 5: Billing ───────────────────────────────────────────────────────────
+
+const PLANS_INFO = [
+  {
+    id: 'free' as const,
+    name: 'Free',
+    price: 'ฟรี',
+    priceNote: 'ตลอดไป',
+    features: ['เอกสาร 20 ฉบับ/เดือน', 'ลูกค้า 10 ราย', 'สินค้า 10 รายการ', 'PDF export'],
+    color: 'border-slate-200',
+    highlight: false,
+  },
+  {
+    id: 'pro' as const,
+    name: 'Pro',
+    price: '฿299',
+    priceNote: '/เดือน',
+    features: ['เอกสารไม่จำกัด', 'ลูกค้าไม่จำกัด', 'สินค้าไม่จำกัด', 'แดชบอร์ดขั้นสูง', 'ปรับแต่งธีม & โลโก้'],
+    color: 'border-blue-500',
+    highlight: true,
+  },
+  {
+    id: 'business' as const,
+    name: 'Business',
+    price: '฿599',
+    priceNote: '/เดือน',
+    features: ['ทุกอย่างใน Pro', 'ผู้ใช้งานหลายคน (5 คน)', 'นำเข้า Excel', 'Priority Support'],
+    color: 'border-violet-500',
+    highlight: false,
+  },
+]
+
+function UsageRow({ label, used, limit }: { label: string; used: number; limit: number }) {
+  const pct = Math.min((used / limit) * 100, 100)
+  const isNear = pct >= 80
+  const isFull = pct >= 100
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-xs text-slate-500">
+        <span>{label}</span>
+        <span className={isFull ? 'font-semibold text-red-500' : isNear ? 'font-semibold text-amber-500' : ''}>
+          {used} / {limit}
+        </span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+        <div
+          className={`h-full rounded-full transition-all ${isFull ? 'bg-red-400' : isNear ? 'bg-amber-400' : 'bg-blue-500'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function BillingTab() {
+  const { user } = useAuth()
+  const { plan, usage, limits, loading } = usePlan()
+  const [periodEnd, setPeriodEnd] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!user || plan === 'free') return
+    supabase
+      .from('subscriptions')
+      .select('current_period_end')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .order('current_period_end', { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data?.current_period_end) setPeriodEnd(data.current_period_end as string)
+      })
+  }, [user, plan])
+
+  if (loading) {
+    return (
+      <div className="space-y-4 animate-pulse">
+        <div className="h-28 rounded-xl bg-slate-100" />
+        <div className="h-36 rounded-xl bg-slate-100" />
+        <div className="grid grid-cols-3 gap-4">
+          {[1,2,3].map(i => <div key={i} className="h-64 rounded-xl bg-slate-100" />)}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Current plan */}
+      <SectionCard title="แผนปัจจุบัน" icon={<Zap size={15} />}>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-extrabold text-slate-800">{PLAN_LABELS[plan]}</span>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                plan === 'free' ? 'bg-slate-100 text-slate-500' :
+                plan === 'pro'  ? 'bg-blue-100 text-blue-700' :
+                                  'bg-violet-100 text-violet-700'
+              }`}>
+                {plan === 'free' ? 'ฟรี' : 'Active'}
+              </span>
+            </div>
+            {periodEnd && (
+              <p className="mt-1 text-xs text-slate-400">
+                ต่ออายุ {new Date(periodEnd).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            )}
+            {plan === 'free' && (
+              <p className="mt-1 text-xs text-slate-400">อัปเกรดเพื่อปลดล็อกฟีเจอร์เพิ่มเติม</p>
+            )}
+          </div>
+          {plan !== 'free' && (
+            <button
+              onClick={() => toast.info('ระบบจัดการ subscription กำลังเปิดใช้เร็วๆ นี้')}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-500 hover:bg-slate-50 transition-colors"
+            >
+              จัดการ subscription
+            </button>
+          )}
+        </div>
+      </SectionCard>
+
+      {/* Usage */}
+      {plan === 'free' && (
+        <SectionCard title="การใช้งานเดือนนี้" icon={<FileText size={15} />}>
+          <div className="space-y-3">
+            <UsageRow label="เอกสาร / เดือน" used={usage.docsThisMonth} limit={limits.docsPerMonth} />
+            <UsageRow label="ลูกค้า"          used={usage.totalCustomers}  limit={limits.customers} />
+            <UsageRow label="สินค้า"          used={usage.totalProducts}   limit={limits.products} />
+          </div>
+        </SectionCard>
+      )}
+
+      {/* Plan cards */}
+      <SectionCard title="เปรียบเทียบแผน" icon={<CreditCard size={15} />}>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {PLANS_INFO.map((p) => {
+            const isCurrent = p.id === plan
+            return (
+              <div
+                key={p.id}
+                className={`relative rounded-xl border-2 p-4 ${isCurrent ? p.color : 'border-slate-100'} ${p.highlight && !isCurrent ? 'bg-blue-50/40' : 'bg-white'}`}
+              >
+                {isCurrent && (
+                  <div className="absolute -top-3 left-4 flex items-center gap-1 rounded-full bg-green-500 px-2.5 py-0.5 text-[10px] font-bold text-white">
+                    <CheckCircle2 size={9} /> แผนปัจจุบัน
+                  </div>
+                )}
+                <p className="font-bold text-slate-800">{p.name}</p>
+                <div className="my-1 flex items-end gap-1">
+                  <span className="text-xl font-extrabold text-slate-900">{p.price}</span>
+                  <span className="mb-0.5 text-xs text-slate-400">{p.priceNote}</span>
+                </div>
+                <ul className="my-3 space-y-1.5">
+                  {p.features.map((f) => (
+                    <li key={f} className="flex items-start gap-1.5 text-xs text-slate-600">
+                      <Check size={12} className="mt-0.5 shrink-0 text-blue-500" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                {isCurrent ? (
+                  <div className="mt-3 w-full rounded-lg border border-green-200 bg-green-50 py-2 text-center text-xs font-semibold text-green-600">
+                    แผนปัจจุบัน
+                  </div>
+                ) : p.id === 'free' ? (
+                  <div className="mt-3 w-full rounded-lg border border-slate-200 py-2 text-center text-xs text-slate-400">
+                    —
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => toast.info('ระบบชำระเงินกำลังเปิดใช้เร็วๆ นี้')}
+                    className={`mt-3 w-full rounded-lg py-2 text-xs font-semibold transition-colors ${
+                      p.id === 'pro'
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-violet-600 text-white hover:bg-violet-700'
+                    }`}
+                  >
+                    อัปเกรดเป็น {p.name}
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
 // ─── Shared Components ────────────────────────────────────────────────────────
 
 function SectionCard({
@@ -670,7 +869,7 @@ function SettingsSkeleton() {
     <div className="mx-auto max-w-4xl animate-pulse p-4 md:p-8">
       <div className="mb-6 h-7 w-24 rounded bg-slate-200" />
       <div className="mb-6 flex gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
-        {[1, 2, 3, 4].map((i) => (
+        {[1, 2, 3, 4, 5].map((i) => (
           <div key={i} className="h-9 flex-1 rounded-lg bg-slate-200" />
         ))}
       </div>
