@@ -99,12 +99,14 @@ export function CustomerLookupInput({
   customers,
   onChange,
   onQuickAdd,
+  autoFocus,
 }: {
   pdfMode: boolean
   customer: DocumentData['customer']
   customers: CustomerRow[]
   onChange: (data: Partial<DocumentData['customer']>) => void
   onQuickAdd?: (name: string) => void
+  autoFocus?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const typedName = customer.name.trim()
@@ -136,6 +138,7 @@ export function CustomerLookupInput({
         </svg>
         <input
           type="text"
+          autoFocus={autoFocus}
           value={customer.name}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 200)}

@@ -56,6 +56,7 @@ export default function EditorPage() {
   )
   const [docLoading, setDocLoading] = useState(id !== 'local')
   const [docError, setDocError] = useState('')
+  const isNewDoc = id === 'new' || searchParams.get('new') === '1'
 
   const latestDocRef = useRef(doc)
   latestDocRef.current = doc
@@ -244,9 +245,9 @@ function EditorUI({
       setIsDirty(false)
       const successMessage: Record<DocumentRow['status'], string> = {
         draft: 'บันทึก Draft แล้ว',
-        sent: 'อัปเดตสถานะเป็น Sent แล้ว',
-        paid: 'อัปเดตสถานะเป็น Paid แล้ว',
-        cancelled: 'อัปเดตสถานะเป็น Cancelled แล้ว',
+        sent: 'เรียบร้อย! บิลของคุณพร้อมส่งไปเก็บเงินแล้ว',
+        paid: 'บันทึกการรับเงินเรียบร้อย',
+        cancelled: 'ยกเลิกเอกสารแล้ว',
       }
       toast.success(successMessage[targetStatus])
     } catch {
@@ -366,7 +367,7 @@ function EditorUI({
                   </div>
                 )}
                 <div className="shadow-lg rounded-sm">
-                  <InvoiceDocument doc={doc} dispatch={dispatch} docRef={docRef} catalog={catalog} customers={customers} products={products} onQuickAddCustomer={handleOpenQuickAdd} />
+                  <InvoiceDocument doc={doc} dispatch={dispatch} docRef={docRef} catalog={catalog} customers={customers} products={products} onQuickAddCustomer={handleOpenQuickAdd} autoFocusCustomer={isNewDoc} />
                 </div>
               </div>
             </main>

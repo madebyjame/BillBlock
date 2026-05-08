@@ -8,4 +8,12 @@ export const supabaseConfigured = Boolean(url && key)
 export const supabase = createClient(
   url ?? 'https://placeholder.supabase.co',
   key ?? 'placeholder-key',
+  {
+    auth: {
+      persistSession: true,
+      storageKey: 'billblock_auth',
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  },
 )

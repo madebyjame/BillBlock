@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @keyframes block-in {
@@ -22,14 +22,21 @@
     height: 100%;
     margin: 0;
     padding: 0;
-    font-family: 'Sarabun', system-ui, sans-serif;
-    background-color: #f3f4f6;
-    color: #111827;
+    font-family: 'IBM Plex Sans Thai', system-ui, sans-serif;
+    background-color: #f8fafc;
+    color: #0f172a;
     text-align: left;
     border: none;
     width: 100%;
     max-width: 100%;
     display: block;
+    line-height: 1.65;
+  }
+
+  h1, h2, h3, h4, h5 {
+    font-weight: 600;
+    line-height: 1.3;
+    color: #0f172a;
   }
 }
 

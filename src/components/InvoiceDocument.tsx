@@ -33,9 +33,10 @@ interface Props {
   customers: CustomerRow[]
   products: ProductRow[]
   onQuickAddCustomer?: (name: string) => void
+  autoFocusCustomer?: boolean
 }
 
-export default function InvoiceDocument({ doc, dispatch, docRef, catalog, customers, products, onQuickAddCustomer }: Props) {
+export default function InvoiceDocument({ doc, dispatch, docRef, catalog, customers, products, onQuickAddCustomer, autoFocusCustomer }: Props) {
   const pdfMode = useContext(PdfModeContext)
   
   // ป้องกันกรณี doc หรือ nested objects เป็น undefined/null แม้จะผ่าน normalize มาแล้ว
@@ -132,6 +133,7 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
                 customers={customers}
                 onChange={(data) => dispatch({ type: 'UPDATE_CUSTOMER', data })}
                 onQuickAdd={onQuickAddCustomer}
+                autoFocus={autoFocusCustomer}
               />
               <F pdfMode={pdfMode} multiline value={doc.customer.address} className="text-slate-500"
                 onChange={val => dispatch({ type: 'UPDATE_CUSTOMER', data: { address: val } })} />

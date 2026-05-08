@@ -89,7 +89,7 @@ const PLANS = [
     highlight: false,
   },
   {
-    name: 'มืออาชีพ',
+    name: 'Professional Freelancer',
     nameEn: 'Pro',
     price: '฿299',
     priceNote: '/เดือน',
@@ -110,7 +110,7 @@ const PLANS = [
     highlight: true,
   },
   {
-    name: 'องค์กร',
+    name: 'SME Growth',
     nameEn: 'Business',
     price: '฿599',
     priceNote: '/เดือน',
@@ -194,37 +194,36 @@ export default function LandingPage() {
       </header>
 
       {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-blue-50 to-white px-6 py-24 text-center">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(59,130,246,0.12),transparent)]" />
+      <section className="relative overflow-hidden bg-slate-50 px-6 py-24 text-center border-b border-slate-100">
         <motion.div
           initial="hidden"
           animate="show"
           variants={{ show: { transition: { staggerChildren: 0.12 } } }}
           className="mx-auto max-w-3xl"
         >
-          <motion.div variants={fadeUp} className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-sm text-blue-700">
-            <Zap className="h-3.5 w-3.5" />
-            ระบบเอกสารธุรกิจสำหรับธุรกิจไทย
+          <motion.div variants={fadeUp} className="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm font-medium text-slate-600 shadow-sm">
+            <Zap className="h-3.5 w-3.5 text-emerald-500" />
+            สำหรับฟรีแลนซ์และ SME ไทย
           </motion.div>
-          <motion.h1 variants={fadeUp} className="mb-6 text-5xl font-extrabold leading-tight text-slate-900 md:text-6xl">
-            ออกเอกสารธุรกิจ<br />
-            <span className="text-blue-600">ง่าย เร็ว มืออาชีพ</span>
+          <motion.h1 variants={fadeUp} className="mb-6 text-5xl font-semibold leading-tight text-slate-900 md:text-6xl">
+            ออกบิลมือโปร<br />
+            <span className="text-emerald-600">รับเงินไวขึ้น 2 เท่า</span>
           </motion.h1>
           <motion.p variants={fadeUp} className="mb-10 text-lg text-slate-500 leading-relaxed">
-            BillBlock คือแพลตฟอร์มจัดการเอกสารธุรกิจครบวงจร ออกใบเสนอราคา ใบแจ้งหนี้
-            ใบเสร็จ ใบกำกับภาษี และอื่นๆ ได้ในไม่กี่คลิก พร้อมแดชบอร์ดวิเคราะห์ธุรกิจแบบ real-time
+            โดยไม่ต้องปวดหัวเรื่องบัญชี — ออกใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ
+            ในไม่กี่คลิก พร้อมส่งให้ลูกค้าได้เลย
           </motion.p>
           <motion.div variants={fadeUp} className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <button
               onClick={() => navigate('/login')}
-              className="flex items-center gap-2 rounded-xl bg-blue-600 px-8 py-3.5 font-semibold text-white shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all hover:shadow-blue-300"
+              className="flex items-center gap-2 rounded-xl bg-emerald-600 px-8 py-3.5 font-semibold text-white shadow-sm hover:bg-emerald-700 transition-all"
             >
               เริ่มใช้งานฟรี
               <ArrowRight className="h-4 w-4" />
             </button>
             <a
               href="#pricing"
-              className="rounded-xl border border-slate-200 px-8 py-3.5 font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-600 transition-all"
+              className="rounded-xl border border-slate-200 bg-white px-8 py-3.5 font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-sm"
             >
               ดูแพ็กเกจราคา
             </a>

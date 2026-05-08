@@ -5,26 +5,30 @@ const ACTIONS = [
   {
     label: 'สร้างใบแจ้งหนี้',
     icon: FileText,
-    path: '/documents/invoices',
-    bg: 'bg-blue-500 hover:bg-blue-600',
+    path: '/editor/new?type=invoice',
+    bg: 'bg-emerald-600 hover:bg-emerald-700',
+    primary: true,
+  },
+  {
+    label: 'สร้างใบเสนอราคา',
+    icon: FilePlus,
+    path: '/editor/new?type=quotation',
+    bg: 'bg-slate-800 hover:bg-slate-900',
+    primary: false,
   },
   {
     label: 'เพิ่มลูกค้าใหม่',
     icon: UserPlus,
     path: '/customers',
-    bg: 'bg-emerald-500 hover:bg-emerald-600',
-  },
-  {
-    label: 'สร้างใบเสนอราคา',
-    icon: FilePlus,
-    path: '/documents/quotations',
-    bg: 'bg-violet-500 hover:bg-violet-600',
+    bg: 'bg-slate-600 hover:bg-slate-700',
+    primary: false,
   },
   {
     label: 'ใบเสร็จรับเงิน',
     icon: FileCheck,
-    path: '/documents/receipts',
-    bg: 'bg-orange-500 hover:bg-orange-600',
+    path: '/editor/new?type=receipt',
+    bg: 'bg-slate-600 hover:bg-slate-700',
+    primary: false,
   },
 ]
 
@@ -39,7 +43,7 @@ export default function QuickActionsWidget() {
           <button
             key={label}
             onClick={() => navigate(path)}
-            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-white transition-all hover:shadow-md active:scale-[0.98] ${bg}`}
+            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-white transition-all active:scale-[0.98] shadow-sm ${bg}`}
           >
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white/20">
               <Icon size={14} />
