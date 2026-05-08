@@ -56,7 +56,6 @@ export default function EditorPage() {
   )
   const [docLoading, setDocLoading] = useState(id !== 'local')
   const [docError, setDocError] = useState('')
-  const isNewDoc = id === 'new' || searchParams.get('new') === '1'
 
   const latestDocRef = useRef(doc)
   latestDocRef.current = doc
@@ -165,18 +164,20 @@ export default function EditorPage() {
       doc={doc}
       dispatch={dispatch}
       latestDocRef={latestDocRef}
+      isNewDoc={id === 'new' || searchParams.get('new') === '1'}
     />
   )
 }
 
 // ─── EditorUI ────────────────────────────────────────────────────────────────
 function EditorUI({
-  docId, doc, dispatch, latestDocRef,
+  docId, doc, dispatch, latestDocRef, isNewDoc,
 }: {
   docId: string | undefined
   doc: ReturnType<typeof documentReducer>
   dispatch: React.Dispatch<Parameters<typeof documentReducer>[1]>
   latestDocRef: React.RefObject<ReturnType<typeof documentReducer>>
+  isNewDoc: boolean
 }) {
   const navigate = useNavigate()
   const { user } = useAuth()
