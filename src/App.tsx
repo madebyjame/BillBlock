@@ -8,6 +8,7 @@ import EditorPage from './pages/EditorPage'
 import SettingsPage from './pages/SettingsPage'
 import CustomersPage from './pages/CustomersPage'
 import ProductsPage from './pages/ProductsPage'
+import LandingPage from './pages/LandingPage'
 
 function LoadingScreen() {
   return (
@@ -41,6 +42,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+
+        <Route path="/landing" element={<LandingPage />} />
 
         <Route path="/login" element={
           <PublicRoute><LoginPage /></PublicRoute>
