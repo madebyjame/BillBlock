@@ -5,8 +5,10 @@ import { useNavigate } from 'react-router-dom'
 import { FilePlus, Plus, Search, ChevronDown, MoreVertical, Eye, Pencil, Download, Trash2, Clock, CheckCircle2, XCircle, Copy, ArrowRightLeft } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
+import UpgradeModal from '../components/UpgradeModal'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
+import { PlanLimitError } from '../lib/planLimits'
 import { useDocumentsByType } from '../hooks/useDocumentsByType'
 import { createDocument, deleteDocument, updateDocumentStatus, duplicateDocument, convertToInvoice } from '../lib/documentApi'
 import type { DocumentRow } from '../lib/documentApi'
@@ -311,6 +313,7 @@ export default function DocumentListPage({ docType }: Props) {
   const { rows, loading, error, refetch } = useDocumentsByType(docType)
 
   const [creating, setCreating] = useState(false)
+  const [upgradeModal, setUpgradeModal] = useState<{ resource: 'documents'; limit: number } | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
@@ -351,8 +354,12 @@ export default function DocumentListPage({ docType }: Props) {
     try {
       const id = await createDocument(user.id, docType)
       navigate(`/editor/${id}`)
-    } catch {
-      toast.error('สร้างเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
+    } catch (err) {
+      if (err instanceof PlanLimitError) {
+        setUpgradeModal({ resource: 'documents', limit: err.limit })
+      } else {
+        toast.error('สร้างเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
+      }
       setCreating(false)
     }
   }
@@ -412,6 +419,14 @@ export default function DocumentListPage({ docType }: Props) {
 
   return (
     <div className="mx-auto max-w-5xl p-8">
+      {upgradeModal && (
+        <UpgradeModal
+          resource={upgradeModal.resource}
+          limit={upgradeModal.limit}
+          onClose={() => setUpgradeModal(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800">{pageTitle}</h1>

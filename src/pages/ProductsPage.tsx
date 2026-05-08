@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Search, FileUp, Box } from 'lucide-react'
+import { Plus, Search, FileUp, Box, Lock } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
 import { KebabMenu } from '../components/KebabMenu'
 import { Pagination } from '../components/Pagination'
 import { FormField } from '../components/FormField'
+import UpgradeModal from '../components/UpgradeModal'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import {
   createProduct, deleteProduct, listProducts, updateProduct,
   type ProductInput, type ProductRow,
 } from '../lib/productApi'
+import { PlanLimitError } from '../lib/planLimits'
+import { usePlan } from '../hooks/usePlan'
 
 const EMPTY_FORM: ProductInput = { name: '', price: 0, unit: '', stock: 0, category: '' }
 const PAGE_SIZE = 10
@@ -19,12 +22,14 @@ const PAGE_SIZE = 10
 
 export default function ProductsPage() {
   const { user } = useAuth()
+  const { isBusiness } = usePlan()
   const [rows, setRows] = useState<ProductRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
   const [saving, setSaving] = useState(false)
   const [showModal, setShowModal] = useState(false)
+  const [upgradeModal, setUpgradeModal] = useState<{ resource: 'products'; limit: number } | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<ProductInput>(EMPTY_FORM)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -105,7 +110,14 @@ export default function ProductsPage() {
       else { await createProduct(user.id, form); toast.success('เพิ่มข้อมูลสินค้าแล้ว') }
       setShowModal(false)
       await loadRows()
-    } catch { toast.error('บันทึกข้อมูลสินค้าไม่สำเร็จ') }
+    } catch (err) {
+      if (err instanceof PlanLimitError) {
+        setShowModal(false)
+        setUpgradeModal({ resource: 'products', limit: err.limit })
+      } else {
+        toast.error('บันทึกข้อมูลสินค้าไม่สำเร็จ')
+      }
+    }
     finally { setSaving(false) }
   }
 
@@ -117,15 +129,32 @@ export default function ProductsPage() {
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-8">
+      {upgradeModal && (
+        <UpgradeModal
+          resource={upgradeModal.resource}
+          limit={upgradeModal.limit}
+          onClose={() => setUpgradeModal(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800">สินค้า</h1>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => toast.info('ฟีเจอร์นำเข้า Excel กำลังพัฒนา')}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            onClick={() => isBusiness
+              ? toast.info('ฟีเจอร์นำเข้า Excel กำลังพัฒนา')
+              : toast.error('ฟีเจอร์นี้สำหรับแผน Business เท่านั้น')
+            }
+            title={isBusiness ? undefined : 'ต้องการแผน Business'}
+            className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
+              isBusiness
+                ? 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                : 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+            }`}
           >
-            <FileUp size={15} /> นำเข้าจาก Excel
+            {isBusiness ? <FileUp size={15} /> : <Lock size={15} />}
+            นำเข้าจาก Excel
           </button>
           <button
             onClick={openCreate}

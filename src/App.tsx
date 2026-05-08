@@ -8,6 +8,7 @@ import EditorPage from './pages/EditorPage'
 import SettingsPage from './pages/SettingsPage'
 import CustomersPage from './pages/CustomersPage'
 import ProductsPage from './pages/ProductsPage'
+import LandingPage from './pages/LandingPage'
 
 function LoadingScreen() {
   return (
@@ -33,14 +34,23 @@ function ProtectedRoute() {
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   if (loading) return <LoadingScreen />
-  if (user) return <Navigate to="/" replace />
+  if (user) return <Navigate to="/dashboard" replace />
   return <>{children}</>
+}
+
+function RootRoute() {
+  const { user, loading } = useAuth()
+  if (loading) return <LoadingScreen />
+  if (user) return <Navigate to="/dashboard" replace />
+  return <LandingPage />
 }
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+
+        <Route path="/" element={<RootRoute />} />
 
         <Route path="/login" element={
           <PublicRoute><LoginPage /></PublicRoute>
@@ -49,7 +59,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
 
           <Route element={<MainLayout />}>
-            <Route path="/" element={<DashboardPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
 
             {/* งานขาย — แยกตามประเภทเอกสาร */}
             <Route path="/documents/quotations"    element={<DocumentListPage docType="quotation" />} />
@@ -67,7 +77,7 @@ export default function App() {
 
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
 
       </Routes>
     </BrowserRouter>
