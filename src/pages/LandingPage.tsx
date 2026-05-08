@@ -106,7 +106,7 @@ const PLANS = [
       'Multi-currency',
       'Email Support',
     ],
-    cta: 'ทดลองใช้ 30 วัน',
+    cta: 'เริ่มใช้งาน Pro',
     highlight: true,
   },
   {
@@ -125,7 +125,7 @@ const PLANS = [
       'Priority Support',
       'SLA 99.9% Uptime',
     ],
-    cta: 'ติดต่อฝ่ายขาย',
+    cta: 'เริ่มใช้งาน Business',
     highlight: false,
   },
 ]
