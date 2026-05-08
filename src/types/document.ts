@@ -60,6 +60,8 @@ export interface DocumentData {
     bankName: string
     accountName: string
     accountNumber: string
+    bankNote?: string
+    promptpayId?: string
   }
   blocks: DocumentBlock[]
   settings: DocumentSettings
