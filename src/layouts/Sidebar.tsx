@@ -28,7 +28,7 @@ type SidebarProps = {
 }
 
 const TOP_NAV = [
-  { to: '/', label: 'แดชบอร์ด', end: true, Icon: LayoutDashboard },
+  { to: '/dashboard', label: 'แดชบอร์ด', end: true, Icon: LayoutDashboard },
 ]
 
 const SALES_NAV = [
