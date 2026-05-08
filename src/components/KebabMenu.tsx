@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { MoreVertical, Pencil, Trash2 } from 'lucide-react'
@@ -12,7 +12,7 @@ export function KebabMenu({
   onEdit: () => void
   onDelete: () => void
   deleteLabel?: string
-  extraItems?: { label: string; onClick: () => void }[]
+  extraItems?: { label: string; onClick: () => void; icon?: ReactNode }[]
 }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
@@ -62,6 +62,7 @@ export function KebabMenu({
               onClick={(e) => { e.stopPropagation(); setOpen(false); item.onClick() }}
               className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 hover:bg-slate-50"
             >
+              {item.icon && <span className="text-slate-400">{item.icon}</span>}
               {item.label}
             </button>
           ))}

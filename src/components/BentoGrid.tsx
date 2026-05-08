@@ -29,6 +29,7 @@ import StockAlertsWidget from './widgets/StockAlertsWidget'
 import RecentActivitiesWidget from './widgets/RecentActivitiesWidget'
 import QuickNoteWidget from './widgets/QuickNoteWidget'
 import TopSpendersWidget from './widgets/TopSpendersWidget'
+import CustomerGradesWidget from './widgets/CustomerGradesWidget'
 
 // ─── Widget content renderer ──────────────────────────────────────────────────
 
@@ -41,6 +42,7 @@ function renderWidgetContent(id: WidgetId, data: DashboardData) {
     case 'recent-activities': return <RecentActivitiesWidget data={data} />
     case 'quick-note':        return <QuickNoteWidget />
     case 'top-spenders':      return <TopSpendersWidget data={data} />
+    case 'customer-grades':   return <CustomerGradesWidget data={data} />
   }
 }
 

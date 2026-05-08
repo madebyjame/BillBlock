@@ -6,6 +6,7 @@ export type WidgetId =
   | 'recent-activities'
   | 'quick-note'
   | 'top-spenders'
+  | 'customer-grades'
 
 export interface WidgetMeta {
   colSpan: 1 | 2
@@ -21,6 +22,7 @@ export const WIDGET_META: Record<WidgetId, WidgetMeta> = {
   'recent-activities': { colSpan: 2, rowSpan: 1, titleTh: 'ความเคลื่อนไหวล่าสุด' },
   'quick-note':        { colSpan: 1, rowSpan: 1, titleTh: 'โน้ตด่วน' },
   'top-spenders':      { colSpan: 1, rowSpan: 1, titleTh: 'ลูกค้าชั้นดี' },
+  'customer-grades':   { colSpan: 1, rowSpan: 2, titleTh: 'เกรดลูกค้า' },
 }
 
 export const DEFAULT_LAYOUT: WidgetId[] = [
@@ -66,6 +68,15 @@ export interface SpenderEntry {
   total: number
 }
 
+export interface GradeEntry {
+  customer_id: string
+  customer_name: string
+  grade: 'A' | 'B' | 'F'
+  on_time_count: number
+  late_count: number
+  overdue_count: number
+}
+
 export interface DashboardData {
   loading: boolean
   revenue30d: number
@@ -76,6 +87,7 @@ export interface DashboardData {
   recentDocs: DashboardDoc[]
   lowStockProducts: ProductAlert[]
   topSpenders: SpenderEntry[]
+  customerGrades: GradeEntry[]
   customerCount: number
   companyName: string
   themeColor: string
