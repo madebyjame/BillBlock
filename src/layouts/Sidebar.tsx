@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Box,
   Building2,
@@ -15,7 +15,9 @@ import {
   Tag,
   Users,
   X,
+  Zap,
 } from 'lucide-react'
+import { usePlan } from '../hooks/usePlan'
 
 type SidebarProps = {
   collapsed: boolean
@@ -69,10 +71,34 @@ function NavItem({ to, label, end = false, Icon, collapsed, onClick, themeColor 
   )
 }
 
+function UsageBar({ used, limit, label }: { used: number; limit: number; label: string }) {
+  const pct = Math.min((used / limit) * 100, 100)
+  const isNear = pct >= 80
+  const isFull = pct >= 100
+  return (
+    <div>
+      <div className="mb-1 flex justify-between text-[10px] text-slate-400">
+        <span>{label}</span>
+        <span className={isFull ? 'text-red-400' : isNear ? 'text-amber-400' : ''}>
+          {used}/{limit}
+        </span>
+      </div>
+      <div className="h-1 w-full overflow-hidden rounded-full bg-slate-700">
+        <div
+          className={`h-full rounded-full transition-all ${isFull ? 'bg-red-400' : isNear ? 'bg-amber-400' : 'bg-blue-500'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
 export default function Sidebar({
   collapsed, setCollapsed, mobileOpen, setMobileOpen, userEmail, onSignOut, themeColor,
 }: SidebarProps) {
   const close = () => setMobileOpen(false)
+  const navigate = useNavigate()
+  const { plan, usage, limits, loading: planLoading } = usePlan()
 
   return (
     <>
@@ -139,9 +165,28 @@ export default function Sidebar({
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-slate-800 px-2 py-3">
+        <div className="border-t border-slate-800 px-2 py-3 space-y-2">
+          {/* Usage bar — free plan only */}
+          {!collapsed && !planLoading && plan === 'free' && (
+            <div className="rounded-lg bg-slate-800/70 px-3 py-2.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">แผน Free</span>
+                <button
+                  onClick={() => navigate('/settings/billing')}
+                  className="flex items-center gap-1 rounded-md bg-blue-600/20 px-1.5 py-0.5 text-[10px] font-semibold text-blue-400 hover:bg-blue-600/30 transition-colors"
+                >
+                  <Zap size={9} />
+                  Upgrade
+                </button>
+              </div>
+              <UsageBar used={usage.docsThisMonth} limit={limits.docsPerMonth} label="เอกสาร/เดือน" />
+              <UsageBar used={usage.totalCustomers}  limit={limits.customers}     label="ลูกค้า" />
+              <UsageBar used={usage.totalProducts}   limit={limits.products}      label="สินค้า" />
+            </div>
+          )}
+
           {!collapsed && (
-            <div className="mb-2 rounded-lg bg-slate-800/70 px-3 py-2">
+            <div className="rounded-lg bg-slate-800/70 px-3 py-2">
               <p className="text-[11px] uppercase tracking-wide text-slate-400">Signed in as</p>
               <p className="truncate text-xs text-slate-100">{userEmail ?? '-'}</p>
             </div>

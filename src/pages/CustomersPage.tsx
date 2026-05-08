@@ -5,12 +5,14 @@ import TableSkeleton from '../components/TableSkeleton'
 import { KebabMenu } from '../components/KebabMenu'
 import { Pagination } from '../components/Pagination'
 import { FormField } from '../components/FormField'
+import UpgradeModal from '../components/UpgradeModal'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import {
   createCustomer, deleteCustomer, listCustomers, updateCustomer,
   type CustomerInput, type CustomerRow,
 } from '../lib/customerApi'
+import { PlanLimitError } from '../lib/planLimits'
 
 const EMPTY_FORM: CustomerInput = { name: '', address: '', tax_id: '', email: '', phone: '' }
 const PAGE_SIZE = 10
@@ -24,6 +26,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('')
   const [saving, setSaving] = useState(false)
   const [showModal, setShowModal] = useState(false)
+  const [upgradeModal, setUpgradeModal] = useState<{ resource: 'customers'; limit: number } | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<CustomerInput>(EMPTY_FORM)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -100,7 +103,14 @@ export default function CustomersPage() {
       else { await createCustomer(user.id, form); toast.success('เพิ่มข้อมูลลูกค้าแล้ว') }
       setShowModal(false)
       await loadRows()
-    } catch { toast.error('บันทึกข้อมูลลูกค้าไม่สำเร็จ') }
+    } catch (err) {
+      if (err instanceof PlanLimitError) {
+        setShowModal(false)
+        setUpgradeModal({ resource: 'customers', limit: err.limit })
+      } else {
+        toast.error('บันทึกข้อมูลลูกค้าไม่สำเร็จ')
+      }
+    }
     finally { setSaving(false) }
   }
 
@@ -112,6 +122,14 @@ export default function CustomersPage() {
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-8">
+      {upgradeModal && (
+        <UpgradeModal
+          resource={upgradeModal.resource}
+          limit={upgradeModal.limit}
+          onClose={() => setUpgradeModal(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800">ลูกค้า</h1>
