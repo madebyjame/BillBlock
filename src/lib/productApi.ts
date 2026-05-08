@@ -1,4 +1,6 @@
 import { supabase } from './supabase'
+import { PLAN_LIMITS, PlanLimitError } from './planLimits'
+import type { Plan } from './planLimits'
 
 export interface ProductRow {
   id: string
@@ -33,6 +35,17 @@ export async function listProducts(): Promise<ProductRow[]> {
 }
 
 export async function createProduct(userId: string, input: ProductInput): Promise<void> {
+  const { data: planData } = await supabase.rpc('get_user_plan', { uid: userId })
+  const plan = (planData as Plan) ?? 'free'
+  const limit = PLAN_LIMITS[plan].products
+  if (isFinite(limit)) {
+    const { count } = await supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+    if ((count ?? 0) >= limit) throw new PlanLimitError('products', limit)
+  }
+
   const { error } = await supabase
     .from('products')
     .insert({ user_id: userId, ...input })
