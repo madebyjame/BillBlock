@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Search, Download, Users, X, FileText } from 'lucide-react'
+import { Plus, Search, Download, Users, X, FileText, Link2 } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
 import { KebabMenu } from '../components/KebabMenu'
@@ -14,6 +14,7 @@ import {
   type CustomerInput, type CustomerRow,
 } from '../lib/customerApi'
 import { PlanLimitError } from '../lib/planLimits'
+import { generatePortalToken, buildPortalUrl } from '../lib/portalApi'
 
 const EMPTY_FORM: CustomerInput = {
   name: '', address: '', tax_id: '', email: '', phone: '',
@@ -295,6 +296,17 @@ export default function CustomersPage() {
     catch { toast.error('ลบไม่สำเร็จ') }
   }
 
+  async function onSharePortal(customerId: string) {
+    try {
+      const token = await generatePortalToken(customerId)
+      const url = buildPortalUrl(token)
+      await navigator.clipboard.writeText(url)
+      toast.success('คัดลอกลิงก์ Portal แล้ว', { description: url })
+    } catch {
+      toast.error('สร้างลิงก์ไม่สำเร็จ')
+    }
+  }
+
   const inputCls = 'w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none'
 
   return (
@@ -416,7 +428,10 @@ export default function CustomersPage() {
                         onEdit={() => openEdit(row)}
                         onDelete={() => void onDelete(row.id)}
                         deleteLabel="ลบลูกค้า"
-                        extraItems={[{ label: 'ประวัติลูกค้า', onClick: () => setHistoryCustomer(row) }]}
+                        extraItems={[
+                          { label: 'ประวัติลูกค้า', onClick: () => setHistoryCustomer(row) },
+                          { label: 'สร้าง Portal Link', onClick: () => void onSharePortal(row.id), icon: <Link2 size={13} /> },
+                        ]}
                       />
                     </td>
                   </tr>

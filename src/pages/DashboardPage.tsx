@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useDashboardLayout } from '../hooks/useDashboardLayout'
 import BentoGrid from '../components/BentoGrid'
-import type { DashboardData, DashboardDoc, ProductAlert, SpenderEntry } from '../types/dashboard'
+import type { DashboardData, DashboardDoc, ProductAlert, SpenderEntry, GradeEntry } from '../types/dashboard'
 
 const LOW_STOCK_THRESHOLD = 10
 
@@ -33,6 +33,7 @@ export default function DashboardPage() {
     recentDocs: [],
     lowStockProducts: [],
     topSpenders: [],
+    customerGrades: [],
     customerCount: 0,
     companyName: '',
     themeColor,
@@ -46,7 +47,7 @@ export default function DashboardPage() {
   async function loadData() {
     setDashData(prev => ({ ...prev, loading: true }))
     try {
-      const [docsRes, productsRes, countRes, profileRes] = await Promise.all([
+      const [docsRes, productsRes, countRes, profileRes, gradesRes] = await Promise.all([
         supabase
           .from('documents')
           .select('id, doc_type, status, total_amount, created_at, content')
@@ -63,6 +64,7 @@ export default function DashboardPage() {
           .from('profiles')
           .select('company_name')
           .maybeSingle(),
+        supabase.rpc('get_customer_grades', { uid: (await supabase.auth.getUser()).data.user?.id ?? '' }),
       ])
 
       const docs: DashboardDoc[] = (docsRes.data ?? []).map((r: Record<string, unknown>) => {
@@ -112,6 +114,7 @@ export default function DashboardPage() {
         .map(([name, total]) => ({ name, total }))
 
       const lowStockProducts: ProductAlert[] = (productsRes.data ?? []) as ProductAlert[]
+      const customerGrades: GradeEntry[] = (gradesRes.data ?? []) as GradeEntry[]
 
       setDashData({
         loading: false,
@@ -123,6 +126,7 @@ export default function DashboardPage() {
         recentDocs: docs.slice(0, 20),
         lowStockProducts,
         topSpenders,
+        customerGrades,
         customerCount: countRes.count ?? 0,
         companyName: company,
         themeColor,

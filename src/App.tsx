@@ -15,6 +15,7 @@ import LandingPage from './pages/LandingPage'
 import StockAdjustmentPage from './pages/StockAdjustmentPage'
 import StockMovementPage from './pages/StockMovementPage'
 import ProductDetailPage from './pages/ProductDetailPage'
+import PortalPage from './pages/PortalPage'
 
 function LoadingScreen() {
   return (
@@ -89,6 +90,9 @@ export default function App() {
           <Route path="/editor/:id" element={<EditorPage />} />
 
         </Route>
+
+        {/* Public portal — no auth required */}
+        <Route path="/portal/:token" element={<PortalPage />} />
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
 
