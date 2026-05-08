@@ -10,34 +10,31 @@ function fmtAmount(n: number) {
   return n.toLocaleString('th-TH')
 }
 
-function Sparkline({ data }: { data: { label: string; value: number }[] }) {
-  if (data.length < 2) return (
+function BarChart({ data }: { data: { label: string; value: number }[] }) {
+  if (data.length === 0) return (
     <div className="flex h-16 items-center justify-center text-xs text-white/40">ยังไม่มีข้อมูล</div>
   )
   const W = 300
-  const H = 64
-  const PAD = 4
+  const H = 56
   const maxVal = Math.max(...data.map(d => d.value), 1)
-  const pts = data.map((d, i) => ({
-    x: PAD + (i / (data.length - 1)) * (W - PAD * 2),
-    y: PAD + (1 - d.value / maxVal) * (H - PAD * 2),
-  }))
-  const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
-  const areaD = `${pathD} L${pts[pts.length - 1].x.toFixed(1)},${H} L${pts[0].x.toFixed(1)},${H} Z`
+  const n = data.length
+  const totalGap = n + 1
+  const barW = Math.max((W - totalGap * 2) / n, 4)
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }}>
-      <defs>
-        <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={areaD} fill="url(#sparkGrad)" />
-      <path d={pathD} fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.8" />
-      {pts.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="3" fill="white" fillOpacity="0.9" />
-      ))}
+      {data.map((d, i) => {
+        const barH = Math.max((d.value / maxVal) * (H - 4), d.value > 0 ? 2 : 0)
+        const x = 2 + i * (barW + 2)
+        const y = H - barH
+        const hasValue = d.value > 0
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={barW} height={barH} rx={2}
+              fill={hasValue ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.15)'} />
+          </g>
+        )
+      })}
     </svg>
   )
 }
@@ -102,11 +99,11 @@ export default function RevenueGoalWidget({ data }: Props) {
           </div>
         </div>
 
-        {/* Sparkline */}
+        {/* Bar Chart */}
         <div className="mt-4">
           {data.loading
             ? <div className="h-16 animate-pulse rounded-lg bg-white/10" />
-            : <Sparkline data={data.sparkline} />
+            : <BarChart data={data.sparkline} />
           }
         </div>
       </div>

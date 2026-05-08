@@ -7,6 +7,7 @@ export interface LineItem {
   unitPrice: number
   discount: number
   discountType: 'percent' | 'amount'  // % หรือจำนวนเงินคงที่ (บาท)
+  product_id?: string                  // FK → products.id (set when selected from catalog)
 }
 
 export interface DocumentSettings {

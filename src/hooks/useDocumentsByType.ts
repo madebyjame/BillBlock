@@ -13,6 +13,9 @@ export interface DocListRow {
   updated_at: string
   doc_number: string
   customer_name: string
+  salesperson: string
+  project_name: string
+  credit: string
 }
 
 export function useDocumentsByType(docType: DocTypeCode) {
@@ -45,6 +48,9 @@ export function useDocumentsByType(docType: DocTypeCode) {
             updated_at: r.updated_at as string,
             doc_number: content?.docMeta?.number ?? '-',
             customer_name: content?.customer?.name ?? '-',
+            salesperson: content?.docMeta?.salesperson ?? '',
+            project_name: content?.docMeta?.projectName ?? '',
+            credit: content?.docMeta?.credit ?? '',
           }
         })
         setRows(parsed)

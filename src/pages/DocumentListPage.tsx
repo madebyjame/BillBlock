@@ -1,8 +1,12 @@
 import type { MouseEvent, ReactNode } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { FilePlus, Plus, Search, ChevronDown, MoreVertical, Eye, Pencil, Download, Trash2, Clock, CheckCircle2, XCircle, Copy, ArrowRightLeft } from 'lucide-react'
+import {
+  FilePlus, Plus, Search, ChevronDown, MoreVertical,
+  Eye, Pencil, Download, Trash2, Clock, CheckCircle2, XCircle, Copy, ArrowRightLeft,
+  TrendingUp, Hourglass,
+} from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
 import UpgradeModal from '../components/UpgradeModal'
@@ -33,6 +37,13 @@ const STATUS_LABEL: Record<DocumentRow['status'], string> = {
   cancelled: 'ยกเลิก',
 }
 
+const QUOTATION_STATUS_LABEL: Record<DocumentRow['status'], string> = {
+  draft:     'ฉบับร่าง',
+  sent:      'รอตัดสินใจ',
+  paid:      'อนุมัติแล้ว',
+  cancelled: 'ปฏิเสธ',
+}
+
 const STATUS_CLASS: Record<DocumentRow['status'], string> = {
   draft:     'bg-slate-200 text-slate-700',
   sent:      'bg-amber-100 text-amber-700',
@@ -59,14 +70,17 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-// ─── Clickable Status Badge (portal dropdown — avoids table overflow clipping) ─
+function statusLabel(status: DocumentRow['status'], docType: DocTypeCode) {
+  return docType === 'quotation' ? QUOTATION_STATUS_LABEL[status] : STATUS_LABEL[status]
+}
+
+// ─── Clickable Status Badge ───────────────────────────────────────────────────
 
 function StatusBadge({
-  row,
-  updating,
-  onChangeStatus,
+  row, docType, updating, onChangeStatus,
 }: {
   row: DocListRow
+  docType: DocTypeCode
   updating: boolean
   onChangeStatus: (id: string, status: DocumentRow['status']) => void
 }) {
@@ -90,6 +104,8 @@ function StatusBadge({
     setOpen(o => !o)
   }
 
+  const label = statusLabel(row.status, docType)
+
   return (
     <>
       <button
@@ -99,14 +115,14 @@ function StatusBadge({
         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-opacity disabled:opacity-50 ${STATUS_CLASS[row.status]}`}
       >
         {STATUS_ICON[row.status]}
-        {STATUS_LABEL[row.status]}
+        {label}
         <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && createPortal(
         <div
           style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
-          className="w-36 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          className="w-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
           onMouseDown={(e) => e.stopPropagation()}
         >
           {ALL_STATUSES.map((s) => (
@@ -120,7 +136,7 @@ function StatusBadge({
               className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-slate-50 ${s === row.status ? 'font-semibold' : ''}`}
             >
               <span className={`h-1.5 w-1.5 rounded-full ${s === 'draft' ? 'bg-slate-400' : s === 'sent' ? 'bg-amber-400' : s === 'paid' ? 'bg-green-400' : 'bg-red-400'}`} />
-              {STATUS_LABEL[s]}
+              {statusLabel(s, docType)}
             </button>
           ))}
         </div>,
@@ -130,17 +146,11 @@ function StatusBadge({
   )
 }
 
-// ─── Kebab Menu (portal dropdown — avoids table overflow clipping) ────────────
+// ─── Kebab Menu ───────────────────────────────────────────────────────────────
 
 function KebabMenu({
-  row,
-  deleting,
-  duplicating,
-  converting,
-  onDelete,
-  onNavigate,
-  onDuplicate,
-  onConvert,
+  row, deleting, duplicating, converting,
+  onDelete, onNavigate, onDuplicate, onConvert,
 }: {
   row: DocListRow
   deleting: boolean
@@ -189,53 +199,37 @@ function KebabMenu({
           className="w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <button
-            onClick={(e) => { e.stopPropagation(); setOpen(false); onNavigate(row.id) }}
-            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            <Eye size={13} className="text-slate-400" />
-            ดูรายละเอียด
+          <button onClick={(e) => { e.stopPropagation(); setOpen(false); onNavigate(row.id) }}
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50">
+            <Eye size={13} className="text-slate-400" /> ดูรายละเอียด
           </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); setOpen(false); onNavigate(row.id) }}
-            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            <Pencil size={13} className="text-slate-400" />
-            แก้ไข
+          <button onClick={(e) => { e.stopPropagation(); setOpen(false); onNavigate(row.id) }}
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50">
+            <Pencil size={13} className="text-slate-400" /> แก้ไข
           </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); setOpen(false); onNavigate(row.id) }}
-            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            <Download size={13} className="text-slate-400" />
-            ดาวน์โหลด PDF
+          <button onClick={(e) => { e.stopPropagation(); setOpen(false); onNavigate(row.id) }}
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50">
+            <Download size={13} className="text-slate-400" /> ดาวน์โหลด PDF
           </button>
           <div className="my-1 border-t border-slate-100" />
-          <button
-            onClick={(e) => { e.stopPropagation(); setOpen(false); onDuplicate(row.id) }}
+          <button onClick={(e) => { e.stopPropagation(); setOpen(false); onDuplicate(row.id) }}
             disabled={duplicating}
-            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-          >
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50">
             <Copy size={13} className="text-slate-400" />
             {duplicating ? 'กำลังทำซ้ำ…' : 'ทำซ้ำเอกสาร'}
           </button>
           {row.doc_type === 'quotation' && onConvert && (
-            <button
-              onClick={(e) => { e.stopPropagation(); setOpen(false); onConvert(row.id) }}
+            <button onClick={(e) => { e.stopPropagation(); setOpen(false); onConvert(row.id) }}
               disabled={converting}
-              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-            >
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50">
               <ArrowRightLeft size={13} className="text-slate-400" />
               {converting ? 'กำลังแปลง…' : 'แปลงเป็นใบแจ้งหนี้'}
             </button>
           )}
           <div className="my-1 border-t border-slate-100" />
-          <button
-            onClick={(e) => { setOpen(false); onDelete(e, row.id) }}
-            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-red-500 transition-colors hover:bg-red-50"
-          >
-            <Trash2 size={13} />
-            ลบเอกสาร
+          <button onClick={(e) => { setOpen(false); onDelete(e, row.id) }}
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-red-500 transition-colors hover:bg-red-50">
+            <Trash2 size={13} /> ลบเอกสาร
           </button>
         </div>,
         document.body
@@ -246,54 +240,35 @@ function KebabMenu({
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
 
-function Pagination({
-  page,
-  totalPages,
-  total,
-  onPage,
-}: {
-  page: number
-  totalPages: number
-  total: number
-  onPage: (p: number) => void
+function Pagination({ page, totalPages, total, onPage }: {
+  page: number; totalPages: number; total: number; onPage: (p: number) => void
 }) {
   if (totalPages <= 1) return null
-
   const pages: (number | '…')[] = []
   for (let i = 1; i <= totalPages; i++) {
     if (i === 1 || i === totalPages || Math.abs(i - page) <= 1) pages.push(i)
     else if (pages[pages.length - 1] !== '…') pages.push('…')
   }
-
   return (
     <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
       <p className="text-xs text-slate-400">{total} รายการ</p>
       <div className="flex items-center gap-1">
-        <button
-          disabled={page === 1}
-          onClick={() => onPage(page - 1)}
-          className="rounded-lg px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30"
-        >
+        <button disabled={page === 1} onClick={() => onPage(page - 1)}
+          className="rounded-lg px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30">
           ‹ ก่อนหน้า
         </button>
         {pages.map((p, i) =>
           p === '…' ? (
-            <span key={`ellipsis-${i}`} className="px-1 text-xs text-slate-300">…</span>
+            <span key={`e-${i}`} className="px-1 text-xs text-slate-300">…</span>
           ) : (
-            <button
-              key={p}
-              onClick={() => onPage(p as number)}
-              className={`min-w-7 rounded-lg px-2 py-1 text-xs transition-colors ${p === page ? 'bg-slate-800 font-semibold text-white' : 'text-slate-500 hover:bg-slate-100'}`}
-            >
+            <button key={p} onClick={() => onPage(p as number)}
+              className={`min-w-7 rounded-lg px-2 py-1 text-xs transition-colors ${p === page ? 'bg-slate-800 font-semibold text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
               {p}
             </button>
           )
         )}
-        <button
-          disabled={page === totalPages}
-          onClick={() => onPage(page + 1)}
-          className="rounded-lg px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30"
-        >
+        <button disabled={page === totalPages} onClick={() => onPage(page + 1)}
+          className="rounded-lg px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30">
           ถัดไป ›
         </button>
       </div>
@@ -303,9 +278,7 @@ function Pagination({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-interface Props {
-  docType: DocTypeCode
-}
+interface Props { docType: DocTypeCode }
 
 export default function DocumentListPage({ docType }: Props) {
   const { user } = useAuth()
@@ -318,6 +291,7 @@ export default function DocumentListPage({ docType }: Props) {
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
   const [convertingId, setConvertingId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<DocumentRow['status'] | 'all'>('all')
@@ -326,27 +300,62 @@ export default function DocumentListPage({ docType }: Props) {
   const [page, setPage] = useState(1)
 
   const themeColor = typeof user?.user_metadata?.themeColor === 'string'
-    ? user.user_metadata.themeColor
-    : '#1e3a8a'
+    ? user.user_metadata.themeColor : '#1e3a8a'
 
   const pageTitle = DOC_TYPE_CODES[docType]
   const createLabel = DOC_CREATE_LABEL[docType]
+  const isQuotation = docType === 'quotation'
 
-  useEffect(() => { setPage(1) }, [search, filterStatus, filterDateFrom, filterDateTo])
-
-  const filtered = rows.filter((row) => {
+  const filtered = useMemo(() => rows.filter((row) => {
     if (search) {
       const q = search.toLowerCase()
-      if (!row.doc_number.toLowerCase().includes(q) && !row.customer_name.toLowerCase().includes(q)) return false
+      if (!row.doc_number.toLowerCase().includes(q) &&
+          !row.customer_name.toLowerCase().includes(q) &&
+          !row.project_name.toLowerCase().includes(q)) return false
     }
     if (filterStatus !== 'all' && row.status !== filterStatus) return false
     if (filterDateFrom && row.created_at < filterDateFrom) return false
     if (filterDateTo && row.created_at > filterDateTo + 'T23:59:59') return false
     return true
-  })
+  }), [rows, search, filterStatus, filterDateFrom, filterDateTo])
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  const allPageSelected = paginated.length > 0 && paginated.every(r => selectedIds.has(r.id))
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1) }, [search, filterStatus, filterDateFrom, filterDateTo])
+  // Reset selections when page changes
+  useEffect(() => { setSelectedIds(new Set()) }, [page])
+
+  // Summary for quotations
+  const summary = useMemo(() => {
+    if (!isQuotation) return null
+    return {
+      pending: filtered.filter(r => r.status === 'sent').reduce((s, r) => s + r.total_amount, 0),
+      won: filtered.filter(r => r.status === 'paid').reduce((s, r) => s + r.total_amount, 0),
+      pendingCount: filtered.filter(r => r.status === 'sent').length,
+      wonCount: filtered.filter(r => r.status === 'paid').length,
+    }
+  }, [filtered, isQuotation])
+
+  function toggleAll() {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (allPageSelected) paginated.forEach(r => next.delete(r.id))
+      else paginated.forEach(r => next.add(r.id))
+      return next
+    })
+  }
+
+  function toggleOne(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
 
   async function handleCreate() {
     if (!user || creating) return
@@ -368,25 +377,29 @@ export default function DocumentListPage({ docType }: Props) {
     event.stopPropagation()
     if (!confirm('ลบเอกสารนี้?')) return
     setDeletingId(id)
+    try { await deleteDocument(id); refetch() }
+    finally { setDeletingId(null) }
+  }
+
+  async function handleBulkDelete() {
+    if (!confirm(`ลบเอกสาร ${selectedIds.size} รายการ?`)) return
     try {
-      await deleteDocument(id)
+      await Promise.all([...selectedIds].map(id => deleteDocument(id)))
+      toast.success(`ลบ ${selectedIds.size} รายการแล้ว`)
+      setSelectedIds(new Set())
       refetch()
-    } finally {
-      setDeletingId(null)
-    }
+    } catch { toast.error('ลบไม่สำเร็จ กรุณาลองใหม่') }
   }
 
   async function handleChangeStatus(id: string, status: DocumentRow['status']) {
     setUpdatingStatusId(id)
     try {
       await updateDocumentStatus(id, status)
-      toast.success(`อัปเดตสถานะเป็น "${STATUS_LABEL[status]}" เรียบร้อย`, { id: 'status-update' })
+      toast.success(`อัปเดตสถานะเป็น "${statusLabel(status, docType)}" เรียบร้อย`, { id: 'status-update' })
       refetch()
     } catch {
-      toast.error('อัปเดตสถานะไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', { id: 'status-update' })
-    } finally {
-      setUpdatingStatusId(null)
-    }
+      toast.error('อัปเดตสถานะไม่สำเร็จ', { id: 'status-update' })
+    } finally { setUpdatingStatusId(null) }
   }
 
   async function handleDuplicate(id: string) {
@@ -396,11 +409,8 @@ export default function DocumentListPage({ docType }: Props) {
       const newId = await duplicateDocument(id, user.id)
       toast.success('ทำซ้ำเอกสารเรียบร้อย')
       navigate(`/editor/${newId}`)
-    } catch {
-      toast.error('ทำซ้ำเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
-    } finally {
-      setDuplicatingId(null)
-    }
+    } catch { toast.error('ทำซ้ำเอกสารไม่สำเร็จ') }
+    finally { setDuplicatingId(null) }
   }
 
   async function handleConvert(id: string) {
@@ -410,15 +420,15 @@ export default function DocumentListPage({ docType }: Props) {
       const newId = await convertToInvoice(id, user.id)
       toast.success('แปลงเป็นใบแจ้งหนี้เรียบร้อย')
       navigate(`/editor/${newId}`)
-    } catch {
-      toast.error('แปลงเป็นใบแจ้งหนี้ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
-    } finally {
-      setConvertingId(null)
-    }
+    } catch { toast.error('แปลงเป็นใบแจ้งหนี้ไม่สำเร็จ') }
+    finally { setConvertingId(null) }
   }
 
+  // number of cols for colSpan
+  const colCount = isQuotation ? 8 : 6
+
   return (
-    <div className="mx-auto max-w-5xl p-8">
+    <div className="mx-auto max-w-6xl p-8">
       {upgradeModal && (
         <UpgradeModal
           resource={upgradeModal.resource}
@@ -441,12 +451,34 @@ export default function DocumentListPage({ docType }: Props) {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-          ) : (
-            <Plus size={16} />
-          )}
+          ) : <Plus size={16} />}
           {createLabel}
         </button>
       </div>
+
+      {/* Summary widgets — quotations only */}
+      {isQuotation && summary && (
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
+              <Hourglass size={15} className="text-amber-600" />
+            </div>
+            <div>
+              <p className="text-xs text-amber-600">รอตัดสินใจ ({summary.pendingCount} ใบ)</p>
+              <p className="text-sm font-bold text-amber-800">฿{fmtAmount(summary.pending)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100">
+              <TrendingUp size={15} className="text-green-600" />
+            </div>
+            <div>
+              <p className="text-xs text-green-600">อนุมัติแล้ว ({summary.wonCount} ใบ)</p>
+              <p className="text-sm font-bold text-green-800">฿{fmtAmount(summary.won)}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search & Filter Bar */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -454,43 +486,37 @@ export default function DocumentListPage({ docType }: Props) {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="ค้นหาเลขที่เอกสาร หรือชื่อลูกค้า..."
+            placeholder={isQuotation ? 'ค้นหาเลขที่ ชื่อลูกค้า หรือชื่องาน...' : 'ค้นหาเลขที่เอกสาร หรือชื่อลูกค้า...'}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8 pr-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
           />
         </div>
 
         <select
           value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as DocumentRow['status'] | 'all')}
+          onChange={(e) => { setFilterStatus(e.target.value as DocumentRow['status'] | 'all'); setPage(1) }}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-slate-400"
         >
           <option value="all">ทุกสถานะ</option>
           {ALL_STATUSES.map((s) => (
-            <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+            <option key={s} value={s}>{statusLabel(s, docType)}</option>
           ))}
         </select>
 
         <div className="flex items-center gap-1.5">
-          <input
-            type="date"
-            value={filterDateFrom}
-            onChange={(e) => setFilterDateFrom(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-slate-400"
-          />
+          <input type="date" value={filterDateFrom}
+            onChange={(e) => { setFilterDateFrom(e.target.value); setPage(1) }}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-slate-400" />
           <span className="text-xs text-slate-400">ถึง</span>
-          <input
-            type="date"
-            value={filterDateTo}
-            onChange={(e) => setFilterDateTo(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-slate-400"
-          />
+          <input type="date" value={filterDateTo}
+            onChange={(e) => { setFilterDateTo(e.target.value); setPage(1) }}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-slate-400" />
         </div>
 
         {(search || filterStatus !== 'all' || filterDateFrom || filterDateTo) && (
           <button
-            onClick={() => { setSearch(''); setFilterStatus('all'); setFilterDateFrom(''); setFilterDateTo('') }}
+            onClick={() => { setSearch(''); setFilterStatus('all'); setFilterDateFrom(''); setFilterDateTo(''); setPage(1) }}
             className="text-xs text-slate-400 transition-colors hover:text-slate-600"
           >
             ล้างตัวกรอง ✕
@@ -498,19 +524,35 @@ export default function DocumentListPage({ docType }: Props) {
         )}
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="mb-3 flex items-center justify-between rounded-lg bg-slate-800 px-4 py-2.5">
+          <span className="text-sm text-white">เลือก {selectedIds.size} รายการ</span>
+          <button onClick={() => void handleBulkDelete()} className="text-sm font-medium text-red-400 hover:text-red-300">
+            ลบที่เลือก
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         {loading ? (
-          <TableSkeleton cols={5} rows={6} />
+          <TableSkeleton cols={colCount} rows={6} hasCheckbox />
         ) : (
           <>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50 text-left">
+                  <th className="w-10 px-4 py-3">
+                    <input type="checkbox" checked={allPageSelected} onChange={toggleAll}
+                      className="h-4 w-4 rounded border-slate-300 accent-slate-700" />
+                  </th>
                   <th className="px-4 py-3 font-semibold text-slate-500">วันที่</th>
                   <th className="px-4 py-3 font-semibold text-slate-500">เลขที่เอกสาร</th>
                   <th className="px-4 py-3 font-semibold text-slate-500">ชื่อลูกค้า</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-500">ยอดรวมสุทธิ</th>
+                  {isQuotation && <th className="px-4 py-3 font-semibold text-slate-500">ชื่องาน</th>}
+                  {isQuotation && <th className="px-4 py-3 font-semibold text-slate-500">พนักงานขาย</th>}
+                  <th className="px-4 py-3 text-right font-semibold text-slate-500">ยอดรวม</th>
                   <th className="px-4 py-3 font-semibold text-slate-500">สถานะ</th>
                   <th className="w-10 px-4 py-3" />
                 </tr>
@@ -518,11 +560,11 @@ export default function DocumentListPage({ docType }: Props) {
               <tbody>
                 {error ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-sm text-slate-400">{error}</td>
+                    <td colSpan={colCount + 1} className="px-4 py-12 text-center text-sm text-slate-400">{error}</td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={colCount + 1}>
                       <EmptyState
                         icon={<FilePlus size={22} />}
                         title={rows.length === 0 ? `ยังไม่มี${pageTitle}ในระบบ` : 'ไม่พบเอกสารที่ตรงกับเงื่อนไข'}
@@ -539,8 +581,7 @@ export default function DocumentListPage({ docType }: Props) {
                               className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
                               style={{ backgroundColor: themeColor }}
                             >
-                              <Plus size={14} />
-                              {createLabel}
+                              <Plus size={14} /> {createLabel}
                             </button>
                           ) : undefined
                         }
@@ -551,19 +592,28 @@ export default function DocumentListPage({ docType }: Props) {
                   <tr
                     key={row.id}
                     onClick={() => navigate(`/editor/${row.id}`)}
-                    className="cursor-pointer border-b border-slate-50 transition-colors hover:bg-slate-50 last:border-0"
+                    className={`cursor-pointer border-b border-slate-50 transition-colors last:border-0 ${selectedIds.has(row.id) ? 'bg-slate-50' : 'hover:bg-slate-50'}`}
                   >
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" checked={selectedIds.has(row.id)} onChange={() => toggleOne(row.id)}
+                        className="h-4 w-4 rounded border-slate-300 accent-slate-700" />
+                    </td>
                     <td className="px-4 py-3 text-slate-500">{fmtDate(row.created_at)}</td>
                     <td className="px-4 py-3">
-                      <span className="font-mono font-medium text-blue-600 hover:underline">
-                        {row.doc_number}
-                      </span>
+                      <span className="font-mono font-medium text-blue-600 hover:underline">{row.doc_number}</span>
                     </td>
                     <td className="px-4 py-3 text-slate-700">{row.customer_name}</td>
+                    {isQuotation && (
+                      <td className="px-4 py-3 text-slate-500">{row.project_name || '—'}</td>
+                    )}
+                    {isQuotation && (
+                      <td className="px-4 py-3 text-slate-500">{row.salesperson || '—'}</td>
+                    )}
                     <td className="px-4 py-3 text-right font-medium text-slate-700">{fmtAmount(row.total_amount)}</td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <StatusBadge
                         row={row}
+                        docType={docType}
                         updating={updatingStatusId === row.id}
                         onChangeStatus={handleChangeStatus}
                       />
@@ -577,7 +627,7 @@ export default function DocumentListPage({ docType }: Props) {
                         onDelete={handleDelete}
                         onNavigate={(id) => navigate(`/editor/${id}`)}
                         onDuplicate={handleDuplicate}
-                        onConvert={docType === 'quotation' ? handleConvert : undefined}
+                        onConvert={isQuotation ? handleConvert : undefined}
                       />
                     </td>
                   </tr>
@@ -585,12 +635,8 @@ export default function DocumentListPage({ docType }: Props) {
               </tbody>
             </table>
 
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              total={filtered.length}
-              onPage={setPage}
-            />
+            <Pagination page={page} totalPages={totalPages} total={filtered.length}
+              onPage={p => { setPage(p); setSelectedIds(new Set()) }} />
           </>
         )}
       </div>

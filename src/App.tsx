@@ -9,6 +9,9 @@ import SettingsPage from './pages/SettingsPage'
 import CustomersPage from './pages/CustomersPage'
 import ProductsPage from './pages/ProductsPage'
 import LandingPage from './pages/LandingPage'
+import StockAdjustmentPage from './pages/StockAdjustmentPage'
+import StockMovementPage from './pages/StockMovementPage'
+import ProductDetailPage from './pages/ProductDetailPage'
 
 function LoadingScreen() {
   return (
@@ -61,15 +64,23 @@ export default function App() {
           <Route element={<MainLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
 
-            {/* งานขาย — แยกตามประเภทเอกสาร */}
+            {/* งานขาย */}
             <Route path="/documents/quotations"    element={<DocumentListPage docType="quotation" />} />
             <Route path="/documents/invoices"      element={<DocumentListPage docType="invoice" />} />
             <Route path="/documents/receipts"      element={<DocumentListPage docType="receipt" />} />
             <Route path="/documents/billing-notes" element={<DocumentListPage docType="billing-note" />} />
             <Route path="/documents/tax-invoices"  element={<DocumentListPage docType="tax-invoice" />} />
 
+            {/* คลังสินค้า */}
+            <Route path="/inventory/products"      element={<ProductsPage />} />
+            <Route path="/inventory/products/:id" element={<ProductDetailPage />} />
+            <Route path="/inventory/adjustments"  element={<StockAdjustmentPage />} />
+            <Route path="/inventory/movements"    element={<StockMovementPage />} />
+
+            {/* Legacy redirect — keep old /products link working */}
+            <Route path="/products" element={<Navigate to="/inventory/products" replace />} />
+
             <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/products"  element={<ProductsPage />} />
             <Route path="/settings"  element={<SettingsPage />} />
           </Route>
 

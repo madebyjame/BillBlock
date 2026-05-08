@@ -50,7 +50,7 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
 
   const { subtotal, specialDiscountAmt, vatAmount, preTaxAmount, total } = useMemo(
     () => calcDocSummary(doc ?? defaultDocument),
-    [docItems, docSummaryMeta, docVatMode, docVisibilitySummary],
+    [doc, docItems, docSummaryMeta, docVatMode, docVisibilitySummary],
   )
 
   // ─── Row DnD sensors ───
