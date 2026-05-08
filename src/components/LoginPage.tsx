@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, FlaskConical, Loader2, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '../lib/supabase'
 
 type Mode = 'login' | 'register'
+
+const DEMO_EMAIL = 'test@billblock.demo'
+const DEMO_PASSWORD = 'Test1234'
 
 const ERROR_MAP: Record<string, string> = {
   'Invalid login credentials': 'อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง',
@@ -56,6 +59,12 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function fillDemo() {
+    setMode('login')
+    setEmail(DEMO_EMAIL)
+    setPassword(DEMO_PASSWORD)
   }
 
   async function handleGoogle() {
@@ -129,6 +138,17 @@ export default function LoginPage() {
               <GoogleIcon />
             )}
             <span>เข้าสู่ระบบด้วย Google</span>
+          </button>
+
+          {/* Demo login */}
+          <button
+            type="button"
+            onClick={fillDemo}
+            disabled={loading || googleLoading}
+            className="w-full flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 hover:border-amber-300 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed mb-4"
+          >
+            <FlaskConical className="h-3.5 w-3.5" />
+            กรอกบัญชีทดสอบให้อัตโนมัติ
           </button>
 
           {/* Divider */}
