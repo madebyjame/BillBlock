@@ -27,14 +27,6 @@ const QUOTATION_STATUS_META: Record<DashboardDoc['status'], { label: string; cls
 
 const PLACEHOLDER_NAMES = new Set(['ชื่อลูกค้า / บริษัท', 'ชื่อลูกค้า', '-', ''])
 
-function getCustomerName(content: unknown): string {
-  if (content !== null && typeof content === 'object' && 'customer' in content) {
-    const c = (content as { customer?: { name?: unknown } }).customer
-    if (c && typeof c.name === 'string' && !PLACEHOLDER_NAMES.has(c.name.trim())) return c.name.trim()
-  }
-  return ''
-}
-
 function fmtAmount(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`
@@ -90,7 +82,8 @@ export default function RecentActivitiesWidget({ data }: Props) {
             const statusMeta = doc.doc_type === 'quotation'
               ? QUOTATION_STATUS_META[doc.status]
               : DEFAULT_STATUS_META[doc.status]
-            const customerName = getCustomerName(doc.content)
+            const rawName = doc.customer_name?.trim() ?? ''
+            const customerName = PLACEHOLDER_NAMES.has(rawName) ? '' : rawName
             return (
               <button
                 key={doc.id}

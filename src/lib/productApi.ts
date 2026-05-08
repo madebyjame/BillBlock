@@ -58,15 +58,24 @@ export async function createProduct(userId: string, input: ProductInput): Promis
 }
 
 export async function updateProduct(id: string, input: ProductInput): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
   const { error } = await supabase
     .from('products')
     .update({ ...input, updated_at: new Date().toISOString() })
     .eq('id', id)
+    .eq('user_id', user.id)
   if (error) throw new Error(error.message)
 }
 
 export async function deleteProduct(id: string): Promise<void> {
-  const { error } = await supabase.from('products').delete().eq('id', id)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id)
   if (error) throw new Error(error.message)
 }
 

@@ -6,13 +6,6 @@ import BentoGrid from '../components/BentoGrid'
 import type { DashboardData, DashboardDoc, ProductAlert, SpenderEntry, GradeEntry } from '../types/dashboard'
 
 const LOW_STOCK_THRESHOLD = 10
-
-function getCustomerName(content: unknown): string {
-  if (content !== null && typeof content === 'object' && 'customer' in content) {
-    const c = (content as { customer?: { name?: unknown } }).customer
-    if (c && typeof c.name === 'string' && c.name.trim()) return c.name
-  }
-  return '—'
 }
 
 export default function DashboardPage() {
@@ -47,30 +40,36 @@ export default function DashboardPage() {
   async function loadData() {
     setDashData(prev => ({ ...prev, loading: true }))
     try {
+      const userId = user!.id
       const [docsRes, productsRes, countRes, profileRes, gradesRes] = await Promise.all([
         supabase
           .from('documents')
-          .select('id, doc_type, status, total_amount, created_at, content')
+          .select("id, doc_type, status, total_amount, created_at, content->docMeta->>number AS doc_number, content->customer->>name AS customer_name")
+          .eq('user_id', userId)
           .order('created_at', { ascending: false }),
         supabase
           .from('products')
           .select('id, name, stock, unit')
+          .eq('user_id', userId)
           .lt('stock', LOW_STOCK_THRESHOLD)
           .order('stock', { ascending: true }),
         supabase
           .from('customers')
-          .select('*', { count: 'exact', head: true }),
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId),
         supabase
           .from('profiles')
           .select('company_name')
+          .eq('id', userId)
           .maybeSingle(),
-        supabase.rpc('get_customer_grades', { uid: (await supabase.auth.getUser()).data.user?.id ?? '' }),
+        supabase.rpc('get_customer_grades', { uid: userId }),
       ])
 
-      const docs: DashboardDoc[] = (docsRes.data ?? []).map((r: Record<string, unknown>) => {
-        const c = r.content as { docMeta?: { number?: string } } | null
-        return { ...r, doc_number: c?.docMeta?.number ?? undefined } as DashboardDoc
-      })
+      const docs: DashboardDoc[] = (docsRes.data ?? []).map((r: Record<string, unknown>) => ({
+        ...r,
+        doc_number: typeof r.doc_number === 'string' ? r.doc_number : undefined,
+        customer_name: typeof r.customer_name === 'string' ? r.customer_name : '—',
+      } as DashboardDoc))
       const now = new Date()
 
       const company =
@@ -105,7 +104,7 @@ export default function DashboardPage() {
       for (const doc of docs) {
         if (doc.doc_type !== 'invoice' || doc.status !== 'paid') continue
         if (doc.created_at < monthStart) continue
-        const name = getCustomerName(doc.content)
+        const name = doc.customer_name ?? '—'
         spenderMap.set(name, (spenderMap.get(name) ?? 0) + doc.total_amount)
       }
       const topSpenders: SpenderEntry[] = [...spenderMap.entries()]
