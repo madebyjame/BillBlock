@@ -72,7 +72,10 @@ export async function checkPayment(
   const { data } = await supabase.functions.invoke('check-payment', {
     body: { charge_id, document_id, token },
   })
-  return (data as { status: string })?.status as ReturnType<typeof checkPayment> ?? 'pending'
+  type ChargeStatus = 'pending' | 'successful' | 'failed' | 'expired'
+  const status = (data as { status?: string } | null)?.status
+  const valid: ChargeStatus[] = ['pending', 'successful', 'failed', 'expired']
+  return valid.includes(status as ChargeStatus) ? (status as ChargeStatus) : 'pending'
 }
 
 // ─── Generate portal token (called by app owner) ──────────────────────────────
