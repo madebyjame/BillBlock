@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import { useAuth } from './context/AuthContext'
 import { PlanProvider } from './context/PlanContext'
 import LoginPage from './components/LoginPage'
@@ -51,6 +53,7 @@ function RootRoute() {
 
 export default function App() {
   return (
+    <>
     <BrowserRouter>
       <Routes>
 
@@ -91,5 +94,8 @@ export default function App() {
 
       </Routes>
     </BrowserRouter>
+    <Analytics />
+    <SpeedInsights />
+    </>
   )
 }
