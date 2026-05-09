@@ -412,6 +412,13 @@ export default function LandingPage() {
           <span className="font-semibold text-slate-600">BillBlock</span>
         </div>
         <p className="mt-2">© 2026 BillBlock · ระบบเอกสารธุรกิจสำหรับธุรกิจไทย</p>
+        <div className="mt-3 flex items-center justify-center gap-4 text-xs text-slate-400">
+          <a href="/terms"   className="hover:text-slate-600 underline underline-offset-2 transition-colors">เงื่อนไขการใช้บริการ</a>
+          <span className="text-slate-200">·</span>
+          <a href="/privacy" className="hover:text-slate-600 underline underline-offset-2 transition-colors">นโยบายความเป็นส่วนตัว</a>
+          <span className="text-slate-200">·</span>
+          <a href="/refund"  className="hover:text-slate-600 underline underline-offset-2 transition-colors">นโยบายการคืนเงิน</a>
+        </div>
       </footer>
 
     </div>

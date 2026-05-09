@@ -16,6 +16,9 @@ import StockAdjustmentPage from './pages/StockAdjustmentPage'
 import StockMovementPage from './pages/StockMovementPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import PortalPage from './pages/PortalPage'
+import TermsPage from './pages/TermsPage'
+import PrivacyPage from './pages/PrivacyPage'
+import RefundPage from './pages/RefundPage'
 
 function LoadingScreen() {
   return (
@@ -93,6 +96,11 @@ export default function App() {
 
         {/* Public portal — no auth required */}
         <Route path="/portal/:token" element={<PortalPage />} />
+
+        {/* Legal pages — public */}
+        <Route path="/terms"   element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/refund"  element={<RefundPage />} />
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
 
