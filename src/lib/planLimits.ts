@@ -6,18 +6,19 @@ export interface PlanLimits {
   docsPerMonth: number
   customers: number
   products: number
+  signatures: number
 }
 
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
-  free:     { docsPerMonth: 20, customers: 10,       products: 10 },
-  pro:      { docsPerMonth: Infinity, customers: Infinity, products: Infinity },
-  business: { docsPerMonth: Infinity, customers: Infinity, products: Infinity },
+  free:     { docsPerMonth: 20,       customers: 10,       products: 10,       signatures: 1 },
+  pro:      { docsPerMonth: Infinity, customers: Infinity, products: Infinity, signatures: 5 },
+  business: { docsPerMonth: Infinity, customers: Infinity, products: Infinity, signatures: Infinity },
 }
 
 export const PLAN_LABELS: Record<Plan, string> = {
   free:     'Free',
   pro:      'Pro',
-  business: 'Business',
+  business: 'Max',
 }
 
 export const PLAN_PRICES: Record<Plan, { thb: number; label: string }> = {
@@ -27,10 +28,10 @@ export const PLAN_PRICES: Record<Plan, { thb: number; label: string }> = {
 }
 
 export class PlanLimitError extends Error {
-  resource: 'documents' | 'customers' | 'products'
+  resource: 'documents' | 'customers' | 'products' | 'signatures'
   limit: number
 
-  constructor(resource: 'documents' | 'customers' | 'products', limit: number) {
+  constructor(resource: 'documents' | 'customers' | 'products' | 'signatures', limit: number) {
     super(`PLAN_LIMIT:${resource}:${limit}`)
     this.name = 'PlanLimitError'
     this.resource = resource
@@ -39,7 +40,6 @@ export class PlanLimitError extends Error {
 }
 
 // ─── Shared plan-limit enforcement ───────────────────────────────────────────
-// Fetches the user's plan and throws PlanLimitError if the resource is at capacity.
 export async function checkPlanLimit(
   userId: string,
   resource: 'documents' | 'customers' | 'products',

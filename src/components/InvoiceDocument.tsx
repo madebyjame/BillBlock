@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useMemo } from 'react'
+import { PlanContext } from '../context/PlanContext'
+import { useEditorCallbacks } from '../context/EditorCallbacksContext'
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor,
   useSensor, useSensors, type DragEndEvent, useDroppable,
@@ -36,8 +38,29 @@ interface Props {
   autoFocusCustomer?: boolean
 }
 
+function DocumentWatermark() {
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 50 }}>
+      <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="bb-wm" x="0" y="0" width="300" height="200"
+            patternUnits="userSpaceOnUse" patternTransform="rotate(-35 0 0)">
+            <text x="10" y="60" fontSize="52" fontWeight="bold"
+              fill="rgba(0,0,0,0.055)" fontFamily="system-ui,sans-serif"
+              letterSpacing="3">BillBlock</text>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bb-wm)" />
+      </svg>
+    </div>
+  )
+}
+
 export default function InvoiceDocument({ doc, dispatch, docRef, catalog, customers, products, onQuickAddCustomer, autoFocusCustomer }: Props) {
   const pdfMode = useContext(PdfModeContext)
+  const planCtx = useContext(PlanContext)
+  const editorCallbacks = useEditorCallbacks()
+  const showWatermark = planCtx?.plan === 'free'
   
   // ป้องกันกรณี doc หรือ nested objects เป็น undefined/null แม้จะผ่าน normalize มาแล้ว
   const v = doc?.visibility || defaultDocument.visibility
@@ -73,9 +96,10 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
   return (
     <div
       ref={docRef}
-      className="mx-auto w-full bg-white flex flex-col"
+      className="mx-auto w-full bg-white flex flex-col relative"
       style={{ maxWidth: '794px', minHeight: '1123px', fontFamily: "'Sarabun', sans-serif", fontSize: '14px' }}
     >
+      {showWatermark && <DocumentWatermark />}
       <div className="p-10 flex-1 flex flex-col">
 
         {/* ═══ SECTION 1: Header 2-col ═══ */}
@@ -94,6 +118,7 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
                     const f = e.target.files?.[0]
                     e.target.value = ''
                     if (!f) return
+                    editorCallbacks.onLogoSave(f)
                     void readImageFileAsDataUrl(f).then(
                       dataUrl => dispatch({ type: 'UPDATE_COMPANY', data: { logoUrl: dataUrl } }),
                       err => alert(err instanceof Error ? err.message : String(err)),

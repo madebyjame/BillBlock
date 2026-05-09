@@ -21,7 +21,12 @@ import { createDocument, updateDocument } from '../lib/documentApi'
 import type { DocumentRow } from '../lib/documentApi'
 import type { DocTypeCode } from '../types/document'
 import { thaiToDocTypeCode } from '../types/document'
-import { getProfile } from '../lib/profileApi'
+import { getProfile, upsertProfile, uploadCompanyFile } from '../lib/profileApi'
+import { listSignatures, saveSignature } from '../lib/signatureApi'
+import type { SavedSignature } from '../lib/signatureApi'
+import { usePlanContext } from '../context/PlanContext'
+import { EditorCallbacksContext } from '../context/EditorCallbacksContext'
+import { PlanLimitError, PLAN_LABELS } from '../lib/planLimits'
 
 const DOC_TYPE_ROUTE: Record<DocTypeCode, string> = {
   quotation:      '/documents/quotations',
@@ -182,6 +187,7 @@ function EditorUI({
 }) {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { plan, limits } = usePlanContext()
   const [isPreview, setIsPreview] = useState(false)
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -189,6 +195,46 @@ function EditorUI({
   const [products, setProducts] = useState<ProductRow[]>([])
   const [quickAddOpen, setQuickAddOpen] = useState(false)
   const [quickAddName, setQuickAddName] = useState('')
+  const [savedSignatures, setSavedSignatures] = useState<SavedSignature[]>([])
+
+  // ─── Load saved signatures ────────────────────────────────────────────────
+  const loadSignaturesForUser = useCallback(async () => {
+    if (!user) return
+    try {
+      setSavedSignatures(await listSignatures(user.id))
+    } catch { /* silent */ }
+  }, [user])
+
+  useEffect(() => { void loadSignaturesForUser() }, [loadSignaturesForUser])
+
+  // ─── Auto-save logo to profile ────────────────────────────────────────────
+  const handleLogoSave = useCallback((file: File) => {
+    if (!user) return
+    void (async () => {
+      try {
+        const url = await uploadCompanyFile(user.id, 'logo', file)
+        const profile = await getProfile(user.id)
+        if (profile) await upsertProfile({ ...profile, logo_url: url })
+      } catch { /* non-critical */ }
+    })()
+  }, [user])
+
+  // ─── Auto-save signature to profile + signatures table ───────────────────
+  const handleSignatureSave = useCallback((file: File) => {
+    if (!user) return
+    void (async () => {
+      try {
+        const sig = await saveSignature(user.id, 'ลายเซ็น', file)
+        setSavedSignatures(prev => [...prev, sig])
+      } catch (err) {
+        if (err instanceof PlanLimitError) {
+          const planLabel = PLAN_LABELS[plan]
+          const lim = limits.signatures
+          toast.info(`แผน ${planLabel}: บันทึกลายเซ็นได้สูงสุด ${isFinite(lim) ? lim : '∞'} รายการ — อัพเกรดเพื่อเพิ่ม`)
+        }
+      }
+    })()
+  }, [user, plan, limits.signatures])
 
   const isCloudDoc = !!docId && docId !== 'new' && docId !== 'local'
 
@@ -335,7 +381,17 @@ function EditorUI({
     }
   }
 
+  const editorCallbacksValue = useMemo(() => ({
+    onLogoSave: handleLogoSave,
+    onSignatureSave: handleSignatureSave,
+    savedSignatures,
+    signatureLimit: isFinite(limits.signatures) ? limits.signatures : Infinity,
+    signatureCount: savedSignatures.length,
+    refreshSignatures: () => void loadSignaturesForUser(),
+  }), [handleLogoSave, handleSignatureSave, savedSignatures, limits.signatures, loadSignaturesForUser])
+
   return (
+    <EditorCallbacksContext.Provider value={editorCallbacksValue}>
     <DndContext sensors={outerSensors} collisionDetection={closestCenter}
       onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <PdfModeContext.Provider value={displayPdfMode}>
@@ -396,6 +452,7 @@ function EditorUI({
         />
       )}
     </DndContext>
+    </EditorCallbacksContext.Provider>
   )
 }
 
