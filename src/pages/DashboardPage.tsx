@@ -43,7 +43,7 @@ export default function DashboardPage() {
       const [docsRes, productsRes, countRes, profileRes, gradesRes] = await Promise.all([
         supabase
           .from('documents')
-          .select("id, doc_type, status, total_amount, created_at, content->docMeta->>number AS doc_number, content->customer->>name AS customer_name")
+          .select('id, doc_type, status, total_amount, created_at, content')
           .eq('user_id', userId)
           .order('created_at', { ascending: false }),
         supabase
@@ -64,11 +64,16 @@ export default function DashboardPage() {
         supabase.rpc('get_customer_grades', { uid: userId }),
       ])
 
-      const docs: DashboardDoc[] = (docsRes.data ?? []).map((r: Record<string, unknown>) => ({
-        ...r,
-        doc_number: typeof r.doc_number === 'string' ? r.doc_number : undefined,
-        customer_name: typeof r.customer_name === 'string' ? r.customer_name : '—',
-      } as DashboardDoc))
+      const docs: DashboardDoc[] = (docsRes.data ?? []).map((r) => {
+        const content = r.content as Record<string, unknown> | null
+        const docMeta = content?.docMeta as Record<string, unknown> | null
+        const customer = content?.customer as Record<string, unknown> | null
+        return {
+          ...r,
+          doc_number: typeof docMeta?.number === 'string' ? docMeta.number : undefined,
+          customer_name: typeof customer?.name === 'string' ? customer.name : '—',
+        } as DashboardDoc
+      })
       const now = new Date()
 
       const company =
