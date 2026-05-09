@@ -6,7 +6,6 @@ import BentoGrid from '../components/BentoGrid'
 import type { DashboardData, DashboardDoc, ProductAlert, SpenderEntry, GradeEntry } from '../types/dashboard'
 
 const LOW_STOCK_THRESHOLD = 10
-}
 
 export default function DashboardPage() {
   const { user } = useAuth()
