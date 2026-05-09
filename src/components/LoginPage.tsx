@@ -30,10 +30,12 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [consented, setConsented] = useState(false)
 
   function switchMode(next: Mode) {
     if (loading || googleLoading) return
     setMode(next)
+    setConsented(false)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -214,10 +216,35 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* Consent checkbox — register only */}
+            {mode === 'register' && (
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={consented}
+                  onChange={e => setConsented(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#1e3a8a] accent-[#1e3a8a] cursor-pointer"
+                />
+                <span className="text-xs text-slate-500 leading-relaxed">
+                  ฉันได้อ่านและยอมรับ{' '}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer"
+                    className="text-[#1e3a8a] underline underline-offset-2 hover:text-[#1e40af]">
+                    เงื่อนไขการใช้บริการ
+                  </a>
+                  {' '}และ{' '}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer"
+                    className="text-[#1e3a8a] underline underline-offset-2 hover:text-[#1e40af]">
+                    นโยบายความเป็นส่วนตัว
+                  </a>
+                  {' '}ของ BillBlock
+                </span>
+              </label>
+            )}
+
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || (mode === 'register' && !consented)}
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1e3a8a] py-3 text-sm font-bold text-white hover:bg-[#1e40af] active:bg-[#1e3a8a] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-blue-900/20 mt-1"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
