@@ -250,8 +250,8 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
                     : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'
                 }`}
               >
-                <span className={`inline-block h-3.5 w-6 rounded-full relative transition-colors ${v.summary.vat ? 'bg-blue-500' : 'bg-slate-300'}`}>
-                  <span className={`absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white shadow-sm transition-transform ${v.summary.vat ? 'translate-x-2.5' : 'translate-x-0.5'}`} />
+                <span className={`inline-block h-3.5 w-6 rounded-full relative overflow-hidden transition-colors ${v.summary.vat ? 'bg-blue-500' : 'bg-slate-300'}`}>
+                  <span className={`absolute top-0.5 left-0 h-2.5 w-2.5 rounded-full bg-white shadow-sm transition-transform ${v.summary.vat ? 'translate-x-2.5' : 'translate-x-0.5'}`} />
                 </span>
                 VAT 7%
               </button>
@@ -363,13 +363,13 @@ function SortableBlock({ block, doc, dispatch, pdfMode, tc, v }: {
       className={pdfMode ? 'relative' : 'group/blk relative block-enter'}>
       {!pdfMode && (
         <button {...attributes} {...listeners}
-          className="absolute -left-5 top-1/2 -translate-y-1/2 cursor-grab touch-none opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-300 hover:text-slate-500 active:cursor-grabbing">
+          className="absolute left-1 top-1/2 -translate-y-1/2 z-10 cursor-grab touch-none opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-300 hover:text-slate-500 active:cursor-grabbing">
           <GripIcon />
         </button>
       )}
       {!pdfMode && (
         <button onClick={() => dispatch({ type: 'REMOVE_BLOCK', id: block.id })}
-          className="absolute -right-5 top-1/2 -translate-y-1/2 opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-200 hover:text-red-400">
+          className="absolute top-1 right-1 z-10 opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-300 hover:text-red-500 rounded p-0.5 hover:bg-red-50">
           <XSmallIcon />
         </button>
       )}
