@@ -11,6 +11,7 @@ export interface DocListRow {
   total_amount: number
   created_at: string
   updated_at: string
+  due_date: string | null
   doc_number: string
   customer_name: string
   salesperson: string
@@ -32,7 +33,7 @@ export function useDocumentsByType(docType: DocTypeCode) {
       try {
         const { data, error: err } = await supabase
           .from('documents')
-          .select('id, doc_type, status, total_amount, created_at, updated_at, content')
+          .select('id, doc_type, status, total_amount, created_at, updated_at, due_date, content')
           .eq('doc_type', docType)
           .order('created_at', { ascending: false })
         if (cancelled) return
@@ -46,6 +47,7 @@ export function useDocumentsByType(docType: DocTypeCode) {
             total_amount: r.total_amount as number,
             created_at: r.created_at as string,
             updated_at: r.updated_at as string,
+            due_date: typeof r.due_date === 'string' ? r.due_date : null,
             doc_number: content?.docMeta?.number ?? '-',
             customer_name: content?.customer?.name ?? '-',
             salesperson: content?.docMeta?.salesperson ?? '',

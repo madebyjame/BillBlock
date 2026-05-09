@@ -52,6 +52,7 @@ export interface DashboardDoc {
   status: 'draft' | 'sent' | 'paid' | 'cancelled'
   total_amount: number
   created_at: string
+  due_date?: string | null
   content?: unknown
   doc_number?: string
   customer_name?: string
@@ -83,6 +84,9 @@ export interface DashboardData {
   revenue30d: number
   pendingAmount: number
   pendingCount: number
+  overdueAmount: number
+  overdueCount: number
+  overdueDocs: DashboardDoc[]
   sparkline: { label: string; value: number }[]
   pendingDocs: DashboardDoc[]
   recentDocs: DashboardDoc[]

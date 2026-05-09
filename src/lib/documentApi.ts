@@ -13,6 +13,12 @@ export interface DocumentRow {
   total_amount: number
   created_at: string
   updated_at: string
+  due_date?: string | null
+}
+
+function parseCreditDays(credit: string): number {
+  const n = parseInt(credit, 10)
+  return isNaN(n) || n <= 0 ? 0 : n
 }
 
 const DOC_NUMBER_PREFIX: Record<DocTypeCode, string> = {
@@ -144,11 +150,20 @@ export async function updateDocument(
 ): Promise<void> {
   const { total } = calcDocSummary(doc)
 
+  const creditDays = parseCreditDays(doc.docMeta.credit)
+  let dueDate: string | null = null
+  if (creditDays > 0 && doc.docMeta.date) {
+    const base = new Date(doc.docMeta.date)
+    base.setDate(base.getDate() + creditDays)
+    dueDate = base.toISOString().split('T')[0]
+  }
+
   const patch: Record<string, unknown> = {
     doc_type: thaiToDocTypeCode(doc.docMeta.documentType),
     total_amount: Math.round(total * 100) / 100,
     content: doc,
     updated_at: new Date().toISOString(),
+    due_date: dueDate,
   }
   if (status) patch.status = status
 
