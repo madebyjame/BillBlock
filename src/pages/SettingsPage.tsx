@@ -9,6 +9,8 @@ import {
   FileText,
   MapPin,
   Settings2,
+  Star,
+  Trash2,
   Upload,
   X,
   Zap,
@@ -20,6 +22,8 @@ import type { Profile } from '../lib/profileApi'
 import { usePlan } from '../hooks/usePlan'
 import { PLAN_LABELS } from '../lib/planLimits'
 import { supabase } from '../lib/supabase'
+import { listSignatures, saveSignature, deleteSignature, setDefaultSignature } from '../lib/signatureApi'
+import type { SavedSignature } from '../lib/signatureApi'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -90,7 +94,6 @@ export default function SettingsPage() {
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
-  const [uploadingSig,  setUploadingSig]  = useState(false)
 
   const isDirty = JSON.stringify(form) !== JSON.stringify(savedForm)
 
@@ -135,18 +138,17 @@ export default function SettingsPage() {
     setForm((prev) => ({ ...prev, ...patch }))
   }
 
-  async function handleUpload(type: 'logo' | 'signature', file: File) {
+  async function handleUpload(type: 'logo', file: File) {
     if (!user) return
-    const setUploading = type === 'logo' ? setUploadingLogo : setUploadingSig
-    setUploading(true)
+    setUploadingLogo(true)
     try {
       const url = await uploadCompanyFile(user.id, type, file)
-      update(type === 'logo' ? { logo_url: url } : { signature_url: url })
-      toast.success(type === 'logo' ? 'อัปโหลดโลโก้เรียบร้อย' : 'อัปโหลดลายเซ็นเรียบร้อย')
+      update({ logo_url: url })
+      toast.success('อัปโหลดโลโก้เรียบร้อย')
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'อัปโหลดไม่สำเร็จ')
     } finally {
-      setUploading(false)
+      setUploadingLogo(false)
     }
   }
 
@@ -198,9 +200,7 @@ export default function SettingsPage() {
           form={form}
           update={update}
           uploadingLogo={uploadingLogo}
-          uploadingSig={uploadingSig}
           onUploadLogo={(f) => void handleUpload('logo', f)}
-          onUploadSig={(f)  => void handleUpload('signature', f)}
         />
       )}
       {activeTab === 'payment' && (
@@ -341,21 +341,77 @@ function DesignTab({
   form,
   update,
   uploadingLogo,
-  uploadingSig,
   onUploadLogo,
-  onUploadSig,
 }: {
   form: FormState
   update: (p: Partial<FormState>) => void
   uploadingLogo: boolean
-  uploadingSig: boolean
   onUploadLogo: (f: File) => void
-  onUploadSig: (f: File) => void
 }) {
+  const { user } = useAuth()
+  const { plan, limits } = usePlan()
+  const [signatures, setSignatures] = useState<SavedSignature[]>([])
+  const [sigLoading, setSigLoading] = useState(true)
+  const [uploadingSig, setUploadingSig] = useState(false)
+  const sigInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!user) return
+    listSignatures(user.id)
+      .then(setSignatures)
+      .catch(() => { /* silent */ })
+      .finally(() => setSigLoading(false))
+  }, [user])
+
+  const sigLimit = isFinite(limits.signatures) ? limits.signatures : Infinity
+  const atLimit = isFinite(sigLimit) && signatures.length >= sigLimit
+
+  async function handleUploadSig(file: File) {
+    if (!user) return
+    setUploadingSig(true)
+    try {
+      const sig = await saveSignature(user.id, 'ลายเซ็น', file)
+      setSignatures(prev => [...prev, sig])
+      toast.success('เพิ่มลายเซ็นเรียบร้อย')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'อัปโหลดไม่สำเร็จ'
+      if (msg.includes('PLAN_LIMIT')) {
+        toast.error(`แผน ${PLAN_LABELS[plan]} บันทึกได้สูงสุด ${isFinite(sigLimit) ? sigLimit : '∞'} ลายเซ็น`)
+      } else {
+        toast.error(msg)
+      }
+    } finally {
+      setUploadingSig(false)
+    }
+  }
+
+  async function handleDeleteSig(sig: SavedSignature) {
+    if (!user || !window.confirm(`ลบลายเซ็น "${sig.name}" ?`)) return
+    try {
+      await deleteSignature(sig.id, user.id)
+      setSignatures(prev => prev.filter(s => s.id !== sig.id))
+      toast.success('ลบลายเซ็นแล้ว')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'ลบไม่สำเร็จ')
+    }
+  }
+
+  async function handleSetDefault(sig: SavedSignature) {
+    if (!user) return
+    try {
+      await setDefaultSignature(user.id, sig.id)
+      setSignatures(prev => prev.map(s => ({ ...s, is_default: s.id === sig.id })))
+      toast.success(`ตั้ง "${sig.name}" เป็นลายเซ็นเริ่มต้น`)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'ไม่สำเร็จ')
+    }
+  }
+
   function text(field: keyof FormState) {
     return (e: ChangeEvent<HTMLInputElement>) =>
       update({ [field]: e.target.value } as Partial<FormState>)
   }
+
   return (
     <div className="space-y-5">
       {/* Image uploads */}
@@ -371,17 +427,100 @@ function DesignTab({
               buttonLabel="เลือกโลโก้"
             />
           </Field>
-          <Field label="ลายเซ็นดิจิทัล">
-            <p className="mb-2 text-xs text-slate-400">แสดงที่ช่องลงนามด้านล่างเอกสาร</p>
-            <ImageUploadField
-              url={form.signature_url}
-              uploading={uploadingSig}
-              onUpload={onUploadSig}
-              onClear={() => update({ signature_url: '' })}
-              buttonLabel="เลือกลายเซ็น"
-            />
+          <Field label="ลายเซ็นดิจิทัล (Default)">
+            <p className="mb-2 text-xs text-slate-400">ลายเซ็นที่ใช้โดยอัตโนมัติในเอกสารใหม่</p>
+            <div className="flex flex-col gap-2">
+              {form.signature_url
+                ? <img src={form.signature_url} alt="sig" className="h-14 object-contain rounded border border-slate-200 bg-white p-1" />
+                : <div className="h-14 rounded border-2 border-dashed border-slate-200 flex items-center justify-center text-xs text-slate-300">ยังไม่มีลายเซ็น</div>}
+            </div>
           </Field>
         </div>
+      </SectionCard>
+
+      {/* Signature manager */}
+      <SectionCard title="จัดการลายเซ็น" icon={<FileText size={15} />}>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs text-slate-400">
+            {isFinite(sigLimit)
+              ? `ใช้ ${signatures.length}/${sigLimit} ลายเซ็น — แผน ${PLAN_LABELS[plan]}`
+              : `${signatures.length} ลายเซ็น — แผน ${PLAN_LABELS[plan]} (ไม่จำกัด)`}
+          </p>
+          <div className="flex items-center gap-2">
+            {atLimit && (
+              <span className="text-[10px] text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                ถึงขีดจำกัดแล้ว
+              </span>
+            )}
+            <button
+              type="button"
+              disabled={atLimit || uploadingSig}
+              onClick={() => sigInputRef.current?.click()}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {uploadingSig
+                ? <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" /><path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" className="opacity-75" /></svg>
+                : <Upload size={12} />}
+              เพิ่มลายเซ็น
+            </button>
+            <input ref={sigInputRef} type="file" accept="image/*" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void handleUploadSig(f) }} />
+          </div>
+        </div>
+
+        {sigLoading ? (
+          <div className="flex justify-center py-6">
+            <svg className="h-4 w-4 animate-spin text-slate-300" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+              <path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" className="opacity-75" />
+            </svg>
+          </div>
+        ) : signatures.length === 0 ? (
+          <div className="rounded-lg border-2 border-dashed border-slate-100 flex flex-col items-center justify-center py-8 gap-2">
+            <p className="text-xs text-slate-300">ยังไม่มีลายเซ็นที่บันทึก</p>
+            <p className="text-[10px] text-slate-300">คลิก "เพิ่มลายเซ็น" เพื่อเริ่มต้น</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {signatures.map(sig => (
+              <div key={sig.id}
+                className={`group relative rounded-lg border bg-white p-2 transition-all ${
+                  sig.is_default ? 'border-blue-300 ring-1 ring-blue-200' : 'border-slate-200 hover:border-slate-300'
+                }`}>
+                {sig.is_default && (
+                  <span className="absolute -top-2 left-2 flex items-center gap-0.5 rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                    <Star size={8} fill="white" />ค่าเริ่มต้น
+                  </span>
+                )}
+                <img src={sig.url} alt={sig.name} className="h-12 w-full object-contain" />
+                <p className="mt-1.5 truncate text-center text-[10px] text-slate-400">{sig.name}</p>
+                <div className="mt-1.5 flex gap-1">
+                  {!sig.is_default && (
+                    <button type="button" onClick={() => void handleSetDefault(sig)}
+                      title="ตั้งเป็น default"
+                      className="flex-1 rounded border border-slate-200 py-1 text-[10px] text-slate-500 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors">
+                      ตั้งเป็นหลัก
+                    </button>
+                  )}
+                  <button type="button" onClick={() => void handleDeleteSig(sig)}
+                    title="ลบ"
+                    className="rounded border border-slate-200 p-1 text-slate-400 hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition-colors">
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {atLimit && (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-center gap-2">
+            <Zap size={14} className="text-amber-500 shrink-0" />
+            <p className="text-xs text-amber-700">
+              อัพเกรดเป็น {plan === 'free' ? 'Pro (5 ลายเซ็น)' : 'Max (ไม่จำกัด)'} เพื่อเพิ่มลายเซ็นได้มากขึ้น
+            </p>
+          </div>
+        )}
       </SectionCard>
 
       {/* Theme color */}

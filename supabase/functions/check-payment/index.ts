@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const CORS = {
@@ -13,6 +13,37 @@ serve(async (req) => {
     const { charge_id, document_id, token } = await req.json()
     if (!charge_id || !document_id || !token) return json({ error: 'missing_fields' }, 400)
 
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+
+    // Verify portal token owns this document before trusting charge_id
+    const { data: pt } = await supabase
+      .from('portal_tokens')
+      .select('customer_id, user_id, expires_at')
+      .eq('token', token)
+      .single()
+
+    if (!pt) return json({ error: 'invalid_token' }, 401)
+    if (pt.expires_at && new Date(pt.expires_at) < new Date()) {
+      return json({ error: 'token_expired' }, 401)
+    }
+
+    // Ensure the document belongs to this token's customer
+    const { data: doc } = await supabase
+      .from('documents')
+      .select('id, omise_charge_id')
+      .eq('id', document_id)
+      .eq('customer_id', pt.customer_id)
+      .eq('user_id', pt.user_id)
+      .single()
+
+    if (!doc) return json({ error: 'document_not_found' }, 404)
+
+    // Ensure charge_id matches what was recorded at payment creation
+    if (doc.omise_charge_id !== charge_id) return json({ error: 'charge_mismatch' }, 403)
+
     const omiseKey = Deno.env.get('OMISE_SECRET_KEY')!
     const res = await fetch(`https://api.omise.co/charges/${charge_id}`, {
       headers: { 'Authorization': `Basic ${btoa(omiseKey + ':')}` },
@@ -22,10 +53,6 @@ serve(async (req) => {
     if (!res.ok) return json({ error: charge.message ?? 'omise_error' }, 502)
 
     if (charge.status === 'successful') {
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      )
       await supabase
         .from('documents')
         .update({ status: 'paid', paid_date: new Date().toISOString().split('T')[0] })

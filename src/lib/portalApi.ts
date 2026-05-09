@@ -31,7 +31,9 @@ export type PortalError = 'invalid_token' | 'token_expired' | 'not_found'
 export async function getPortalData(
   token: string,
 ): Promise<{ data: PortalData } | { error: PortalError }> {
-  const { data, error } = await supabase.rpc('get_portal_data', { p_token: token })
+  const { data, error } = await supabase.functions.invoke('get-portal-data', {
+    body: { token },
+  })
 
   if (error) return { error: 'not_found' }
 

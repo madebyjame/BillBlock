@@ -1,5 +1,6 @@
 import { formatDate } from '../../utils/calculations'
 import { readImageFileAsDataUrl } from '../../utils/fileToDataUrl'
+import { useEditorCallbacks } from '../../context/EditorCallbacksContext'
 import { F } from './InvoiceInputs'
 
 export function SignatureBox({ pdfMode, label, title, onLabelChange, onTitleChange,
@@ -14,6 +15,7 @@ export function SignatureBox({ pdfMode, label, title, onLabelChange, onTitleChan
   onDateChange?: (d: string) => void
 }) {
   const sigH = Math.round(64 * signatureScale)
+  const { onSignatureSave, savedSignatures } = useEditorCallbacks()
 
   return (
     <div className="h-full flex flex-col items-center text-sm">
@@ -25,7 +27,7 @@ export function SignatureBox({ pdfMode, label, title, onLabelChange, onTitleChan
       {/* Signature + date */}
       <div className="flex-1 w-full flex flex-col items-center justify-end pb-2 relative">
         {onSignatureUpload && (
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-1 w-full">
             <label className={`flex items-center justify-center ${pdfMode ? '' : 'cursor-pointer'}`}>
               {signatureUrl
                 ? <img src={signatureUrl} alt="sig"
@@ -37,9 +39,30 @@ export function SignatureBox({ pdfMode, label, title, onLabelChange, onTitleChan
                 onChange={e => {
                   const f = e.target.files?.[0]; e.target.value = ''
                   if (!f || !onSignatureUpload) return
+                  onSignatureSave(f)
                   void readImageFileAsDataUrl(f).then(onSignatureUpload, err => alert(err instanceof Error ? err.message : String(err)))
                 }} />}
             </label>
+
+            {/* Saved signature picker (only when there are saved signatures) */}
+            {!pdfMode && savedSignatures.length > 0 && (
+              <div className="flex gap-1 flex-wrap justify-center mt-1">
+                {savedSignatures.map(sig => (
+                  <button
+                    key={sig.id}
+                    type="button"
+                    onClick={() => onSignatureUpload(sig.url)}
+                    title={sig.name}
+                    className={`h-8 w-12 rounded border bg-white overflow-hidden transition-all hover:border-blue-400 ${
+                      signatureUrl === sig.url ? 'border-blue-500 ring-1 ring-blue-300' : 'border-slate-200'
+                    }`}
+                  >
+                    <img src={sig.url} alt={sig.name} className="h-full w-full object-contain p-0.5" />
+                  </button>
+                ))}
+              </div>
+            )}
+
             {!pdfMode && signatureUrl && onScaleChange && (
               <div className="flex items-center gap-1.5">
                 <button type="button" onClick={() => onScaleChange(Math.max(0.25, signatureScale - 0.25))}

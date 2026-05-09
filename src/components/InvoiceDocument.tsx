@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useMemo } from 'react'
+import { PlanContext } from '../context/PlanContext'
+import { useEditorCallbacks } from '../context/EditorCallbacksContext'
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor,
   useSensor, useSensors, type DragEndEvent, useDroppable,
@@ -36,8 +38,29 @@ interface Props {
   autoFocusCustomer?: boolean
 }
 
+function DocumentWatermark() {
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 50 }}>
+      <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="bb-wm" x="0" y="0" width="300" height="200"
+            patternUnits="userSpaceOnUse" patternTransform="rotate(-35 0 0)">
+            <text x="10" y="60" fontSize="52" fontWeight="bold"
+              fill="rgba(0,0,0,0.055)" fontFamily="system-ui,sans-serif"
+              letterSpacing="3">BillBlock</text>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bb-wm)" />
+      </svg>
+    </div>
+  )
+}
+
 export default function InvoiceDocument({ doc, dispatch, docRef, catalog, customers, products, onQuickAddCustomer, autoFocusCustomer }: Props) {
   const pdfMode = useContext(PdfModeContext)
+  const planCtx = useContext(PlanContext)
+  const editorCallbacks = useEditorCallbacks()
+  const showWatermark = planCtx?.plan === 'free'
   
   // ป้องกันกรณี doc หรือ nested objects เป็น undefined/null แม้จะผ่าน normalize มาแล้ว
   const v = doc?.visibility || defaultDocument.visibility
@@ -73,9 +96,10 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
   return (
     <div
       ref={docRef}
-      className="mx-auto w-full bg-white flex flex-col"
+      className="mx-auto w-full bg-white flex flex-col relative"
       style={{ maxWidth: '794px', minHeight: '1123px', fontFamily: "'Sarabun', sans-serif", fontSize: '14px' }}
     >
+      {showWatermark && <DocumentWatermark />}
       <div className="p-10 flex-1 flex flex-col">
 
         {/* ═══ SECTION 1: Header 2-col ═══ */}
@@ -94,6 +118,7 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
                     const f = e.target.files?.[0]
                     e.target.value = ''
                     if (!f) return
+                    editorCallbacks.onLogoSave(f)
                     void readImageFileAsDataUrl(f).then(
                       dataUrl => dispatch({ type: 'UPDATE_COMPANY', data: { logoUrl: dataUrl } }),
                       err => alert(err instanceof Error ? err.message : String(err)),
@@ -250,8 +275,8 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
                     : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'
                 }`}
               >
-                <span className={`inline-block h-3.5 w-6 rounded-full relative transition-colors ${v.summary.vat ? 'bg-blue-500' : 'bg-slate-300'}`}>
-                  <span className={`absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white shadow-sm transition-transform ${v.summary.vat ? 'translate-x-2.5' : 'translate-x-0.5'}`} />
+                <span className={`inline-block h-3.5 w-6 rounded-full relative overflow-hidden transition-colors ${v.summary.vat ? 'bg-blue-500' : 'bg-slate-300'}`}>
+                  <span className={`absolute top-0.5 left-0 h-2.5 w-2.5 rounded-full bg-white shadow-sm transition-transform ${v.summary.vat ? 'translate-x-2.5' : 'translate-x-0.5'}`} />
                 </span>
                 VAT 7%
               </button>
@@ -363,13 +388,13 @@ function SortableBlock({ block, doc, dispatch, pdfMode, tc, v }: {
       className={pdfMode ? 'relative' : 'group/blk relative block-enter'}>
       {!pdfMode && (
         <button {...attributes} {...listeners}
-          className="absolute -left-5 top-1/2 -translate-y-1/2 cursor-grab touch-none opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-300 hover:text-slate-500 active:cursor-grabbing">
+          className="absolute left-1 top-1/2 -translate-y-1/2 z-10 cursor-grab touch-none opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-300 hover:text-slate-500 active:cursor-grabbing">
           <GripIcon />
         </button>
       )}
       {!pdfMode && (
         <button onClick={() => dispatch({ type: 'REMOVE_BLOCK', id: block.id })}
-          className="absolute -right-5 top-1/2 -translate-y-1/2 opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-200 hover:text-red-400">
+          className="absolute top-1 right-1 z-10 opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-300 hover:text-red-500 rounded p-0.5 hover:bg-red-50">
           <XSmallIcon />
         </button>
       )}

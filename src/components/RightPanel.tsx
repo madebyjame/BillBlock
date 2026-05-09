@@ -59,7 +59,7 @@ export default function RightPanel({ doc, dispatch }: Props) {
   ]
 
   return (
-    <aside className="flex h-full w-60 flex-shrink-0 flex-col border-l border-slate-200 bg-white overflow-hidden">
+    <aside className="flex h-full w-72 flex-shrink-0 flex-col border-l border-slate-200 bg-white overflow-hidden">
       {/* Tab bar */}
       <div className="flex border-b border-slate-200 shrink-0">
         {tabs.map(tab => (
@@ -175,11 +175,11 @@ export default function RightPanel({ doc, dispatch }: Props) {
                     className={`h-6 w-6 rounded-full border-2 transition-transform hover:scale-110 ${s.themeColor === c.value ? 'border-slate-600 scale-110' : 'border-transparent'}`}
                     style={{ backgroundColor: c.value }} />
                 ))}
-                <label className="h-6 w-6 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center cursor-pointer hover:border-slate-500 overflow-hidden" title="เลือกสีเอง">
-                  <span className="text-[9px] text-slate-400">+</span>
+                <label className="relative h-6 w-6 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center cursor-pointer hover:border-slate-500 overflow-hidden" title="เลือกสีเอง">
+                  <span className="text-[9px] text-slate-400 pointer-events-none z-10">+</span>
                   <input type="color" value={s.themeColor}
                     onChange={e => setSetting({ themeColor: e.target.value })}
-                    className="absolute opacity-0 w-0 h-0" />
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                 </label>
               </div>
               <div className="flex items-center gap-2">
@@ -286,7 +286,7 @@ export default function RightPanel({ doc, dispatch }: Props) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">{title}</p>
+      <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">{title}</p>
       <div className="space-y-1">{children}</div>
     </div>
   )
@@ -317,7 +317,7 @@ function PaletteCard({ type, label, desc, disabled, tc }: {
       </span>
       <div className="flex-1 min-w-0">
         <p className="font-semibold truncate" style={disabled ? { color: '#94a3b8' } : { color: tc }}>{label}</p>
-        <p className="text-[9px] text-slate-400 truncate">{desc}</p>
+        <p className="text-[10px] text-slate-400 truncate">{desc}</p>
       </div>
       {disabled
         ? <span className="text-[9px] font-bold text-slate-300 shrink-0">✓</span>

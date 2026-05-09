@@ -22,7 +22,7 @@ interface PlanContextValue {
 
 const DEFAULT_USAGE: PlanUsage = { docsThisMonth: 0, totalCustomers: 0, totalProducts: 0 }
 
-const PlanContext = createContext<PlanContextValue | null>(null)
+export const PlanContext = createContext<PlanContextValue | null>(null)
 
 export function PlanProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
