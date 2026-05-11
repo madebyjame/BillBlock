@@ -21,6 +21,7 @@ import PrivacyPage from './pages/PrivacyPage'
 import RefundPage from './pages/RefundPage'
 import VatReportPage from './pages/VatReportPage'
 import WhtReportPage from './pages/WhtReportPage'
+import PlReportPage from './pages/PlReportPage'
 
 function LoadingScreen() {
   return (
@@ -91,9 +92,10 @@ export default function App() {
             <Route path="/customers"  element={<CustomersPage />} />
             <Route path="/settings"   element={<SettingsPage />} />
 
-            {/* รายงานภาษี */}
+            {/* รายงาน */}
             <Route path="/reports/vat" element={<VatReportPage />} />
             <Route path="/reports/wht" element={<WhtReportPage />} />
+            <Route path="/reports/pl"  element={<PlReportPage />} />
           </Route>
 
           <Route path="/editor/:id" element={<EditorPage />} />

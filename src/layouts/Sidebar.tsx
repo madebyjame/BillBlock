@@ -21,6 +21,7 @@ import {
   Zap,
   BarChart3,
   FileBarChart2,
+  TrendingUp,
 } from 'lucide-react'
 import { usePlan } from '../hooks/usePlan'
 
@@ -53,7 +54,8 @@ const INVENTORY_NAV = [
 ]
 
 const REPORTS_NAV = [
-  { to: '/reports/vat', label: 'VAT (ภ.พ.30)',   Icon: BarChart3 },
+  { to: '/reports/pl',  label: 'กำไร & ขาดทุน',   Icon: TrendingUp },
+  { to: '/reports/vat', label: 'VAT (ภ.พ.30)',     Icon: BarChart3 },
   { to: '/reports/wht', label: 'WHT (ภ.ง.ด.3/53)', Icon: FileBarChart2 },
 ]
 

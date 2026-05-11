@@ -181,6 +181,12 @@ export async function updateDocumentStatus(id: string, status: DocumentRow['stat
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) throw new Error(error.message)
+
+  // When marked as paid, snapshot COGS from product cost_price × quantity
+  if (status === 'paid') {
+    // Fire and forget — COGS is best-effort; don't block UX on failure
+    void supabase.rpc('refresh_doc_cogs', { p_doc_id: id }).catch(() => undefined)
+  }
 }
 
 // ─── Duplicate ────────────────────────────────────────────────────────────────
