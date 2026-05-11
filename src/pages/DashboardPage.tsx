@@ -156,10 +156,10 @@ export default function DashboardPage() {
   const displayName = dashData.companyName || user?.email?.split('@')[0] || 'ผู้ใช้งาน'
 
   return (
-    <div className="mx-auto max-w-6xl p-4 md:p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
-        <p className="mt-1 text-sm text-slate-400">ยินดีต้อนรับ, {displayName}</p>
+    <div className="w-full p-6 md:p-8 lg:p-10">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-800">Dashboard</h1>
+        <p className="mt-1.5 text-sm text-slate-400">ยินดีต้อนรับ, <span className="font-medium text-slate-600">{displayName}</span></p>
       </div>
       <BentoGrid layout={layout} onLayoutChange={updateLayout} data={dashData} />
     </div>

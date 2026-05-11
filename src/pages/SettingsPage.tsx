@@ -171,8 +171,8 @@ export default function SettingsPage() {
   if (loading) return <SettingsSkeleton />
 
   return (
-    <div className="mx-auto max-w-4xl p-4 pb-36 md:p-8">
-      <h1 className="mb-6 text-2xl font-bold text-slate-800">ตั้งค่า</h1>
+    <div className="mx-auto max-w-4xl p-6 pb-36 md:p-10">
+      <h1 className="mb-8 text-3xl font-bold tracking-tight text-slate-800">ตั้งค่า</h1>
 
       {/* ── Tab bar ── */}
       <div className="mb-6 flex gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
@@ -1009,7 +1009,7 @@ function ImageUploadField({
 
 function SettingsSkeleton() {
   return (
-    <div className="mx-auto max-w-4xl animate-pulse p-4 md:p-8">
+    <div className="mx-auto max-w-4xl animate-pulse p-6 md:p-10">
       <div className="mb-6 h-7 w-24 rounded bg-slate-200" />
       <div className="mb-6 flex gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
         {[1, 2, 3, 4, 5].map((i) => (

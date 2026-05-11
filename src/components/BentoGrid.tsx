@@ -81,7 +81,7 @@ function SortableWidget({ id, editMode, data }: SortableWidgetProps) {
       ref={setNodeRef}
       style={style}
       // min-h ensures every row is at least 240 px tall even with sparse content.
-      className={`${colClass} min-h-[240px] ${isDragging ? 'opacity-0' : ''}`}
+      className={`${colClass} min-h-[260px] ${isDragging ? 'opacity-0' : ''}`}
     >
       {/* Lift + glow animation in edit mode (no jiggle) */}
       <motion.div
@@ -252,7 +252,7 @@ export default function BentoGrid({ layout, onLayoutChange, data }: BentoGridPro
           <SortableContext items={layout} strategy={rectSortingStrategy}>
             {/* No explicit grid-auto-rows — rows size naturally to tallest cell.
                 min-h-[240px] on each cell guarantees a readable minimum height. */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
               {layout.map(id => (
                 <SortableWidget key={id} id={id} editMode={editMode} data={data} />
               ))}

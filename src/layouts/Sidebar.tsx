@@ -65,15 +65,15 @@ function NavItem({ to, label, end = false, Icon, collapsed, onClick, themeColor 
       end={end}
       onClick={onClick}
       className={({ isActive }) =>
-        ['flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all duration-200',
-          isActive ? 'font-semibold text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+        ['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200',
+          isActive ? 'font-semibold text-white shadow-sm' : 'text-slate-400 hover:bg-slate-800 hover:text-white',
         ].join(' ')
       }
       style={({ isActive }) =>
-        isActive ? { backgroundColor: `${themeColor}26`, outline: `1px solid ${themeColor}66` } : undefined
+        isActive ? { backgroundColor: `${themeColor}30`, outline: `1px solid ${themeColor}55` } : undefined
       }
     >
-      <Icon size={16} className="shrink-0" />
+      <Icon size={17} className="shrink-0" />
       {!collapsed && <span className="truncate">{label}</span>}
     </NavLink>
   )
@@ -132,28 +132,47 @@ export default function Sidebar({
         className={[
           'fixed inset-y-0 left-0 z-40 flex flex-col bg-slate-900 text-slate-100 shadow-xl transition-all duration-300 md:static md:shadow-none',
           mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
-          collapsed ? 'w-20' : 'w-64',
+          collapsed ? 'w-[72px]' : 'w-72',
         ].join(' ')}
       >
         {/* Header */}
-        <div className="flex h-14 items-center border-b border-slate-800 px-3">
-          {!collapsed && <span className="font-semibold tracking-tight text-slate-100">BillBlock ERP</span>}
+        <div className="flex h-16 items-center border-b border-slate-800/60 px-4">
+          {!collapsed && (
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 shadow-md shadow-blue-900/40">
+                <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-white" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-bold tracking-tight text-white">BillBlock</p>
+                <p className="text-[10px] text-slate-500 leading-none">ERP Platform</p>
+              </div>
+            </div>
+          )}
+          {collapsed && (
+            <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 shadow-md shadow-blue-900/40">
+              <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-white" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+          )}
           <button
             onClick={() => setCollapsed(p => !p)}
-            className="ml-auto hidden h-8 w-8 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-800 hover:text-white md:flex"
+            className="ml-auto hidden h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-800 hover:text-white md:flex"
             title={collapsed ? 'ขยาย' : 'ย่อ'}
           >
-            {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
+            {collapsed ? <ChevronsRight size={15} /> : <ChevronsLeft size={15} />}
           </button>
           <button
             onClick={close}
-            className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-800 hover:text-white md:hidden"
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800 hover:text-white md:hidden"
           >
             <X size={16} />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
+        <nav className="flex-1 overflow-y-auto px-2.5 py-4 space-y-0.5">
           {/* Top nav */}
           {TOP_NAV.map(item => (
             <NavItem key={item.to} {...item} collapsed={collapsed} onClick={close} themeColor={themeColor} />

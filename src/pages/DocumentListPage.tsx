@@ -451,7 +451,7 @@ export default function DocumentListPage({ docType }: Props) {
   const colCount = isQuotation ? 8 : 6
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
+    <div className="w-full p-6 md:p-8 lg:p-10">
       {confirmPending && <ConfirmDialog {...confirmPending} onConfirm={onConfirm} onCancel={onCancel} />}
       {upgradeModal && (
         <UpgradeModal
@@ -462,12 +462,15 @@ export default function DocumentListPage({ docType }: Props) {
       )}
 
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-800">{pageTitle}</h1>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-800">{pageTitle}</h1>
+          <p className="mt-1 text-sm text-slate-400">{filtered.length} รายการ</p>
+        </div>
         <button
           onClick={() => void handleCreate()}
           disabled={creating}
-          className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+          className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 hover:shadow-md disabled:opacity-60"
           style={{ backgroundColor: themeColor }}
         >
           {creating ? (
@@ -585,19 +588,19 @@ export default function DocumentListPage({ docType }: Props) {
           <>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50 text-left">
-                  <th className="w-10 px-4 py-3">
+                <tr className="border-b border-slate-100 bg-slate-50/80 text-left">
+                  <th className="w-12 px-5 py-4">
                     <input type="checkbox" checked={allPageSelected} onChange={toggleAll}
                       className="h-4 w-4 rounded border-slate-300 accent-slate-700" />
                   </th>
-                  <th className="px-4 py-3 font-semibold text-slate-500">วันที่</th>
-                  <th className="px-4 py-3 font-semibold text-slate-500">เลขที่เอกสาร</th>
-                  <th className="px-4 py-3 font-semibold text-slate-500">ชื่อลูกค้า</th>
-                  {isQuotation && <th className="px-4 py-3 font-semibold text-slate-500">ชื่องาน</th>}
-                  {isQuotation && <th className="px-4 py-3 font-semibold text-slate-500">พนักงานขาย</th>}
-                  <th className="px-4 py-3 text-right font-semibold text-slate-500">ยอดรวม</th>
-                  <th className="px-4 py-3 font-semibold text-slate-500">สถานะ</th>
-                  <th className="w-10 px-4 py-3" />
+                  <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">วันที่</th>
+                  <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">เลขที่เอกสาร</th>
+                  <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">ชื่อลูกค้า</th>
+                  {isQuotation && <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">ชื่องาน</th>}
+                  {isQuotation && <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">พนักงานขาย</th>}
+                  <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">ยอดรวม</th>
+                  <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">สถานะ</th>
+                  <th className="w-12 px-5 py-4" />
                 </tr>
               </thead>
               <tbody>
@@ -635,25 +638,25 @@ export default function DocumentListPage({ docType }: Props) {
                   <tr
                     key={row.id}
                     onClick={() => navigate(`/editor/${row.id}`)}
-                    className={`cursor-pointer border-b border-slate-50 transition-colors last:border-0 ${selectedIds.has(row.id) ? 'bg-slate-50' : 'hover:bg-slate-50'}`}
+                    className={`cursor-pointer border-b border-slate-100/70 transition-colors last:border-0 ${selectedIds.has(row.id) ? 'bg-blue-50/40' : 'hover:bg-slate-50/80'}`}
                   >
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                       <input type="checkbox" checked={selectedIds.has(row.id)} onChange={() => toggleOne(row.id)}
                         className="h-4 w-4 rounded border-slate-300 accent-slate-700" />
                     </td>
-                    <td className="px-4 py-3 text-slate-500">{fmtDate(row.created_at)}</td>
-                    <td className="px-4 py-3">
-                      <span className="font-mono font-medium text-blue-600 hover:underline">{row.doc_number}</span>
+                    <td className="px-5 py-4 text-slate-500">{fmtDate(row.created_at)}</td>
+                    <td className="px-5 py-4">
+                      <span className="font-mono text-[13px] font-semibold text-blue-600 hover:underline">{row.doc_number}</span>
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{row.customer_name}</td>
+                    <td className="px-5 py-4 font-medium text-slate-700">{row.customer_name}</td>
                     {isQuotation && (
-                      <td className="px-4 py-3 text-slate-500">{row.project_name || '—'}</td>
+                      <td className="px-5 py-4 text-slate-500">{row.project_name || '—'}</td>
                     )}
                     {isQuotation && (
-                      <td className="px-4 py-3 text-slate-500">{row.salesperson || '—'}</td>
+                      <td className="px-5 py-4 text-slate-500">{row.salesperson || '—'}</td>
                     )}
-                    <td className="px-4 py-3 text-right font-medium text-slate-700">{fmtAmount(row.total_amount)}</td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-5 py-4 text-right font-semibold text-slate-800">฿{fmtAmount(row.total_amount)}</td>
+                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex flex-col gap-1">
                         <StatusBadge
                           row={row}
@@ -669,7 +672,7 @@ export default function DocumentListPage({ docType }: Props) {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                       <KebabMenu
                         row={row}
                         deleting={deletingId === row.id}

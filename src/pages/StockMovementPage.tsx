@@ -58,7 +58,7 @@ export default function StockMovementPage() {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
-    <div className="mx-auto max-w-6xl p-4 md:p-8">
+    <div className="w-full p-6 md:p-8 lg:p-10">
       {/* Header */}
       <div className="mb-6 flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">

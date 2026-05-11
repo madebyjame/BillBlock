@@ -313,7 +313,7 @@ export default function CustomersPage() {
   const inputCls = 'w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none'
 
   return (
-    <div className="mx-auto max-w-6xl p-4 md:p-8">
+    <div className="w-full p-6 md:p-8 lg:p-10">
       {confirmPending && <ConfirmDialog {...confirmPending} onConfirm={onConfirm} onCancel={onCancel} />}
       {upgradeModal && (
         <UpgradeModal
@@ -325,7 +325,7 @@ export default function CustomersPage() {
 
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-800">ลูกค้า</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-slate-800">ลูกค้า</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={exportCsv}

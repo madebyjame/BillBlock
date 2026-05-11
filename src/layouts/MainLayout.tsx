@@ -13,7 +13,7 @@ export default function MainLayout() {
     : '#1d4ed8'
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-100">
+    <div className="flex h-screen overflow-hidden bg-slate-50">
       {/* Sidebar — hidden when printing */}
       <div className="no-print contents">
         <Sidebar
