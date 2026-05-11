@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Search, Download, Users, X, FileText, Link2 } from 'lucide-react'
+import { Plus, Search, Download, Users, X, FileText, Link2, FileSpreadsheet } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
 import { KebabMenu } from '../components/KebabMenu'
@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useConfirm } from '../hooks/useConfirm'
 import { supabase } from '../lib/supabase'
+import { exportCustomersToExcel } from '../lib/excelExport'
 import {
   createCustomer, deleteCustomer, listCustomers, updateCustomer,
   type CustomerInput, type CustomerRow,
@@ -329,9 +330,20 @@ export default function CustomersPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={exportCsv}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
           >
-            <Download size={15} /> Export CSV
+            <Download size={15} /> CSV
+          </button>
+          <button
+            onClick={() => {
+              if (!user) return
+              void exportCustomersToExcel(user.id)
+                .then(() => toast.success('Export Excel สำเร็จ'))
+                .catch(() => toast.error('Export ไม่สำเร็จ'))
+            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+          >
+            <FileSpreadsheet size={15} className="text-green-600" /> Excel
           </button>
           <button
             onClick={openCreate}

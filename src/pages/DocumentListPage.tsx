@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   FilePlus, Plus, Search, ChevronDown, MoreVertical,
   Eye, Pencil, Download, Trash2, Clock, CheckCircle2, XCircle, Copy, ArrowRightLeft,
-  TrendingUp, Hourglass, AlertCircle,
+  TrendingUp, Hourglass, AlertCircle, FileSpreadsheet, CreditCard,
 } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
@@ -17,10 +17,12 @@ import { PlanLimitError } from '../lib/planLimits'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDocumentsByType } from '../hooks/useDocumentsByType'
 import { createDocument, deleteDocument, updateDocumentStatus, duplicateDocument, convertToInvoice } from '../lib/documentApi'
+import { exportDocumentsToExcel } from '../lib/excelExport'
 import type { DocumentRow } from '../lib/documentApi'
 import type { DocTypeCode } from '../types/document'
 import { DOC_TYPE_CODES } from '../types/document'
 import type { DocListRow } from '../hooks/useDocumentsByType'
+import PaymentModal from '../components/PaymentModal'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -156,7 +158,7 @@ function StatusBadge({
 
 function KebabMenu({
   row, deleting, duplicating, converting,
-  onDelete, onNavigate, onDuplicate, onConvert,
+  onDelete, onNavigate, onDuplicate, onConvert, onPayment,
 }: {
   row: DocListRow
   deleting: boolean
@@ -166,6 +168,7 @@ function KebabMenu({
   onNavigate: (id: string) => void
   onDuplicate: (id: string) => void
   onConvert?: (id: string) => void
+  onPayment?: (id: string, total: number, docNumber: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
@@ -230,6 +233,13 @@ function KebabMenu({
               className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50">
               <ArrowRightLeft size={13} className="text-slate-400" />
               {converting ? 'กำลังแปลง…' : 'แปลงเป็นใบแจ้งหนี้'}
+            </button>
+          )}
+          {(row.doc_type === 'invoice' || row.doc_type === 'billing-note') && onPayment && row.status !== 'cancelled' && (
+            <button onClick={(e) => { e.stopPropagation(); setOpen(false); onPayment(row.id, row.total_amount, row.doc_number) }}
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-blue-600 transition-colors hover:bg-blue-50">
+              <CreditCard size={13} />
+              บันทึกชำระเงิน
             </button>
           )}
           <div className="my-1 border-t border-slate-100" />
@@ -301,6 +311,7 @@ export default function DocumentListPage({ docType }: Props) {
   const [convertingId, setConvertingId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkUpdating, setBulkUpdating] = useState(false)
+  const [paymentDoc, setPaymentDoc] = useState<{ id: string; total: number; title: string } | null>(null)
 
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<DocumentRow['status'] | 'all' | 'overdue'>('all')
@@ -453,6 +464,15 @@ export default function DocumentListPage({ docType }: Props) {
   return (
     <div className="w-full p-6 md:p-8 lg:p-10">
       {confirmPending && <ConfirmDialog {...confirmPending} onConfirm={onConfirm} onCancel={onCancel} />}
+      {paymentDoc && (
+        <PaymentModal
+          documentId={paymentDoc.id}
+          documentTotal={paymentDoc.total}
+          documentTitle={paymentDoc.title}
+          onClose={() => setPaymentDoc(null)}
+          onPaymentChanged={refetch}
+        />
+      )}
       {upgradeModal && (
         <UpgradeModal
           resource={upgradeModal.resource}
@@ -467,20 +487,38 @@ export default function DocumentListPage({ docType }: Props) {
           <h1 className="text-3xl font-bold tracking-tight text-slate-800">{pageTitle}</h1>
           <p className="mt-1 text-sm text-slate-400">{filtered.length} รายการ</p>
         </div>
-        <button
-          onClick={() => void handleCreate()}
-          disabled={creating}
-          className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 hover:shadow-md disabled:opacity-60"
-          style={{ backgroundColor: themeColor }}
-        >
-          {creating ? (
-            <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          ) : <Plus size={16} />}
-          {createLabel}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Excel export */}
+          <button
+            onClick={() => {
+              if (!user) return
+              void exportDocumentsToExcel(user.id, docType, filterDateFrom || undefined, filterDateTo || undefined)
+                .then(() => toast.success('Export สำเร็จ'))
+                .catch(() => toast.error('Export ไม่สำเร็จ'))
+            }}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:shadow"
+            title="Export Excel"
+          >
+            <FileSpreadsheet size={15} className="text-green-600" />
+            Excel
+          </button>
+
+          {/* Create */}
+          <button
+            onClick={() => void handleCreate()}
+            disabled={creating}
+            className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 hover:shadow-md disabled:opacity-60"
+            style={{ backgroundColor: themeColor }}
+          >
+            {creating ? (
+              <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : <Plus size={16} />}
+            {createLabel}
+          </button>
+        </div>
       </div>
 
       {/* Summary widgets — quotations only */}
@@ -682,6 +720,7 @@ export default function DocumentListPage({ docType }: Props) {
                         onNavigate={(id) => navigate(`/editor/${id}`)}
                         onDuplicate={handleDuplicate}
                         onConvert={isQuotation ? handleConvert : undefined}
+                        onPayment={(id, total, title) => setPaymentDoc({ id, total, title })}
                       />
                     </td>
                   </tr>
