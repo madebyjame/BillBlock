@@ -10,9 +10,11 @@ import {
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
 import UpgradeModal from '../components/UpgradeModal'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { PlanLimitError } from '../lib/planLimits'
+import { useConfirm } from '../hooks/useConfirm'
 import { useDocumentsByType } from '../hooks/useDocumentsByType'
 import { createDocument, deleteDocument, updateDocumentStatus, duplicateDocument, convertToInvoice } from '../lib/documentApi'
 import type { DocumentRow } from '../lib/documentApi'
@@ -289,6 +291,8 @@ export default function DocumentListPage({ docType }: Props) {
   const navigate = useNavigate()
   const { rows, loading, error, refetch } = useDocumentsByType(docType)
 
+  const { confirm, pending: confirmPending, onConfirm, onCancel } = useConfirm()
+
   const [creating, setCreating] = useState(false)
   const [upgradeModal, setUpgradeModal] = useState<{ resource: 'documents'; limit: number } | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -382,14 +386,14 @@ export default function DocumentListPage({ docType }: Props) {
 
   async function handleDelete(event: MouseEvent<HTMLButtonElement>, id: string) {
     event.stopPropagation()
-    if (!confirm('ลบเอกสารนี้?')) return
+    if (!await confirm({ message: 'เอกสารนี้จะถูกลบถาวร ไม่สามารถกู้คืนได้', confirmLabel: 'ลบเอกสาร', danger: true })) return
     setDeletingId(id)
     try { await deleteDocument(id); refetch() }
     finally { setDeletingId(null) }
   }
 
   async function handleBulkDelete() {
-    if (!confirm(`ลบเอกสาร ${selectedIds.size} รายการ?`)) return
+    if (!await confirm({ message: `เอกสาร ${selectedIds.size} รายการจะถูกลบถาวร ไม่สามารถกู้คืนได้`, confirmLabel: `ลบ ${selectedIds.size} รายการ`, danger: true })) return
     try {
       await Promise.all([...selectedIds].map(id => deleteDocument(id)))
       toast.success(`ลบ ${selectedIds.size} รายการแล้ว`)
@@ -399,7 +403,7 @@ export default function DocumentListPage({ docType }: Props) {
   }
 
   async function handleBulkStatusChange(status: DocumentRow['status']) {
-    if (!confirm(`เปลี่ยนสถานะ ${selectedIds.size} รายการ เป็น "${statusLabel(status, docType)}"?`)) return
+    if (!await confirm({ message: `เปลี่ยนสถานะ ${selectedIds.size} รายการ เป็น "${statusLabel(status, docType)}"?`, confirmLabel: 'เปลี่ยนสถานะ' })) return
     setBulkUpdating(true)
     try {
       await Promise.all([...selectedIds].map(id => updateDocumentStatus(id, status)))
@@ -448,6 +452,7 @@ export default function DocumentListPage({ docType }: Props) {
 
   return (
     <div className="mx-auto max-w-6xl p-8">
+      {confirmPending && <ConfirmDialog {...confirmPending} onConfirm={onConfirm} onCancel={onCancel} />}
       {upgradeModal && (
         <UpgradeModal
           resource={upgradeModal.resource}

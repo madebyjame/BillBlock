@@ -4,6 +4,8 @@ import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestC
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { toast } from 'sonner'
+import ConfirmDialog from '../components/ConfirmDialog'
+import { useConfirm } from '../hooks/useConfirm'
 import { PdfModeContext } from '../components/InvoiceDocument'
 import InvoiceDocument from '../components/InvoiceDocument'
 import RightPanel from '../components/RightPanel'
@@ -188,6 +190,7 @@ function EditorUI({
   const navigate = useNavigate()
   const { user } = useAuth()
   const { plan, limits } = usePlanContext()
+  const { confirm, pending: confirmPending, onConfirm, onCancel } = useConfirm()
   const [isPreview, setIsPreview] = useState(false)
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -352,8 +355,11 @@ function EditorUI({
     void exportPdf('bill-block-document.pdf')
   }
 
-  function handleBack() {
-    if (isDirty && isCloudDoc && !window.confirm('มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก\nต้องการออกจากหน้านี้หรือไม่?')) return
+  async function handleBack() {
+    if (isDirty && isCloudDoc) {
+      const ok = await confirm({ title: 'ออกโดยไม่บันทึก?', message: 'มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก การออกจากหน้านี้จะทำให้ข้อมูลสูญหาย', confirmLabel: 'ออกโดยไม่บันทึก', danger: true })
+      if (!ok) return
+    }
     const typeCode = thaiToDocTypeCode(doc.docMeta.documentType)
     navigate(DOC_TYPE_ROUTE[typeCode] ?? '/documents/quotations')
   }
@@ -392,6 +398,7 @@ function EditorUI({
 
   return (
     <EditorCallbacksContext.Provider value={editorCallbacksValue}>
+    {confirmPending && <ConfirmDialog {...confirmPending} onConfirm={onConfirm} onCancel={onCancel} />}
     <DndContext sensors={outerSensors} collisionDetection={closestCenter}
       onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <PdfModeContext.Provider value={displayPdfMode}>

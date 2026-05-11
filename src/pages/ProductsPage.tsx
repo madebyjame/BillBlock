@@ -7,8 +7,10 @@ import { KebabMenu } from '../components/KebabMenu'
 import { Pagination } from '../components/Pagination'
 import { FormField } from '../components/FormField'
 import UpgradeModal from '../components/UpgradeModal'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
+import { useConfirm } from '../hooks/useConfirm'
 import {
   computeCommittedQtys, createProduct, deleteProduct, listProducts, updateProduct,
   type ProductInput, type ProductRow,
@@ -208,6 +210,7 @@ function QuickAdjustModal({ product, onClose, onDone }: {
 export default function ProductsPage() {
   const { user } = useAuth()
   const { isBusiness } = usePlan()
+  const { confirm, pending: confirmPending, onConfirm, onCancel } = useConfirm()
   const navigate = useNavigate()
   const [rows, setRows] = useState<ProductRow[]>([])
   const [committedMap, setCommittedMap] = useState<Map<string, number>>(new Map())
@@ -272,7 +275,7 @@ export default function ProductsPage() {
   }
 
   async function handleBulkDelete() {
-    if (!confirm(`ลบสินค้า ${selectedIds.size} รายการ?`)) return
+    if (!await confirm({ message: `สินค้า ${selectedIds.size} รายการจะถูกลบถาวร`, confirmLabel: `ลบ ${selectedIds.size} รายการ`, danger: true })) return
     try {
       await Promise.all([...selectedIds].map(id => deleteProduct(id)))
       toast.success(`ลบสินค้า ${selectedIds.size} รายการแล้ว`)
@@ -308,7 +311,7 @@ export default function ProductsPage() {
   }
 
   async function onDelete(id: string) {
-    if (!confirm('ลบข้อมูลสินค้านี้?')) return
+    if (!await confirm({ message: 'ข้อมูลสินค้านี้จะถูกลบถาวร', confirmLabel: 'ลบสินค้า', danger: true })) return
     try { await deleteProduct(id); toast.success('ลบข้อมูลสินค้าแล้ว'); await loadRows() }
     catch { toast.error('ลบไม่สำเร็จ') }
   }
@@ -317,6 +320,7 @@ export default function ProductsPage() {
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-8">
+      {confirmPending && <ConfirmDialog {...confirmPending} onConfirm={onConfirm} onCancel={onCancel} />}
       {upgradeModal && (
         <UpgradeModal
           resource={upgradeModal.resource}

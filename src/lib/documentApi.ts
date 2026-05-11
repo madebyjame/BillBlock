@@ -39,14 +39,12 @@ export async function createDocument(
 
   await checkPlanLimit(userId, 'documents')
 
-  // Count existing docs of this type for sequential number
-  const { count } = await supabase
-    .from('documents')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('doc_type', docType)
+  // Atomic sequence — prevents duplicate doc numbers under concurrent requests
+  const { data: seqData, error: seqErr } = await supabase
+    .rpc('next_doc_number', { p_user_id: userId, p_doc_type: docType, p_year: year })
+  const seq: number = seqErr || seqData == null ? 1 : (seqData as number)
 
-  const docNumber = `${prefix}-${year}-${String((count ?? 0) + 1).padStart(3, '0')}`
+  const docNumber = `${prefix}-${year}-${String(seq).padStart(3, '0')}`
   const documentType = DOC_TYPE_CODES[docType]
 
   let content: DocumentData = {
@@ -70,7 +68,7 @@ export async function createDocument(
           : docType === 'invoice' && profile.invoice_prefix
             ? profile.invoice_prefix
             : prefix
-      const effectiveDocNumber = `${effectivePrefix}-${year}-${String((count ?? 0) + 1).padStart(3, '0')}`
+      const effectiveDocNumber = `${effectivePrefix}-${year}-${String(seq).padStart(3, '0')}`
 
       // VAT type → vatMode + visibility
       let vatMode: 'exclusive' | 'inclusive' = 'exclusive'
@@ -201,16 +199,13 @@ export async function duplicateDocument(id: string, userId: string): Promise<str
   const docType = data.doc_type as DocTypeCode
   const original = data.content as DocumentData
 
-  // Generate new sequential number
+  // Generate new sequential number (atomic)
   const year = new Date().getFullYear()
   const prefix = DOC_NUMBER_PREFIX[docType] ?? 'DOC'
-  const { count } = await supabase
-    .from('documents')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('doc_type', docType)
-
-  const newNumber = `${prefix}-${year}-${String((count ?? 0) + 1).padStart(3, '0')}`
+  const { data: seqData } = await supabase
+    .rpc('next_doc_number', { p_user_id: userId, p_doc_type: docType, p_year: year })
+  const seq: number = seqData == null ? 1 : (seqData as number)
+  const newNumber = `${prefix}-${year}-${String(seq).padStart(3, '0')}`
 
   const newContent: DocumentData = {
     ...(original as DocumentData),
@@ -255,15 +250,12 @@ export async function convertToInvoice(id: string, userId: string): Promise<stri
 
   const original = data.content as DocumentData
 
-  // Generate invoice number
+  // Generate invoice number (atomic)
   const year = new Date().getFullYear()
-  const { count } = await supabase
-    .from('documents')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('doc_type', 'invoice')
-
-  const invoiceNumber = `INV-${year}-${String((count ?? 0) + 1).padStart(3, '0')}`
+  const { data: seqData } = await supabase
+    .rpc('next_doc_number', { p_user_id: userId, p_doc_type: 'invoice', p_year: year })
+  const seq: number = seqData == null ? 1 : (seqData as number)
+  const invoiceNumber = `INV-${year}-${String(seq).padStart(3, '0')}`
 
   const newContent: DocumentData = {
     ...(original as DocumentData),

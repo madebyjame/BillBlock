@@ -7,6 +7,7 @@ export type WidgetId =
   | 'quick-note'
   | 'top-spenders'
   | 'customer-grades'
+  | 'onboarding'
 
 export interface WidgetMeta {
   colSpan: 1 | 2
@@ -23,9 +24,11 @@ export const WIDGET_META: Record<WidgetId, WidgetMeta> = {
   'quick-note':        { colSpan: 1, rowSpan: 1, titleTh: 'โน้ตด่วน' },
   'top-spenders':      { colSpan: 1, rowSpan: 1, titleTh: 'ลูกค้าชั้นดี' },
   'customer-grades':   { colSpan: 1, rowSpan: 2, titleTh: 'เกรดลูกค้า' },
+  'onboarding':        { colSpan: 1, rowSpan: 1, titleTh: 'เริ่มต้นใช้งาน' },
 }
 
 export const DEFAULT_LAYOUT: WidgetId[] = [
+  'onboarding',
   'quick-actions',
   'revenue-goal',
   'overdue-invoices',

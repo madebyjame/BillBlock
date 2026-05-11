@@ -40,18 +40,13 @@ interface Props {
 
 function DocumentWatermark() {
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 50 }}>
-      <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="bb-wm" x="0" y="0" width="300" height="200"
-            patternUnits="userSpaceOnUse" patternTransform="rotate(-35 0 0)">
-            <text x="10" y="60" fontSize="52" fontWeight="bold"
-              fill="rgba(0,0,0,0.055)" fontFamily="system-ui,sans-serif"
-              letterSpacing="3">BillBlock</text>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#bb-wm)" />
-      </svg>
+    <div
+      className="pointer-events-none absolute bottom-0 left-0 right-0 flex items-center justify-center pb-3"
+      style={{ zIndex: 50 }}
+    >
+      <span style={{ fontSize: '10px', color: 'rgba(0,0,0,0.28)', fontFamily: 'system-ui,sans-serif', letterSpacing: '0.02em' }}>
+        สร้างเอกสารโดย BillBlock
+      </span>
     </div>
   )
 }

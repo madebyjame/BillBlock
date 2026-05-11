@@ -16,6 +16,8 @@ import {
   Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import ConfirmDialog from '../components/ConfirmDialog'
+import { useConfirm } from '../hooks/useConfirm'
 import { useAuth } from '../context/AuthContext'
 import { getProfile, upsertProfile, uploadCompanyFile } from '../lib/profileApi'
 import type { Profile } from '../lib/profileApi'
@@ -350,6 +352,7 @@ function DesignTab({
 }) {
   const { user } = useAuth()
   const { plan, limits } = usePlan()
+  const { confirm, pending: confirmPending, onConfirm, onCancel } = useConfirm()
   const [signatures, setSignatures] = useState<SavedSignature[]>([])
   const [sigLoading, setSigLoading] = useState(true)
   const [uploadingSig, setUploadingSig] = useState(false)
@@ -386,7 +389,7 @@ function DesignTab({
   }
 
   async function handleDeleteSig(sig: SavedSignature) {
-    if (!user || !window.confirm(`ลบลายเซ็น "${sig.name}" ?`)) return
+    if (!user || !await confirm({ message: `ลายเซ็น "${sig.name}" จะถูกลบถาวร`, confirmLabel: 'ลบลายเซ็น', danger: true })) return
     try {
       await deleteSignature(sig.id, user.id)
       setSignatures(prev => prev.filter(s => s.id !== sig.id))
@@ -414,6 +417,7 @@ function DesignTab({
 
   return (
     <div className="space-y-5">
+      {confirmPending && <ConfirmDialog {...confirmPending} onConfirm={onConfirm} onCancel={onCancel} />}
       {/* Image uploads */}
       <SectionCard title="รูปภาพบนเอกสาร" icon={<FileText size={15} />}>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
