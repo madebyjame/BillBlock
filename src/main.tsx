@@ -5,6 +5,7 @@ import App from './App.tsx'
 import { AuthProvider } from './context/AuthContext.tsx'
 import { Toaster } from 'sonner'
 import { supabaseConfigured } from './lib/supabase.ts'
+import PwaInstallBanner from './components/PwaInstallBanner.tsx'
 
 function MissingConfigScreen() {
   return (
@@ -44,6 +45,7 @@ createRoot(document.getElementById('root')!).render(
       <AuthProvider>
         <App />
         <Toaster position="top-right" richColors closeButton />
+        <PwaInstallBanner />
       </AuthProvider>
     ) : (
       <MissingConfigScreen />
