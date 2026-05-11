@@ -56,6 +56,22 @@ const THEME_COLORS: { label: string; value: string }[] = [
   { label: 'ม่วง',   value: '#6d28d9' },
 ]
 
+const THAI_BANKS: string[] = [
+  'ธนาคารกสิกรไทย (KBank)',
+  'ธนาคารไทยพาณิชย์ (SCB)',
+  'ธนาคารกรุงเทพ (BBL)',
+  'ธนาคารกรุงไทย (KTB)',
+  'ธนาคารกรุงศรีอยุธยา (BAY)',
+  'ธนาคารทหารไทยธนชาต (TTB)',
+  'ธนาคารออมสิน (GSB)',
+  'ธนาคารเพื่อการเกษตรและสหกรณ์ (BAAC)',
+  'ธนาคารอาคารสงเคราะห์ (GHB)',
+  'ธนาคารซีไอเอ็มบีไทย (CIMB)',
+  'ธนาคารยูโอบี (UOB)',
+  'ธนาคารแลนด์แอนด์เฮ้าส์ (LHBank)',
+  'อื่นๆ',
+]
+
 const VAT_OPTIONS: { value: string; label: string }[] = [
   { value: 'none',     label: 'ไม่มี VAT' },
   { value: 'included', label: 'รวม VAT 7% ในราคา' },
@@ -160,7 +176,7 @@ export default function SettingsPage() {
     try {
       await upsertProfile({ id: user.id, ...form })
       setSavedForm(form)
-      toast.success('บันทึกการตั้งค่าเรียบร้อย', { id: 'settings-save' })
+      toast.success('บันทึกข้อมูลเรียบร้อย', { id: 'settings-save' })
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'บันทึกไม่สำเร็จ')
     } finally {
@@ -215,12 +231,17 @@ export default function SettingsPage() {
         <BillingTab />
       )}
 
-      {/* ── Sticky save footer (shows only when dirty) ── */}
-      {isDirty && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm">
-          <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
-            <p className="text-sm text-slate-500">มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก</p>
-            <div className="flex gap-2">
+      {/* ── Sticky save footer (always visible) ── */}
+      <div className={`fixed bottom-0 left-0 right-0 z-50 border-t bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm transition-colors ${isDirty ? 'border-blue-200 bg-blue-50/95' : 'border-slate-200'}`}>
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
+          <p className="text-sm text-slate-500">
+            {isDirty
+              ? <span className="font-medium text-blue-700">มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก</span>
+              : <span className="text-slate-400">การตั้งค่าทั้งหมดบันทึกแล้ว</span>
+            }
+          </p>
+          <div className="flex gap-2">
+            {isDirty && (
               <button
                 type="button"
                 onClick={() => setForm(savedForm)}
@@ -228,31 +249,31 @@ export default function SettingsPage() {
               >
                 ยกเลิก
               </button>
-              <button
-                type="button"
-                onClick={() => void handleSave()}
-                disabled={saving}
-                className="flex items-center gap-1.5 rounded-lg bg-blue-800 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-900 disabled:opacity-60"
-              >
-                {saving ? (
-                  <>
-                    <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
-                      <path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" className="opacity-75" />
-                    </svg>
-                    กำลังบันทึก...
-                  </>
-                ) : (
-                  <>
-                    <Check size={14} />
-                    บันทึก
-                  </>
-                )}
-              </button>
-            </div>
+            )}
+            <button
+              type="button"
+              onClick={() => void handleSave()}
+              disabled={saving || activeTab === 'billing'}
+              className="flex items-center gap-1.5 rounded-lg bg-blue-800 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-900 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {saving ? (
+                <>
+                  <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+                    <path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" className="opacity-75" />
+                  </svg>
+                  กำลังบันทึก...
+                </>
+              ) : (
+                <>
+                  <Check size={14} />
+                  บันทึกการตั้งค่า
+                </>
+              )}
+            </button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -561,7 +582,7 @@ function DesignTab({
       {/* Document prefix */}
       <SectionCard title="รหัสนำหน้าเอกสาร (Prefix)" icon={<FileText size={15} />}>
         <p className="mb-3 text-xs text-slate-400">
-          ระบบจะนำ Prefix ไปต่อกับเลขที่เอกสารให้อัตโนมัติ เช่น INV-2025-0001
+          ระบบจะนำ Prefix ไปต่อกับเลขที่เอกสารให้อัตโนมัติ
         </p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="ใบแจ้งหนี้ (Invoice)">
@@ -572,6 +593,12 @@ function DesignTab({
               maxLength={10}
               className={INPUT_CLS}
             />
+            <p className="mt-1.5 text-[11px] text-slate-400">
+              ตัวอย่าง:{' '}
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono font-semibold text-slate-600">
+                {form.invoice_prefix || 'INV'}-{new Date().getFullYear()}-001
+              </span>
+            </p>
           </Field>
           <Field label="ใบเสนอราคา (Quotation)">
             <input
@@ -581,6 +608,12 @@ function DesignTab({
               maxLength={10}
               className={INPUT_CLS}
             />
+            <p className="mt-1.5 text-[11px] text-slate-400">
+              ตัวอย่าง:{' '}
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono font-semibold text-slate-600">
+                {form.quotation_prefix || 'QT'}-{new Date().getFullYear()}-001
+              </span>
+            </p>
           </Field>
         </div>
       </SectionCard>
@@ -609,12 +642,16 @@ function PaymentTab({
         </p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field label="ชื่อธนาคาร">
-            <input
+            <select
               value={form.bank_name}
-              onChange={text('bank_name')}
-              placeholder="ธนาคารกสิกรไทย"
+              onChange={e => update({ bank_name: e.target.value })}
               className={INPUT_CLS}
-            />
+            >
+              <option value="">— เลือกธนาคาร —</option>
+              {THAI_BANKS.map(b => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
           </Field>
           <Field label="สาขา">
             <input
@@ -727,7 +764,7 @@ const PLANS_INFO = [
     priceNote: '/เดือน',
     features: ['เอกสารไม่จำกัด', 'ลูกค้าไม่จำกัด', 'สินค้าไม่จำกัด', 'แดชบอร์ดขั้นสูง', 'ปรับแต่งธีม & โลโก้'],
     color: 'border-blue-500',
-    highlight: true,
+    highlight: false,
   },
   {
     id: 'business' as const,
@@ -736,7 +773,7 @@ const PLANS_INFO = [
     priceNote: '/เดือน',
     features: ['ทุกอย่างใน Pro', 'ผู้ใช้งานหลายคน (5 คน)', 'นำเข้า Excel', 'Priority Support'],
     color: 'border-violet-500',
-    highlight: false,
+    highlight: true,
   },
 ]
 
