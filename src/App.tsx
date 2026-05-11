@@ -3,6 +3,7 @@ import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import { useAuth } from './context/AuthContext'
 import { PlanProvider } from './context/PlanContext'
+import ErrorBoundary from './components/ErrorBoundary'
 import LoginPage from './components/LoginPage'
 import MainLayout from './layouts/MainLayout'
 import DashboardPage from './pages/DashboardPage'
@@ -45,7 +46,7 @@ function ProtectedRoute() {
   const { user, loading } = useAuth()
   if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/login" replace />
-  return <PlanProvider><Outlet /></PlanProvider>
+  return <PlanProvider><ErrorBoundary><Outlet /></ErrorBoundary></PlanProvider>
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
