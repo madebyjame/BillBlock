@@ -9,22 +9,28 @@ export interface PlanLimits {
   signatures: number
 }
 
+// ─── Tier definitions ─────────────────────────────────────────────────────────
+// Security note: checkPlanLimit calls get_user_plan RPC (server-side) then counts
+// rows via Supabase with RLS applied. True write-time enforcement would require
+// a PostgreSQL trigger — recommended as future hardening.
+
 export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
-  free:     { docsPerMonth: 20,       customers: 10,       products: 10,       signatures: 1 },
-  pro:      { docsPerMonth: Infinity, customers: Infinity, products: Infinity, signatures: 5 },
+  free:     { docsPerMonth: 5,        customers: 5,        products: 5,        signatures: 1        },
+  pro:      { docsPerMonth: 100,      customers: 50,       products: 50,       signatures: 5        },
   business: { docsPerMonth: Infinity, customers: Infinity, products: Infinity, signatures: Infinity },
 }
 
 export const PLAN_LABELS: Record<Plan, string> = {
   free:     'Free',
   pro:      'Pro',
-  business: 'Max',
+  business: 'Business',
 }
 
-export const PLAN_PRICES: Record<Plan, { thb: number; label: string }> = {
-  free:     { thb: 0,   label: 'ฟรี' },
-  pro:      { thb: 299, label: '฿299/เดือน' },
-  business: { thb: 599, label: '฿599/เดือน' },
+/** Monthly prices in THB; annual = discounted per-month rate */
+export const PLAN_PRICES: Record<Plan, { monthly: number; annual: number }> = {
+  free:     { monthly: 0,   annual: 0   },
+  pro:      { monthly: 149, annual: 127 },  // ≈ 15% off
+  business: { monthly: 450, annual: 360 },  // 20% off
 }
 
 export class PlanLimitError extends Error {
@@ -39,7 +45,7 @@ export class PlanLimitError extends Error {
   }
 }
 
-// ─── Shared plan-limit enforcement ───────────────────────────────────────────
+// ─── Server-side usage check (called before every insert) ─────────────────────
 export async function checkPlanLimit(
   userId: string,
   resource: 'documents' | 'customers' | 'products',

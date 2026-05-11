@@ -1,17 +1,23 @@
 import type { ChangeEvent, ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import {
+  BarChart2,
   Building2,
   Check,
   CheckCircle2,
   Contact,
   CreditCard,
+  FileSpreadsheet,
   FileText,
+  Layers,
   MapPin,
+  PenLine,
   Settings2,
+  ShieldCheck,
   Star,
   Trash2,
   Upload,
+  Users,
   X,
   Zap,
 } from 'lucide-react'
@@ -22,7 +28,7 @@ import { useAuth } from '../context/AuthContext'
 import { getProfile, upsertProfile, uploadCompanyFile } from '../lib/profileApi'
 import type { Profile } from '../lib/profileApi'
 import { usePlan } from '../hooks/usePlan'
-import { PLAN_LABELS } from '../lib/planLimits'
+import { PLAN_LABELS, PLAN_LIMITS, PLAN_PRICES } from '../lib/planLimits'
 import { supabase } from '../lib/supabase'
 import { listSignatures, saveSignature, deleteSignature, setDefaultSignature } from '../lib/signatureApi'
 import type { SavedSignature } from '../lib/signatureApi'
@@ -747,38 +753,70 @@ function DefaultsTab({
 
 // ─── Tab 5: Billing ───────────────────────────────────────────────────────────
 
-const PLANS_INFO = [
+type BillingCycle = 'monthly' | 'annual'
+
+interface PlanFeature {
+  text: string
+  icon: React.ElementType
+  muted?: boolean   // grayed-out "not included"
+}
+
+interface PlanDef {
+  id: 'free' | 'pro' | 'business'
+  name: string
+  badge: string | null
+  borderCls: string
+  badgeCls: string
+  features: PlanFeature[]
+}
+
+const PLAN_DEFS: PlanDef[] = [
   {
-    id: 'free' as const,
+    id: 'free',
     name: 'Free',
-    price: 'ฟรี',
-    priceNote: 'ตลอดไป',
-    features: ['เอกสาร 20 ฉบับ/เดือน', 'ลูกค้า 10 ราย', 'สินค้า 10 รายการ', 'PDF export'],
-    color: 'border-slate-200',
-    highlight: false,
+    badge: null,
+    borderCls: 'border-slate-200',
+    badgeCls: '',
+    features: [
+      { text: 'เอกสาร 5 ใบ/เดือน (ทุกประเภท)', icon: FileText },
+      { text: 'ลูกค้า & สินค้า อย่างละ 5 รายการ', icon: Users },
+      { text: 'Dashboard แบบ Basic', icon: BarChart2 },
+      { text: 'ลายเซ็นดิจิทัล 1 ลาย', icon: PenLine },
+      { text: 'มี Watermark บนเอกสาร', icon: X, muted: true },
+    ],
   },
   {
-    id: 'pro' as const,
+    id: 'pro',
     name: 'Pro',
-    price: '฿299',
-    priceNote: '/เดือน',
-    features: ['เอกสารไม่จำกัด', 'ลูกค้าไม่จำกัด', 'สินค้าไม่จำกัด', 'แดชบอร์ดขั้นสูง', 'ปรับแต่งธีม & โลโก้'],
-    color: 'border-blue-500',
-    highlight: false,
+    badge: '⭐ แนะนำสำหรับ Freelance',
+    borderCls: 'border-blue-500',
+    badgeCls: 'bg-blue-600 text-white',
+    features: [
+      { text: 'เอกสาร 100 ใบ/เดือน', icon: FileText },
+      { text: 'ลูกค้า 50 ราย + สินค้า 50 รายการ', icon: Users },
+      { text: 'ไม่มี Watermark', icon: ShieldCheck },
+      { text: 'Dashboard PRO (กำไร, Cashflow, สต็อก)', icon: BarChart2 },
+      { text: 'ลายเซ็นดิจิทัล 5 ลาย', icon: PenLine },
+    ],
   },
   {
-    id: 'business' as const,
+    id: 'business',
     name: 'Business',
-    price: '฿599',
-    priceNote: '/เดือน',
-    features: ['ทุกอย่างใน Pro', 'ผู้ใช้งานหลายคน (5 คน)', 'นำเข้า Excel', 'Priority Support'],
-    color: 'border-violet-500',
-    highlight: true,
+    badge: 'สำหรับ SME',
+    borderCls: 'border-violet-500',
+    badgeCls: 'bg-violet-600 text-white',
+    features: [
+      { text: 'เอกสาร / ลูกค้า / สินค้า ไม่จำกัด', icon: Layers },
+      { text: 'Export Excel (.xlsx)', icon: FileSpreadsheet },
+      { text: 'Dashboard MAX (Forecast, Team)', icon: BarChart2 },
+      { text: 'ลายเซ็นดิจิทัลไม่จำกัด', icon: PenLine },
+      { text: 'Priority Support', icon: Zap },
+    ],
   },
 ]
 
-function UsageRow({ label, used, limit }: { label: string; used: number; limit: number }) {
-  const pct = Math.min((used / limit) * 100, 100)
+function UsageBar({ label, used, limit }: { label: string; used: number; limit: number }) {
+  const pct    = Math.min((used / limit) * 100, 100)
   const isNear = pct >= 80
   const isFull = pct >= 100
   return (
@@ -786,13 +824,13 @@ function UsageRow({ label, used, limit }: { label: string; used: number; limit: 
       <div className="flex justify-between text-xs text-slate-500">
         <span>{label}</span>
         <span className={isFull ? 'font-semibold text-red-500' : isNear ? 'font-semibold text-amber-500' : ''}>
-          {used} / {limit}
+          {used} / {isFinite(limit) ? limit : '∞'}
         </span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
         <div
           className={`h-full rounded-full transition-all ${isFull ? 'bg-red-400' : isNear ? 'bg-amber-400' : 'bg-blue-500'}`}
-          style={{ width: `${pct}%` }}
+          style={{ width: `${isFinite(limit) ? pct : 0}%` }}
         />
       </div>
     </div>
@@ -800,8 +838,9 @@ function UsageRow({ label, used, limit }: { label: string; used: number; limit: 
 }
 
 function BillingTab() {
-  const { user } = useAuth()
-  const { plan, usage, limits, loading } = usePlan()
+  const { user }                = useAuth()
+  const { plan, usage, loading } = usePlan()
+  const [cycle, setCycle]       = useState<BillingCycle>('monthly')
   const [periodEnd, setPeriodEnd] = useState<string | null>(null)
 
   useEffect(() => {
@@ -822,115 +861,191 @@ function BillingTab() {
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="h-28 rounded-xl bg-slate-100" />
-        <div className="h-36 rounded-xl bg-slate-100" />
+        <div className="h-24 rounded-xl bg-slate-100" />
+        <div className="h-8 w-64 mx-auto rounded-full bg-slate-100" />
         <div className="grid grid-cols-3 gap-4">
-          {[1,2,3].map(i => <div key={i} className="h-64 rounded-xl bg-slate-100" />)}
+          {[1, 2, 3].map(i => <div key={i} className="h-72 rounded-2xl bg-slate-100" />)}
         </div>
       </div>
     )
   }
 
+  const limits = PLAN_LIMITS[plan]
+
   return (
-    <div className="space-y-5">
-      {/* Current plan */}
-      <SectionCard title="แผนปัจจุบัน" icon={<Zap size={15} />}>
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-extrabold text-slate-800">{PLAN_LABELS[plan]}</span>
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                plan === 'free' ? 'bg-slate-100 text-slate-500' :
-                plan === 'pro'  ? 'bg-blue-100 text-blue-700' :
-                                  'bg-violet-100 text-violet-700'
-              }`}>
-                {plan === 'free' ? 'ฟรี' : 'Active'}
-              </span>
-            </div>
-            {periodEnd && (
-              <p className="mt-1 text-xs text-slate-400">
+    <div className="space-y-6">
+
+      {/* ── Current plan banner ── */}
+      <div className={`flex items-center justify-between rounded-2xl border p-5 ${
+        plan === 'free'     ? 'border-slate-200 bg-white'
+        : plan === 'pro'   ? 'border-blue-200 bg-blue-50'
+        :                    'border-violet-200 bg-violet-50'
+      }`}>
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-extrabold text-slate-800">{PLAN_LABELS[plan]}</span>
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              plan === 'free' ? 'bg-slate-100 text-slate-500'
+              : plan === 'pro' ? 'bg-blue-100 text-blue-700'
+              : 'bg-violet-100 text-violet-700'
+            }`}>
+              {plan === 'free' ? 'ฟรี' : 'Active'}
+            </span>
+          </div>
+          {periodEnd
+            ? <p className="mt-1 text-xs text-slate-500">
                 ต่ออายุ {new Date(periodEnd).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
-            )}
-            {plan === 'free' && (
-              <p className="mt-1 text-xs text-slate-400">อัปเกรดเพื่อปลดล็อกฟีเจอร์เพิ่มเติม</p>
-            )}
-          </div>
-          {plan !== 'free' && (
-            <button
-              onClick={() => toast.info('ระบบจัดการ subscription กำลังเปิดใช้เร็วๆ นี้')}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-500 hover:bg-slate-50 transition-colors"
-            >
-              จัดการ subscription
-            </button>
-          )}
+            : plan === 'free'
+              ? <p className="mt-1 text-xs text-slate-400">อัปเกรดเพื่อปลดล็อกฟีเจอร์เพิ่มเติม</p>
+              : null
+          }
+        </div>
+        {plan !== 'free' && (
+          <button
+            onClick={() => toast.info('ระบบจัดการ subscription กำลังเปิดใช้เร็วๆ นี้')}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
+          >
+            จัดการ Subscription
+          </button>
+        )}
+      </div>
+
+      {/* ── Usage bars ── */}
+      <SectionCard title="การใช้งานเดือนนี้" icon={<BarChart2 size={15} />}>
+        <div className="space-y-3">
+          <UsageBar label="เอกสาร / เดือน" used={usage.docsThisMonth} limit={limits.docsPerMonth} />
+          <UsageBar label="ลูกค้า (รวม)"   used={usage.totalCustomers}  limit={limits.customers}   />
+          <UsageBar label="สินค้า (รวม)"   used={usage.totalProducts}   limit={limits.products}    />
         </div>
       </SectionCard>
 
-      {/* Usage */}
-      {plan === 'free' && (
-        <SectionCard title="การใช้งานเดือนนี้" icon={<FileText size={15} />}>
-          <div className="space-y-3">
-            <UsageRow label="เอกสาร / เดือน" used={usage.docsThisMonth} limit={limits.docsPerMonth} />
-            <UsageRow label="ลูกค้า"          used={usage.totalCustomers}  limit={limits.customers} />
-            <UsageRow label="สินค้า"          used={usage.totalProducts}   limit={limits.products} />
-          </div>
-        </SectionCard>
-      )}
+      {/* ── Billing cycle toggle ── */}
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex gap-1 rounded-full border border-slate-200 bg-slate-100 p-1">
+          <button
+            type="button"
+            onClick={() => setCycle('monthly')}
+            className={`rounded-full px-5 py-1.5 text-sm font-medium transition-all ${
+              cycle === 'monthly' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
+            }`}
+          >
+            รายเดือน
+          </button>
+          <button
+            type="button"
+            onClick={() => setCycle('annual')}
+            className={`flex items-center gap-1.5 rounded-full px-5 py-1.5 text-sm font-medium transition-all ${
+              cycle === 'annual' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'
+            }`}
+          >
+            รายปี
+            <span className="rounded-full bg-green-500 px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
+              -20%
+            </span>
+          </button>
+        </div>
+        {cycle === 'annual' && (
+          <p className="text-xs text-green-600 font-medium">ชำระครั้งเดียวทั้งปี — ประหยัดสูงสุด ฿1,080</p>
+        )}
+      </div>
 
-      {/* Plan cards */}
-      <SectionCard title="เปรียบเทียบแผน" icon={<CreditCard size={15} />}>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {PLANS_INFO.map((p) => {
-            const isCurrent = p.id === plan
-            return (
-              <div
-                key={p.id}
-                className={`relative rounded-xl border-2 p-4 ${isCurrent ? p.color : 'border-slate-100'} ${p.highlight && !isCurrent ? 'bg-blue-50/40' : 'bg-white'}`}
-              >
+      {/* ── Plan cards ── */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {PLAN_DEFS.map(p => {
+          const isCurrent = p.id === plan
+          const prices    = PLAN_PRICES[p.id]
+          const price     = cycle === 'annual' ? prices.annual : prices.monthly
+
+          return (
+            <div
+              key={p.id}
+              className={`relative flex flex-col rounded-2xl border-2 bg-white p-5 transition-shadow ${
+                isCurrent ? p.borderCls : 'border-slate-100'
+              } ${p.id === 'pro' ? 'shadow-md shadow-blue-100' : 'shadow-sm'}`}
+            >
+              {/* Badge chips */}
+              <div className="mb-3 flex flex-wrap gap-1.5">
                 {isCurrent && (
-                  <div className="absolute -top-3 left-4 flex items-center gap-1 rounded-full bg-green-500 px-2.5 py-0.5 text-[10px] font-bold text-white">
+                  <span className="flex items-center gap-1 rounded-full bg-green-500 px-2.5 py-0.5 text-[10px] font-bold text-white">
                     <CheckCircle2 size={9} /> แผนปัจจุบัน
-                  </div>
+                  </span>
                 )}
-                <p className="font-bold text-slate-800">{p.name}</p>
-                <div className="my-1 flex items-end gap-1">
-                  <span className="text-xl font-extrabold text-slate-900">{p.price}</span>
-                  <span className="mb-0.5 text-xs text-slate-400">{p.priceNote}</span>
-                </div>
-                <ul className="my-3 space-y-1.5">
-                  {p.features.map((f) => (
-                    <li key={f} className="flex items-start gap-1.5 text-xs text-slate-600">
-                      <Check size={12} className="mt-0.5 shrink-0 text-blue-500" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                {isCurrent ? (
-                  <div className="mt-3 w-full rounded-lg border border-green-200 bg-green-50 py-2 text-center text-xs font-semibold text-green-600">
-                    แผนปัจจุบัน
-                  </div>
-                ) : p.id === 'free' ? (
-                  <div className="mt-3 w-full rounded-lg border border-slate-200 py-2 text-center text-xs text-slate-400">
-                    —
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => toast.info('ระบบชำระเงินกำลังเปิดใช้เร็วๆ นี้')}
-                    className={`mt-3 w-full rounded-lg py-2 text-xs font-semibold transition-colors ${
-                      p.id === 'pro'
-                        ? 'bg-blue-600 text-white hover:bg-blue-700'
-                        : 'bg-violet-600 text-white hover:bg-violet-700'
-                    }`}
-                  >
-                    อัปเกรดเป็น {p.name}
-                  </button>
+                {p.badge && !isCurrent && (
+                  <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${p.badgeCls}`}>
+                    {p.badge}
+                  </span>
                 )}
               </div>
-            )
-          })}
-        </div>
-      </SectionCard>
+
+              {/* Plan name + price */}
+              <p className="text-base font-bold text-slate-800">{p.name}</p>
+              <div className="mt-1 mb-4">
+                {price === 0 ? (
+                  <span className="text-3xl font-extrabold text-slate-900">ฟรี</span>
+                ) : (
+                  <div className="flex items-end gap-1">
+                    <span className="text-3xl font-extrabold text-slate-900">฿{price}</span>
+                    <span className="mb-1 text-xs text-slate-400">/เดือน</span>
+                  </div>
+                )}
+                {cycle === 'annual' && price > 0 && (
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    ฿{price * 12} /ปี <span className="text-green-600 font-medium">(ประหยัด ฿{(prices.monthly - price) * 12})</span>
+                  </p>
+                )}
+                {price === 0 && <p className="text-[11px] text-slate-400 mt-0.5">ตลอดไป</p>}
+              </div>
+
+              {/* Feature list */}
+              <ul className="flex-1 space-y-2.5 mb-5">
+                {p.features.map((f, i) => (
+                  <li key={i} className={`flex items-start gap-2 text-xs ${f.muted ? 'text-slate-400' : 'text-slate-600'}`}>
+                    <f.icon
+                      size={13}
+                      className={`mt-0.5 shrink-0 ${
+                        f.muted ? 'text-slate-300'
+                        : p.id === 'pro' ? 'text-blue-500'
+                        : p.id === 'business' ? 'text-violet-500'
+                        : 'text-slate-400'
+                      }`}
+                    />
+                    {f.text}
+                  </li>
+                ))}
+              </ul>
+
+              {/* CTA button */}
+              {isCurrent ? (
+                <div className="w-full rounded-xl border border-green-200 bg-green-50 py-2.5 text-center text-xs font-semibold text-green-600">
+                  แผนปัจจุบันของคุณ
+                </div>
+              ) : p.id === 'free' ? (
+                <div className="w-full rounded-xl border border-slate-200 py-2.5 text-center text-xs text-slate-400">
+                  —
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => toast.info('ระบบชำระเงินกำลังเปิดใช้เร็วๆ นี้')}
+                  className={`w-full rounded-xl py-2.5 text-sm font-semibold text-white transition-all ${
+                    p.id === 'pro'
+                      ? 'bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-200'
+                      : 'bg-violet-600 hover:bg-violet-700 shadow-sm shadow-violet-200'
+                  }`}
+                >
+                  อัปเกรดเป็น {p.name}
+                </button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Footer note */}
+      <p className="text-center text-[11px] text-slate-400">
+        ทุกแผนสามารถยกเลิกได้ทุกเมื่อ · ข้อมูลปลอดภัยด้วย SSL Encryption
+      </p>
     </div>
   )
 }
