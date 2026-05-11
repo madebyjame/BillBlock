@@ -104,7 +104,11 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
           <div>
             {/* Company */}
             <div className="flex items-start gap-3 mb-4">
-              <label className={`flex-shrink-0 flex h-16 w-16 items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-50 ${pdfMode ? 'pointer-events-none' : 'cursor-pointer hover:border-blue-300 hover:bg-blue-50'}`}>
+              <label className={`flex-shrink-0 flex h-16 w-16 items-center justify-center overflow-hidden rounded transition-colors ${
+                doc.company.logoUrl
+                  ? 'border border-slate-200 bg-slate-50'
+                  : 'border-2 border-dashed border-slate-300 bg-slate-50/60'
+              } ${pdfMode ? 'pointer-events-none' : 'cursor-pointer hover:border-blue-400 hover:bg-blue-50'}`}>
                 {doc.company.logoUrl
                   ? <img src={doc.company.logoUrl} alt="logo" className="h-full w-full object-contain p-0.5" />
                   : <LogoPlaceholder />}
@@ -379,8 +383,8 @@ function SortableBlock({ block, doc, dispatch, pdfMode, tc, v }: {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id })
   return (
     <div ref={setNodeRef}
-      style={pdfMode ? undefined : { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 }}
-      className={pdfMode ? 'relative' : 'group/blk relative block-enter'}>
+      style={pdfMode ? undefined : { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }}
+      className={pdfMode ? 'relative' : `group/blk relative block-enter rounded-lg transition-colors hover:bg-slate-50/60 ${isDragging ? 'ring-2 ring-blue-300 ring-dashed bg-blue-50/20' : ''}`}>
       {!pdfMode && (
         <button {...attributes} {...listeners}
           className="absolute left-1 top-1/2 -translate-y-1/2 z-10 cursor-grab touch-none opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-300 hover:text-slate-500 active:cursor-grabbing">
@@ -389,7 +393,7 @@ function SortableBlock({ block, doc, dispatch, pdfMode, tc, v }: {
       )}
       {!pdfMode && (
         <button onClick={() => dispatch({ type: 'REMOVE_BLOCK', id: block.id })}
-          className="absolute top-1 right-1 z-10 opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-300 hover:text-red-500 rounded p-0.5 hover:bg-red-50">
+          className="absolute top-1 right-1 z-10 opacity-0 group-hover/blk:opacity-70 hover:!opacity-100 transition-opacity text-slate-400 hover:text-red-500 rounded p-1 hover:bg-red-50 bg-white shadow-sm border border-slate-100">
           <XSmallIcon />
         </button>
       )}
