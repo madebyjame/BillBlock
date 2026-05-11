@@ -189,7 +189,7 @@ export default function Sidebar({
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-2.5 py-4 space-y-0.5">
+        <nav className="flex-1 overflow-y-auto px-2.5 py-4 space-y-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {/* Top nav */}
           {TOP_NAV.map(item => (
             <NavItem key={item.to} {...item} collapsed={collapsed} onClick={close} themeColor={themeColor} />
