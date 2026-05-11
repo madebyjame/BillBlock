@@ -27,11 +27,13 @@ export function useDashboardLayout(userId: string) {
   const [layout, setLayout] = useState<WidgetId[]>(loadLayoutFromStorage)
 
   // Authoritative config from Supabase on mount
+  // Only overrides local state if Supabase actually has a saved config (non-null)
+  // null = no config stored → keep localStorage (prevents wipe when migration not applied)
   useEffect(() => {
     if (!userId) return
     let cancelled = false
     void loadDashboardConfig(userId).then(remote => {
-      if (!cancelled) setLayout(sanitizeLayout(remote))
+      if (!cancelled && remote !== null) setLayout(sanitizeLayout(remote))
     })
     return () => { cancelled = true }
   }, [userId])

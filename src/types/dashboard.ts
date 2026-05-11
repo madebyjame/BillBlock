@@ -117,8 +117,17 @@ export const WIDGET_META: Record<WidgetId, WidgetMeta> = {
   'ytd-summary':            { colSpan: 2, rowSpan: 1, titleTh: 'ภาพรวมปีปัจจุบัน' },
 }
 
-// Change 1: DEFAULT_LAYOUT is now empty — users start with a blank dashboard
-export const DEFAULT_LAYOUT: WidgetId[] = []
+// Default layout — standard template shown on first visit / no saved config
+export const DEFAULT_LAYOUT: WidgetId[] = [
+  'quick-actions',
+  'revenue-30d',
+  'overdue-invoices',
+  'recent-activities',
+  'stock-alerts',
+  'draft-documents',
+  'pending-payments',
+  'new-customers',
+]
 
 export const PRESET_TEMPLATES: Record<string, { name: string; layout: WidgetId[] }> = {
   standard: {

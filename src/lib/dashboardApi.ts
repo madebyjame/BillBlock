@@ -4,7 +4,6 @@
  */
 import { supabase } from './supabase'
 import {
-  DEFAULT_LAYOUT,
   type WidgetId,
   type TopProductEntry,
   type GrossProfitSummary,
@@ -94,7 +93,9 @@ function isDashboardConfigDoc(v: unknown): v is DashboardConfigDoc {
   )
 }
 
-export async function loadDashboardConfig(userId: string): Promise<WidgetId[]> {
+// Returns null when no config is stored (distinct from an intentionally-empty [])
+// so callers can decide whether to fall back to localStorage
+export async function loadDashboardConfig(userId: string): Promise<WidgetId[] | null> {
   try {
     const { data } = await supabase
       .from('profiles')
@@ -106,9 +107,9 @@ export async function loadDashboardConfig(userId: string): Promise<WidgetId[]> {
       return data.dashboard_config.widgets
     }
   } catch {
-    // fall through to default
+    // network error or missing column — preserve local state
   }
-  return DEFAULT_LAYOUT
+  return null
 }
 
 export async function saveDashboardConfig(
