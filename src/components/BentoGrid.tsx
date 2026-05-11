@@ -19,9 +19,9 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { motion } from 'framer-motion'
-import { GripVertical, LayoutDashboard, Check, Layers } from 'lucide-react'
+import { GripVertical, LayoutDashboard, Check, Layers, Plus, X } from 'lucide-react'
 import { type WidgetId, WIDGET_META, PRESET_TEMPLATES } from '../types/dashboard'
-import type { DashboardData } from '../types/dashboard'
+import type { DashboardData, Plan } from '../types/dashboard'
 import QuickActionsWidget from './widgets/QuickActionsWidget'
 import RevenueGoalWidget from './widgets/RevenueGoalWidget'
 import OverdueInvoicesWidget from './widgets/OverdueInvoicesWidget'
@@ -31,6 +31,11 @@ import QuickNoteWidget from './widgets/QuickNoteWidget'
 import TopSpendersWidget from './widgets/TopSpendersWidget'
 import CustomerGradesWidget from './widgets/CustomerGradesWidget'
 import OnboardingWidget from './widgets/OnboardingWidget'
+import TopProductsWidget from './widgets/TopProductsWidget'
+import GrossProfitWidget from './widgets/GrossProfitWidget'
+import LowStockDetailWidget from './widgets/LowStockDetailWidget'
+import SalesForecastWidget from './widgets/SalesForecastWidget'
+import WidgetDrawer from './WidgetDrawer'
 
 // ─── Widget content renderer ──────────────────────────────────────────────────
 
@@ -45,11 +50,14 @@ function renderWidgetContent(id: WidgetId, data: DashboardData) {
     case 'top-spenders':      return <TopSpendersWidget data={data} />
     case 'customer-grades':   return <CustomerGradesWidget data={data} />
     case 'onboarding':        return <OnboardingWidget data={data} />
+    case 'top-products':      return <TopProductsWidget data={data} />
+    case 'gross-profit':      return <GrossProfitWidget data={data} />
+    case 'low-stock-detail':  return <LowStockDetailWidget data={data} />
+    case 'sales-forecast':    return <SalesForecastWidget data={data} />
   }
 }
 
-// Full-bleed widgets control their own background and padding — the card
-// wrapper provides only rounded corners + overflow clip (no padding/bg).
+// Full-bleed widgets control their own background and padding
 const FULL_BLEED = new Set<WidgetId>(['revenue-goal', 'quick-note'])
 
 function cardClass(id: WidgetId) {
@@ -64,37 +72,33 @@ interface SortableWidgetProps {
   id: WidgetId
   editMode: boolean
   data: DashboardData
+  onRemove: (id: WidgetId) => void
 }
 
-function SortableWidget({ id, editMode, data }: SortableWidgetProps) {
+function SortableWidget({ id, editMode, data, onRemove }: SortableWidgetProps) {
   const meta = WIDGET_META[id]
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
 
-  // col-span only — row spans are removed. Rows size to their tallest cell,
-  // which naturally creates Bento visual hierarchy without CSS grid gaps.
   const colClass = meta.colSpan === 2 ? 'col-span-1 md:col-span-2' : 'col-span-1'
-
   const style = { transform: CSS.Transform.toString(transform), transition }
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      // min-h ensures every row is at least 240 px tall even with sparse content.
       className={`${colClass} min-h-[260px] ${isDragging ? 'opacity-0' : ''}`}
     >
-      {/* Lift + glow animation in edit mode (no jiggle) */}
       <motion.div
         className="relative h-full"
         animate={editMode ? { scale: 1.015, y: -3 } : { scale: 1, y: 0 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
       >
-        {/* Glowing border overlay — only visible in edit mode */}
+        {/* Glowing border overlay */}
         {editMode && (
           <div className="pointer-events-none absolute inset-0 z-10 rounded-2xl ring-2 ring-blue-400/70 shadow-lg shadow-blue-500/20" />
         )}
 
-        {/* Drag handle — top-left, only in edit mode */}
+        {/* Drag handle — top-left */}
         {editMode && (
           <button
             {...attributes}
@@ -106,9 +110,19 @@ function SortableWidget({ id, editMode, data }: SortableWidgetProps) {
           </button>
         )}
 
-        {/* Widget card — h-full fills the lifted motion.div */}
+        {/* Remove button — top-right */}
+        {editMode && (
+          <button
+            onClick={() => onRemove(id)}
+            className="absolute right-2 top-2 z-20 flex items-center justify-center rounded-lg bg-red-500 p-1.5 shadow-md transition-colors hover:bg-red-600"
+            title="นำออก"
+          >
+            <X size={14} className="text-white" />
+          </button>
+        )}
+
+        {/* Widget card */}
         <div className={cardClass(id)}>
-          {/* h-full always present so the widget fills the card */}
           <div className={`h-full${editMode ? ' pointer-events-none select-none' : ''}`}>
             {renderWidgetContent(id, data)}
           </div>
@@ -145,12 +159,14 @@ interface BentoGridProps {
   layout: WidgetId[]
   onLayoutChange: (newLayout: WidgetId[]) => void
   data: DashboardData
+  plan: Plan
 }
 
-export default function BentoGrid({ layout, onLayoutChange, data }: BentoGridProps) {
-  const [editMode, setEditMode] = useState(false)
-  const [activeId, setActiveId] = useState<WidgetId | null>(null)
+export default function BentoGrid({ layout, onLayoutChange, data, plan }: BentoGridProps) {
+  const [editMode, setEditMode]       = useState(false)
+  const [activeId, setActiveId]       = useState<WidgetId | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [drawerOpen, setDrawerOpen]   = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -176,12 +192,31 @@ export default function BentoGrid({ layout, onLayoutChange, data }: BentoGridPro
     if (tpl) { onLayoutChange(tpl.layout); setShowTemplates(false) }
   }
 
+  function handleRemoveWidget(id: WidgetId) {
+    onLayoutChange(layout.filter(wid => wid !== id))
+  }
+
+  function handleAddWidget(id: WidgetId) {
+    if (!layout.includes(id)) {
+      onLayoutChange([...layout, id])
+    }
+  }
+
   return (
     <div>
       {/* ── Toolbar ── */}
       <div className="mb-4 flex items-center justify-end gap-2">
         {editMode ? (
           <>
+            {/* Add widget button */}
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:shadow"
+            >
+              <Plus size={13} />
+              เพิ่ม Widget
+            </button>
+
             {/* Template picker */}
             <div className="relative">
               <button
@@ -226,9 +261,7 @@ export default function BentoGrid({ layout, onLayoutChange, data }: BentoGridPro
         )}
       </div>
 
-      {/* ── Grid area ──
-          In edit mode: subtle dot-grid background gives spatial guidance.
-          Negative margin + matching padding keeps widgets pixel-aligned. */}
+      {/* ── Grid area ── */}
       <div
         className="transition-[background] duration-300"
         style={
@@ -250,11 +283,15 @@ export default function BentoGrid({ layout, onLayoutChange, data }: BentoGridPro
           onDragEnd={handleDragEnd}
         >
           <SortableContext items={layout} strategy={rectSortingStrategy}>
-            {/* No explicit grid-auto-rows — rows size naturally to tallest cell.
-                min-h-[240px] on each cell guarantees a readable minimum height. */}
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
               {layout.map(id => (
-                <SortableWidget key={id} id={id} editMode={editMode} data={data} />
+                <SortableWidget
+                  key={id}
+                  id={id}
+                  editMode={editMode}
+                  data={data}
+                  onRemove={handleRemoveWidget}
+                />
               ))}
             </div>
           </SortableContext>
@@ -264,6 +301,15 @@ export default function BentoGrid({ layout, onLayoutChange, data }: BentoGridPro
           </DragOverlay>
         </DndContext>
       </div>
+
+      {/* ── Widget drawer ── */}
+      <WidgetDrawer
+        open={drawerOpen}
+        currentLayout={layout}
+        plan={plan}
+        onAdd={handleAddWidget}
+        onClose={() => setDrawerOpen(false)}
+      />
     </div>
   )
 }

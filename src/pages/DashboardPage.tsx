@@ -2,18 +2,43 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useDashboardLayout } from '../hooks/useDashboardLayout'
+import { usePlan } from '../hooks/usePlan'
+import {
+  fetchTopProducts,
+  fetchGrossProfitSummary,
+  fetchSalesForecast,
+} from '../lib/dashboardApi'
 import BentoGrid from '../components/BentoGrid'
-import type { DashboardData, DashboardDoc, ProductAlert, SpenderEntry, GradeEntry } from '../types/dashboard'
+import type {
+  DashboardData,
+  DashboardDoc,
+  ProductAlert,
+  SpenderEntry,
+  GradeEntry,
+  GrossProfitSummary,
+} from '../types/dashboard'
 
 const LOW_STOCK_THRESHOLD = 10
 
+const EMPTY_GROSS_PROFIT: GrossProfitSummary = {
+  revenue: 0,
+  cogs: 0,
+  gross_profit: 0,
+  gross_margin_pct: 0,
+  month_label: new Date().toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }),
+}
+
 export default function DashboardPage() {
   const { user } = useAuth()
+  const { plan } = usePlan()
 
-  const themeColor = typeof user?.user_metadata?.themeColor === 'string'
-    ? user.user_metadata.themeColor : '#1e3a8a'
+  const themeColor =
+    typeof user?.user_metadata?.themeColor === 'string'
+      ? user.user_metadata.themeColor
+      : '#1e3a8a'
 
-  const { layout, updateLayout } = useDashboardLayout()
+  const userId = user!.id
+  const { layout, updateLayout } = useDashboardLayout(userId)
 
   const [dashData, setDashData] = useState<DashboardData>({
     loading: true,
@@ -32,6 +57,9 @@ export default function DashboardPage() {
     customerCount: 0,
     companyName: '',
     themeColor,
+    topProducts: [],
+    grossProfit: EMPTY_GROSS_PROFIT,
+    salesForecast: [],
   })
 
   useEffect(() => {
@@ -42,30 +70,33 @@ export default function DashboardPage() {
   async function loadData() {
     setDashData(prev => ({ ...prev, loading: true }))
     try {
-      const userId = user!.id
-      const [docsRes, productsRes, countRes, profileRes, gradesRes] = await Promise.all([
-        supabase
-          .from('documents')
-          .select('id, doc_type, status, total_amount, created_at, due_date, content')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('products')
-          .select('id, name, stock, unit')
-          .eq('user_id', userId)
-          .lt('stock', LOW_STOCK_THRESHOLD)
-          .order('stock', { ascending: true }),
-        supabase
-          .from('customers')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', userId),
-        supabase
-          .from('profiles')
-          .select('company_name')
-          .eq('id', userId)
-          .maybeSingle(),
-        supabase.rpc('get_customer_grades', { uid: userId }),
-      ])
+      const [docsRes, productsRes, countRes, profileRes, gradesRes, topProducts, grossProfit, salesForecast] =
+        await Promise.all([
+          supabase
+            .from('documents')
+            .select('id, doc_type, status, total_amount, created_at, due_date, content')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('products')
+            .select('id, name, stock, unit')
+            .eq('user_id', userId)
+            .lt('stock', LOW_STOCK_THRESHOLD)
+            .order('stock', { ascending: true }),
+          supabase
+            .from('customers')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId),
+          supabase
+            .from('profiles')
+            .select('company_name')
+            .eq('id', userId)
+            .maybeSingle(),
+          supabase.rpc('get_customer_grades', { uid: userId }),
+          fetchTopProducts(userId),
+          fetchGrossProfitSummary(),
+          fetchSalesForecast(),
+        ])
 
       const docs: DashboardDoc[] = (docsRes.data ?? []).map((r) => {
         const content = r.content as Record<string, unknown> | null
@@ -82,7 +113,8 @@ export default function DashboardPage() {
 
       const company =
         typeof profileRes.data?.company_name === 'string' && profileRes.data.company_name.trim()
-          ? profileRes.data.company_name : ''
+          ? profileRes.data.company_name
+          : ''
 
       const cutoff30d = new Date(now.getTime() - 30 * 86_400_000).toISOString()
       const revenue30d = docs
@@ -106,11 +138,12 @@ export default function DashboardPage() {
       }))
 
       const todayStr = now.toISOString().split('T')[0]
-      const overdueDocs = docs.filter(d =>
-        d.doc_type === 'invoice' &&
-        d.status === 'sent' &&
-        d.due_date != null &&
-        d.due_date < todayStr
+      const overdueDocs = docs.filter(
+        d =>
+          d.doc_type === 'invoice' &&
+          d.status === 'sent' &&
+          d.due_date != null &&
+          d.due_date < todayStr,
       )
       const pendingDocs = docs.filter(d => d.doc_type === 'invoice' && d.status === 'sent')
 
@@ -147,6 +180,9 @@ export default function DashboardPage() {
         customerCount: countRes.count ?? 0,
         companyName: company,
         themeColor,
+        topProducts,
+        grossProfit,
+        salesForecast,
       })
     } catch {
       setDashData(prev => ({ ...prev, loading: false }))
@@ -159,9 +195,11 @@ export default function DashboardPage() {
     <div className="w-full p-6 md:p-8 lg:p-10">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-slate-800">Dashboard</h1>
-        <p className="mt-1.5 text-sm text-slate-400">ยินดีต้อนรับ, <span className="font-medium text-slate-600">{displayName}</span></p>
+        <p className="mt-1.5 text-sm text-slate-400">
+          ยินดีต้อนรับ, <span className="font-medium text-slate-600">{displayName}</span>
+        </p>
       </div>
-      <BentoGrid layout={layout} onLayoutChange={updateLayout} data={dashData} />
+      <BentoGrid layout={layout} onLayoutChange={updateLayout} data={dashData} plan={plan} />
     </div>
   )
 }
