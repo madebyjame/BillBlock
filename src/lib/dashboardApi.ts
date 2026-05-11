@@ -73,6 +73,10 @@ function isWidgetId(v: unknown): v is WidgetId {
   return typeof v === 'string' && (ALL_WIDGET_IDS as readonly string[]).includes(v)
 }
 
+export function isKnownWidgetId(v: unknown): v is WidgetId {
+  return isWidgetId(v)
+}
+
 // ─── Config persistence ───────────────────────────────────────────────────────
 
 interface DashboardConfigDoc {

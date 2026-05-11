@@ -351,7 +351,7 @@ export default function BentoGrid({ layout, onLayoutChange, data, plan }: BentoG
       </div>
 
       {/* ── Empty state ── */}
-      {layout.length === 0 && !editMode && (
+      {layout.length === 0 && (
         <EmptyDashboard onOpenDrawer={handleOpenDrawer} />
       )}
 

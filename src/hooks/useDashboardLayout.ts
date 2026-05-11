@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { type WidgetId, DEFAULT_LAYOUT } from '../types/dashboard'
-import { loadDashboardConfig, saveDashboardConfig } from '../lib/dashboardApi'
+import { loadDashboardConfig, saveDashboardConfig, isKnownWidgetId } from '../lib/dashboardApi'
 
 const LAYOUT_KEY = 'billblock_dashboard_layout'
 
@@ -8,38 +8,41 @@ function isWidgetIdArray(v: unknown): v is WidgetId[] {
   return Array.isArray(v) && v.every(id => typeof id === 'string')
 }
 
+// Strips unknown/removed widget IDs — safe migration when registry shrinks
+function sanitizeLayout(ids: WidgetId[]): WidgetId[] {
+  return ids.filter(id => isKnownWidgetId(id))
+}
+
 function loadLayoutFromStorage(): WidgetId[] {
   try {
     const raw = localStorage.getItem(LAYOUT_KEY)
-    if (raw === null) return DEFAULT_LAYOUT  // first ever visit
+    if (raw === null) return DEFAULT_LAYOUT  // first ever visit → empty
     const parsed = JSON.parse(raw) as unknown
-    if (isWidgetIdArray(parsed)) return parsed  // trust saved layout exactly (may be [])
+    if (isWidgetIdArray(parsed)) return sanitizeLayout(parsed)  // may be []
   } catch { /* ignore */ }
   return DEFAULT_LAYOUT
 }
 
 export function useDashboardLayout(userId: string) {
-  // Optimistic: start from localStorage cache immediately
   const [layout, setLayout] = useState<WidgetId[]>(loadLayoutFromStorage)
 
-  // On mount, load authoritative config from Supabase and replace
+  // Authoritative config from Supabase on mount
   useEffect(() => {
     if (!userId) return
     let cancelled = false
     void loadDashboardConfig(userId).then(remote => {
-      if (!cancelled) setLayout(remote)
+      if (!cancelled) setLayout(sanitizeLayout(remote))
     })
     return () => { cancelled = true }
   }, [userId])
 
   const updateLayout = useCallback((newLayout: WidgetId[]) => {
-    setLayout(newLayout)
-    // Optimistic: persist to localStorage immediately
+    const sanitized = sanitizeLayout(newLayout)
+    setLayout(sanitized)
     try {
-      localStorage.setItem(LAYOUT_KEY, JSON.stringify(newLayout))
+      localStorage.setItem(LAYOUT_KEY, JSON.stringify(sanitized))
     } catch { /* ignore */ }
-    // Async persist to Supabase (fire-and-forget — errors are non-fatal)
-    void saveDashboardConfig(userId, newLayout)
+    void saveDashboardConfig(userId, sanitized)
   }, [userId])
 
   return { layout, updateLayout }

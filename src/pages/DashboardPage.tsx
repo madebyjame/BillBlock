@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useDashboardLayout } from '../hooks/useDashboardLayout'
@@ -23,6 +23,8 @@ import {
 
 const LOW_STOCK_THRESHOLD = 10
 
+const INITIAL_DATE_RANGE = getDateRange('30d')
+
 const EMPTY_GROSS_PROFIT: GrossProfitSummary = {
   revenue: 0,
   cogs: 0,
@@ -30,6 +32,9 @@ const EMPTY_GROSS_PROFIT: GrossProfitSummary = {
   gross_margin_pct: 0,
   month_label: new Date().toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }),
 }
+
+// Doc types that count as "revenue when paid"
+const REVENUE_DOC_TYPES = new Set(['invoice', 'receipt', 'tax-invoice'])
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -43,7 +48,7 @@ export default function DashboardPage() {
   const userId = user!.id
   const { layout, updateLayout } = useDashboardLayout(userId)
 
-  const [dateRange, setDateRange] = useState<DateRange>(() => getDateRange('30d'))
+  const [dateRange, setDateRange] = useState<DateRange>(INITIAL_DATE_RANGE)
 
   const [dashData, setDashData] = useState<DashboardData>({
     loading: true,
@@ -65,28 +70,23 @@ export default function DashboardPage() {
     topProducts: [],
     grossProfit: EMPTY_GROSS_PROFIT,
     salesForecast: [],
-    dateRange: getDateRange('30d'),
+    dateRange: INITIAL_DATE_RANGE,
   })
 
+  // ── Static data (loads once on mount) ────────────────────────────────────────
+  const staticLoaded = useRef(false)
+
   useEffect(() => {
-    void loadData(dateRange)
+    if (staticLoaded.current) return
+    staticLoaded.current = true
+    void loadStaticData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange])
+  }, [])
 
-  function handleDateRangeChange(r: DateRange) {
-    setDateRange(r)
-  }
-
-  async function loadData(range: DateRange) {
-    setDashData(prev => ({ ...prev, loading: true }))
+  async function loadStaticData() {
     try {
-      const [docsRes, productsRes, countRes, profileRes, gradesRes, topProducts, grossProfit, salesForecast] =
+      const [productsRes, countRes, profileRes, gradesRes, topProducts, grossProfit, salesForecast] =
         await Promise.all([
-          supabase
-            .from('documents')
-            .select('id, doc_type, status, total_amount, created_at, due_date, content')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false }),
           supabase
             .from('products')
             .select('id, name, stock, unit')
@@ -108,7 +108,38 @@ export default function DashboardPage() {
           fetchSalesForecast(),
         ])
 
-      const docs: DashboardDoc[] = (docsRes.data ?? []).map((r) => {
+      const company =
+        typeof profileRes.data?.company_name === 'string' && profileRes.data.company_name.trim()
+          ? profileRes.data.company_name
+          : ''
+
+      const lowStockProducts: ProductAlert[] = (productsRes.data ?? []) as ProductAlert[]
+      const customerGrades: GradeEntry[] = (gradesRes.data ?? []) as GradeEntry[]
+
+      setDashData(prev => ({
+        ...prev,
+        lowStockProducts,
+        customerGrades,
+        customerCount: countRes.count ?? 0,
+        companyName: company,
+        topProducts,
+        grossProfit,
+        salesForecast,
+      }))
+    } catch { /* non-fatal */ }
+  }
+
+  // ── Dynamic data (reloads when dateRange changes) ─────────────────────────
+  const loadDocData = useCallback(async (range: DateRange) => {
+    setDashData(prev => ({ ...prev, loading: true }))
+    try {
+      const { data: rawDocs } = await supabase
+        .from('documents')
+        .select('id, doc_type, status, total_amount, created_at, due_date, content')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+
+      const docs: DashboardDoc[] = (rawDocs ?? []).map((r) => {
         const content = r.content as Record<string, unknown> | null
         const docMeta = content?.docMeta as Record<string, unknown> | null
         const customer = content?.customer as Record<string, unknown> | null
@@ -119,27 +150,28 @@ export default function DashboardPage() {
           customer_name: typeof customer?.name === 'string' ? customer.name : '—',
         } as DashboardDoc
       })
+
       const now = new Date()
+      const { from: rangeFrom, to: rangeTo } = range
 
-      const company =
-        typeof profileRes.data?.company_name === 'string' && profileRes.data.company_name.trim()
-          ? profileRes.data.company_name
-          : ''
-
-      // Use range.from/to for revenue calculation
-      const rangeFrom = range.from
+      // ── Revenue within selected date range (invoice + receipt + tax-invoice paid)
       const revenue30d = docs
-        .filter(d => d.doc_type === 'invoice' && d.status === 'paid' && d.created_at.slice(0, 10) >= rangeFrom)
+        .filter(d =>
+          REVENUE_DOC_TYPES.has(d.doc_type) &&
+          d.status === 'paid' &&
+          d.created_at.slice(0, 10) >= rangeFrom &&
+          d.created_at.slice(0, 10) <= rangeTo,
+        )
         .reduce((s, d) => s + d.total_amount, 0)
 
-      const sparklineDays = 14
+      // ── Sparkline (last 14 days, always fixed — not range-dependent)
       const sparklineMap = new Map<string, number>()
-      for (let i = sparklineDays - 1; i >= 0; i--) {
+      for (let i = 13; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
         sparklineMap.set(d.toISOString().slice(0, 10), 0)
       }
       for (const doc of docs) {
-        if (doc.doc_type !== 'invoice' || doc.status !== 'paid') continue
+        if (!REVENUE_DOC_TYPES.has(doc.doc_type) || doc.status !== 'paid') continue
         const key = doc.created_at.slice(0, 10)
         if (sparklineMap.has(key)) sparklineMap.set(key, (sparklineMap.get(key) ?? 0) + doc.total_amount)
       }
@@ -148,6 +180,7 @@ export default function DashboardPage() {
         value,
       }))
 
+      // ── Overdue + pending (always current, not date-filtered)
       const todayStr = now.toISOString().split('T')[0]
       const overdueDocs = docs.filter(
         d =>
@@ -158,10 +191,11 @@ export default function DashboardPage() {
       )
       const pendingDocs = docs.filter(d => d.doc_type === 'invoice' && d.status === 'sent')
 
+      // ── Top spenders this month
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
       const spenderMap = new Map<string, number>()
       for (const doc of docs) {
-        if (doc.doc_type !== 'invoice' || doc.status !== 'paid') continue
+        if (!REVENUE_DOC_TYPES.has(doc.doc_type) || doc.status !== 'paid') continue
         if (doc.created_at < monthStart) continue
         const name = doc.customer_name ?? '—'
         spenderMap.set(name, (spenderMap.get(name) ?? 0) + doc.total_amount)
@@ -171,10 +205,8 @@ export default function DashboardPage() {
         .slice(0, 3)
         .map(([name, total]) => ({ name, total }))
 
-      const lowStockProducts: ProductAlert[] = (productsRes.data ?? []) as ProductAlert[]
-      const customerGrades: GradeEntry[] = (gradesRes.data ?? []) as GradeEntry[]
-
-      setDashData({
+      setDashData(prev => ({
+        ...prev,
         loading: false,
         revenue30d,
         pendingAmount: pendingDocs.reduce((s, d) => s + d.total_amount, 0),
@@ -184,22 +216,18 @@ export default function DashboardPage() {
         overdueDocs,
         sparkline,
         pendingDocs,
-        recentDocs: docs.slice(0, 20),
-        lowStockProducts,
+        recentDocs: docs.slice(0, 30),
         topSpenders,
-        customerGrades,
-        customerCount: countRes.count ?? 0,
-        companyName: company,
-        themeColor,
-        topProducts,
-        grossProfit,
-        salesForecast,
         dateRange: range,
-      })
+      }))
     } catch {
       setDashData(prev => ({ ...prev, loading: false }))
     }
-  }
+  }, [userId])
+
+  useEffect(() => {
+    void loadDocData(dateRange)
+  }, [dateRange, loadDocData])
 
   const displayName = dashData.companyName || user?.email?.split('@')[0] || 'ผู้ใช้งาน'
 
@@ -211,7 +239,7 @@ export default function DashboardPage() {
           ยินดีต้อนรับ, <span className="font-medium text-slate-600">{displayName}</span>
         </p>
         <div className="mt-3">
-          <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
       </div>
       <BentoGrid layout={layout} onLayoutChange={updateLayout} data={dashData} plan={plan} />
