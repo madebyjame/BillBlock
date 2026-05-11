@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { TrendingUp, TrendingDown, FileSpreadsheet, RefreshCw, Wallet } from 'lucide-react'
+import { TrendingUp, TrendingDown, FileSpreadsheet, Lock, RefreshCw, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
+import { usePlan } from '../hooks/usePlan'
 import { supabase } from '../lib/supabase'
 import { getExpenseSummary } from '../lib/expenseApi'
 import * as XLSX from 'xlsx'
@@ -155,6 +156,7 @@ function MiniBarChart({ months }: { months: PlRow[] }) {
 
 export default function PlReportPage() {
   const { user } = useAuth()
+  const { isBusiness } = usePlan()
   const [rows, setRows]             = useState<PlRow[]>([])
   const [loading, setLoading]       = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -325,10 +327,11 @@ export default function PlReportPage() {
             รีเฟรช COGS
           </button>
           <button
-            onClick={exportExcel}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50"
+            onClick={() => isBusiness ? exportExcel() : toast.error('ฟีเจอร์นี้ต้องการแผน Business')}
+            title={isBusiness ? undefined : 'ต้องการแผน Business'}
+            className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 ${!isBusiness ? 'opacity-60' : ''}`}
           >
-            <FileSpreadsheet size={15} className="text-green-600" />
+            {isBusiness ? <FileSpreadsheet size={15} className="text-green-600" /> : <Lock size={15} className="text-slate-400" />}
             Export Excel
           </button>
         </div>

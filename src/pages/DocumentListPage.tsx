@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   FilePlus, Plus, Search, ChevronDown, MoreVertical,
   Eye, Pencil, Download, Trash2, Clock, CheckCircle2, XCircle, Copy, ArrowRightLeft,
-  TrendingUp, Hourglass, AlertCircle, FileSpreadsheet, CreditCard, Mail,
+  TrendingUp, Hourglass, AlertCircle, FileSpreadsheet, Lock, CreditCard, Mail,
 } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
@@ -18,6 +18,7 @@ import { useConfirm } from '../hooks/useConfirm'
 import { useDocumentsByType } from '../hooks/useDocumentsByType'
 import { createDocument, deleteDocument, updateDocumentStatus, duplicateDocument, convertToInvoice, convertDocument } from '../lib/documentApi'
 import { exportDocumentsToExcel } from '../lib/excelExport'
+import { usePlan } from '../hooks/usePlan'
 import type { DocumentRow } from '../lib/documentApi'
 import type { DocTypeCode } from '../types/document'
 import { DOC_TYPE_CODES } from '../types/document'
@@ -321,6 +322,7 @@ interface Props { docType: DocTypeCode }
 export default function DocumentListPage({ docType }: Props) {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { isBusiness } = usePlan()
   const { rows, loading, error, refetch } = useDocumentsByType(docType)
 
   const { confirm, pending: confirmPending, onConfirm, onCancel } = useConfirm()
@@ -584,15 +586,16 @@ export default function DocumentListPage({ docType }: Props) {
           {/* Excel export */}
           <button
             onClick={() => {
+              if (!isBusiness) { toast.error('ฟีเจอร์นี้ต้องการแผน Business'); return }
               if (!user) return
               void exportDocumentsToExcel(user.id, docType, filterDateFrom || undefined, filterDateTo || undefined)
                 .then(() => toast.success('Export สำเร็จ'))
                 .catch(() => toast.error('Export ไม่สำเร็จ'))
             }}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:shadow"
-            title="Export Excel"
+            className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:shadow ${!isBusiness ? 'opacity-60' : ''}`}
+            title={isBusiness ? 'Export Excel' : 'ต้องการแผน Business'}
           >
-            <FileSpreadsheet size={15} className="text-green-600" />
+            {isBusiness ? <FileSpreadsheet size={15} className="text-green-600" /> : <Lock size={15} className="text-slate-400" />}
             Excel
           </button>
 

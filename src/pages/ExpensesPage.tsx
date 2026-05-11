@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, FileSpreadsheet, Wallet } from 'lucide-react'
+import { Plus, Trash2, FileSpreadsheet, Lock, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import * as XLSX from 'xlsx'
 import { useAuth } from '../context/AuthContext'
+import { usePlan } from '../hooks/usePlan'
 import {
   EXPENSE_CATEGORIES,
   getCategoryMeta,
@@ -129,6 +130,7 @@ function AddExpenseForm({ onSave, onCancel }: { onSave: (input: CreateExpenseInp
 
 export default function ExpensesPage() {
   const { user } = useAuth()
+  const { isBusiness } = usePlan()
   const { year: initYear, month: initMonth } = currentYearMonth()
   const [year, setYear]   = useState(initYear)
   const [month, setMonth] = useState(initMonth)
@@ -210,9 +212,12 @@ export default function ExpensesPage() {
           <p className="mt-1.5 text-sm text-slate-400">บันทึกค่าใช้จ่ายดำเนินงานเพื่อคำนวณกำไรสุทธิใน P&L</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={exportExcel}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50">
-            <FileSpreadsheet size={15} className="text-green-600" />
+          <button
+            onClick={() => isBusiness ? exportExcel() : toast.error('ฟีเจอร์นี้ต้องการแผน Business')}
+            title={isBusiness ? undefined : 'ต้องการแผน Business'}
+            className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 ${!isBusiness ? 'opacity-60' : ''}`}
+          >
+            {isBusiness ? <FileSpreadsheet size={15} className="text-green-600" /> : <Lock size={15} className="text-slate-400" />}
             Export Excel
           </button>
           <button onClick={() => setShowForm(true)}

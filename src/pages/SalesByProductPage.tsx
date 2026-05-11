@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Package, FileSpreadsheet, TrendingUp } from 'lucide-react'
+import { Package, FileSpreadsheet, Lock, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '../lib/supabase'
+import { usePlan } from '../hooks/usePlan'
 import * as XLSX from 'xlsx'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -35,6 +36,7 @@ function currentYear() { return new Date().getFullYear() }
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function SalesByProductPage() {
+  const { isBusiness } = usePlan()
   const [rows, setRows]       = useState<SalesRow[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -99,9 +101,12 @@ export default function SalesByProductPage() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-800">ยอดขายต่อสินค้า</h1>
           <p className="mt-1.5 text-sm text-slate-400">รายได้และกำไรรายสินค้า จากเอกสารที่ชำระแล้ว</p>
         </div>
-        <button onClick={exportExcel}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50">
-          <FileSpreadsheet size={15} className="text-green-600" />
+        <button
+          onClick={() => isBusiness ? exportExcel() : toast.error('ฟีเจอร์นี้ต้องการแผน Business')}
+          title={isBusiness ? undefined : 'ต้องการแผน Business'}
+          className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50 ${!isBusiness ? 'opacity-60' : ''}`}
+        >
+          {isBusiness ? <FileSpreadsheet size={15} className="text-green-600" /> : <Lock size={15} className="text-slate-400" />}
           Export Excel
         </button>
       </div>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Download, Users, FileSpreadsheet, Link2, X } from 'lucide-react'
+import { Plus, Search, Download, Users, FileSpreadsheet, Lock, Link2, X } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
 import { KebabMenu } from '../components/KebabMenu'
@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext'
 import { useConfirm } from '../hooks/useConfirm'
 import { supabase } from '../lib/supabase'
 import { exportCustomersToExcel } from '../lib/excelExport'
+import { usePlan } from '../hooks/usePlan'
 import {
   createCustomer, deleteCustomer, listCustomers, updateCustomer,
   type CustomerInput, type CustomerRow,
@@ -120,6 +121,7 @@ export default function CustomersPage() {
   const [page, setPage]         = useState(1)
   const [tagInput, setTagInput] = useState('')
 
+  const { isBusiness } = usePlan()
   const themeColor = typeof user?.user_metadata?.themeColor === 'string'
     ? user.user_metadata.themeColor : '#1e3a8a'
 
@@ -297,14 +299,16 @@ export default function CustomersPage() {
           </button>
           <button
             onClick={() => {
+              if (!isBusiness) { toast.error('ฟีเจอร์นี้ต้องการแผน Business'); return }
               if (!user) return
               void exportCustomersToExcel(user.id)
                 .then(() => toast.success('Export Excel สำเร็จ'))
                 .catch(() => toast.error('Export ไม่สำเร็จ'))
             }}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+            title={isBusiness ? undefined : 'ต้องการแผน Business'}
+            className={`inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 ${!isBusiness ? 'opacity-60' : ''}`}
           >
-            <FileSpreadsheet size={15} className="text-green-600" /> Excel
+            {isBusiness ? <FileSpreadsheet size={15} className="text-green-600" /> : <Lock size={15} className="text-slate-400" />} Excel
           </button>
           <button
             onClick={openCreate}

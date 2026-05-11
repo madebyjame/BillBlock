@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FileSpreadsheet, Receipt } from 'lucide-react'
+import { FileSpreadsheet, Lock, Receipt } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
+import { usePlan } from '../hooks/usePlan'
 import { supabase } from '../lib/supabase'
 import type { PaymentRow } from '../lib/paymentApi'
 import * as XLSX from 'xlsx'
@@ -46,6 +47,7 @@ const WHT_FORM: Record<number, string> = {
 
 export default function WhtReportPage() {
   const { user } = useAuth()
+  const { isBusiness } = usePlan()
   const [payments, setPayments] = useState<PaymentWithDoc[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -164,10 +166,11 @@ export default function WhtReportPage() {
           <p className="mt-1.5 text-sm text-slate-400">ภาษีหัก ณ ที่จ่าย — จากรายการชำระที่บันทึก WHT ไว้</p>
         </div>
         <button
-          onClick={exportExcel}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50"
+          onClick={() => isBusiness ? exportExcel() : toast.error('ฟีเจอร์นี้ต้องการแผน Business')}
+          title={isBusiness ? undefined : 'ต้องการแผน Business'}
+          className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 ${!isBusiness ? 'opacity-60' : ''}`}
         >
-          <FileSpreadsheet size={15} className="text-green-600" />
+          {isBusiness ? <FileSpreadsheet size={15} className="text-green-600" /> : <Lock size={15} className="text-slate-400" />}
           Export Excel
         </button>
       </div>

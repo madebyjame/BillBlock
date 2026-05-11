@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FileText, FileSpreadsheet, Info } from 'lucide-react'
+import { FileText, FileSpreadsheet, Lock, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
+import { usePlan } from '../hooks/usePlan'
 import { supabase } from '../lib/supabase'
 import * as XLSX from 'xlsx'
 
@@ -95,6 +96,7 @@ function parseDoc(doc: RawDoc): VatRow | null {
 
 export default function VatReportPage() {
   const { user } = useAuth()
+  const { isBusiness } = usePlan()
   const [docs, setDocs] = useState<RawDoc[]>([])
   const [loading, setLoading] = useState(true)
   const [dateFrom, setDateFrom] = useState(() => currentMonthKey() + '-01')
@@ -188,10 +190,11 @@ export default function VatReportPage() {
           <p className="mt-1.5 text-sm text-slate-400">ภาษีขาย (Output VAT) จากใบแจ้งหนี้ ใบเสร็จ และใบกำกับภาษี</p>
         </div>
         <button
-          onClick={exportExcel}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50"
+          onClick={() => isBusiness ? exportExcel() : toast.error('ฟีเจอร์นี้ต้องการแผน Business')}
+          title={isBusiness ? undefined : 'ต้องการแผน Business'}
+          className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 ${!isBusiness ? 'opacity-60' : ''}`}
         >
-          <FileSpreadsheet size={15} className="text-green-600" />
+          {isBusiness ? <FileSpreadsheet size={15} className="text-green-600" /> : <Lock size={15} className="text-slate-400" />}
           Export Excel
         </button>
       </div>

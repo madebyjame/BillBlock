@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, FileSpreadsheet, RefreshCw } from 'lucide-react'
+import { AlertTriangle, FileSpreadsheet, Lock, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '../lib/supabase'
+import { usePlan } from '../hooks/usePlan'
 import * as XLSX from 'xlsx'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ export default function ArAgingPage() {
   }))
 
   const grandTotal = rows.reduce((s, r) => s + r.total_amount, 0)
+  const { isBusiness } = usePlan()
 
   function exportExcel() {
     if (rows.length === 0) { toast.error('ไม่มีข้อมูล'); return }
@@ -112,9 +114,12 @@ export default function ArAgingPage() {
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             รีเฟรช
           </button>
-          <button onClick={exportExcel}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50">
-            <FileSpreadsheet size={15} className="text-green-600" />
+          <button
+            onClick={() => isBusiness ? exportExcel() : toast.error('ฟีเจอร์นี้ต้องการแผน Business')}
+            title={isBusiness ? undefined : 'ต้องการแผน Business'}
+            className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50 ${!isBusiness ? 'opacity-60' : ''}`}
+          >
+            {isBusiness ? <FileSpreadsheet size={15} className="text-green-600" /> : <Lock size={15} className="text-slate-400" />}
             Export Excel
           </button>
         </div>
