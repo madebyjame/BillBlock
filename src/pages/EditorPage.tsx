@@ -36,6 +36,7 @@ const DOC_TYPE_ROUTE: Record<DocTypeCode, string> = {
   receipt:        '/documents/receipts',
   'billing-note': '/documents/billing-notes',
   'tax-invoice':  '/documents/tax-invoices',
+  'credit-note':  '/documents/credit-notes',
 }
 import { listCustomers, createCustomer, type CustomerRow } from '../lib/customerApi'
 import { listProducts, type ProductRow } from '../lib/productApi'

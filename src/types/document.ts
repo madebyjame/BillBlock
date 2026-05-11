@@ -85,7 +85,7 @@ export interface CatalogItem {
 
 export const DOCUMENT_TYPES = ['ใบเสนอราคา', 'ใบแจ้งหนี้', 'ใบเสร็จรับเงิน', 'ใบวางบิล', 'ใบกำกับภาษี']
 
-export type DocTypeCode = 'quotation' | 'invoice' | 'receipt' | 'billing-note' | 'tax-invoice'
+export type DocTypeCode = 'quotation' | 'invoice' | 'receipt' | 'billing-note' | 'tax-invoice' | 'credit-note'
 
 export const DOC_TYPE_CODES: Record<DocTypeCode, string> = {
   quotation: 'ใบเสนอราคา',
@@ -93,6 +93,7 @@ export const DOC_TYPE_CODES: Record<DocTypeCode, string> = {
   receipt: 'ใบเสร็จรับเงิน',
   'billing-note': 'ใบวางบิล',
   'tax-invoice': 'ใบกำกับภาษี',
+  'credit-note': 'ใบลดหนี้',
 }
 
 const THAI_TO_DOC_TYPE_CODE: Record<string, DocTypeCode> = {
@@ -101,6 +102,7 @@ const THAI_TO_DOC_TYPE_CODE: Record<string, DocTypeCode> = {
   'ใบเสร็จรับเงิน': 'receipt',
   'ใบวางบิล': 'billing-note',
   'ใบกำกับภาษี': 'tax-invoice',
+  'ใบลดหนี้': 'credit-note',
 }
 
 export function thaiToDocTypeCode(thai: string): DocTypeCode {

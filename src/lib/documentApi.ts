@@ -27,6 +27,7 @@ const DOC_NUMBER_PREFIX: Record<DocTypeCode, string> = {
   receipt: 'REC',
   'billing-note': 'BN',
   'tax-invoice': 'TAX',
+  'credit-note': 'CN',
 }
 
 // ─── Create (with Smart Defaults from profile) ────────────────────────────────
@@ -288,5 +289,58 @@ export async function convertToInvoice(id: string, userId: string): Promise<stri
     .single()
 
   if (insertError) throw new Error(insertError.message)
+  return (newDoc as { id: string }).id
+}
+
+// ─── Generic Convert ──────────────────────────────────────────────────────────
+// Converts any doc type to another: INV→REC, INV→TAX, REC→TAX, INV→CN, etc.
+// Source doc is preserved. New doc starts as draft.
+export async function convertDocument(
+  fromId: string,
+  toType: DocTypeCode,
+  userId: string,
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('documents')
+    .select('content')
+    .eq('id', fromId)
+    .single()
+
+  if (error) throw new Error(error.message)
+
+  const original = data.content as DocumentData
+  const year     = new Date().getFullYear()
+  const prefix   = DOC_NUMBER_PREFIX[toType]
+
+  const { data: seqData } = await supabase
+    .rpc('next_doc_number', { p_user_id: userId, p_doc_type: toType, p_year: year })
+  const seq: number = seqData == null ? 1 : (seqData as number)
+  const newNumber = `${prefix}-${year}-${String(seq).padStart(3, '0')}`
+
+  const newContent: DocumentData = {
+    ...original,
+    docMeta: {
+      ...original.docMeta,
+      documentType: DOC_TYPE_CODES[toType],
+      number: newNumber,
+      date: new Date().toISOString().split('T')[0],
+    },
+  }
+
+  const { total } = calcDocSummary(newContent)
+
+  const { data: newDoc, error: insertErr } = await supabase
+    .from('documents')
+    .insert({
+      user_id: userId,
+      doc_type: toType,
+      status: 'draft',
+      total_amount: Math.round(total * 100) / 100,
+      content: newContent,
+    })
+    .select('id')
+    .single()
+
+  if (insertErr) throw new Error(insertErr.message)
   return (newDoc as { id: string }).id
 }

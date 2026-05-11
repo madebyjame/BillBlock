@@ -23,6 +23,9 @@ import {
   FileBarChart2,
   TrendingUp,
   Wallet,
+  MinusCircle,
+  ShoppingCart,
+  AlertCircle,
 } from 'lucide-react'
 import { usePlan } from '../hooks/usePlan'
 
@@ -46,6 +49,7 @@ const SALES_NAV = [
   { to: '/documents/receipts',      label: 'ใบเสร็จรับเงิน', Icon: Receipt },
   { to: '/documents/billing-notes', label: 'ใบวางบิล',       Icon: ClipboardList },
   { to: '/documents/tax-invoices',  label: 'ใบกำกับภาษี',    Icon: Building2 },
+  { to: '/documents/credit-notes',  label: 'ใบลดหนี้',        Icon: MinusCircle },
 ]
 
 const INVENTORY_NAV = [
@@ -55,9 +59,11 @@ const INVENTORY_NAV = [
 ]
 
 const REPORTS_NAV = [
-  { to: '/reports/pl',  label: 'กำไร & ขาดทุน',   Icon: TrendingUp },
-  { to: '/reports/vat', label: 'VAT (ภ.พ.30)',     Icon: BarChart3 },
-  { to: '/reports/wht', label: 'WHT (ภ.ง.ด.3/53)', Icon: FileBarChart2 },
+  { to: '/reports/pl',              label: 'กำไร & ขาดทุน',    Icon: TrendingUp },
+  { to: '/reports/ar-aging',        label: 'AR Aging',          Icon: AlertCircle },
+  { to: '/reports/sales-by-product',label: 'ยอดขายต่อสินค้า', Icon: ShoppingCart },
+  { to: '/reports/vat',             label: 'VAT (ภ.พ.30)',      Icon: BarChart3 },
+  { to: '/reports/wht',             label: 'WHT (ภ.ง.ด.3/53)', Icon: FileBarChart2 },
 ]
 
 const BOTTOM_NAV = [

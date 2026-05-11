@@ -16,7 +16,7 @@ import { useAuth } from '../context/AuthContext'
 import { PlanLimitError } from '../lib/planLimits'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDocumentsByType } from '../hooks/useDocumentsByType'
-import { createDocument, deleteDocument, updateDocumentStatus, duplicateDocument, convertToInvoice } from '../lib/documentApi'
+import { createDocument, deleteDocument, updateDocumentStatus, duplicateDocument, convertToInvoice, convertDocument } from '../lib/documentApi'
 import { exportDocumentsToExcel } from '../lib/excelExport'
 import type { DocumentRow } from '../lib/documentApi'
 import type { DocTypeCode } from '../types/document'
@@ -33,6 +33,7 @@ const DOC_CREATE_LABEL: Record<DocTypeCode, string> = {
   receipt:        'สร้างใบเสร็จรับเงิน',
   'billing-note': 'สร้างใบวางบิล',
   'tax-invoice':  'สร้างใบกำกับภาษี',
+  'credit-note':  'สร้างใบลดหนี้',
 }
 
 const STATUS_LABEL: Record<DocumentRow['status'], string> = {
@@ -157,9 +158,11 @@ function StatusBadge({
 
 // ─── Kebab Menu ───────────────────────────────────────────────────────────────
 
+interface ConvertOption { label: string; toType: DocTypeCode }
+
 function KebabMenu({
   row, deleting, duplicating, converting,
-  onDelete, onNavigate, onDuplicate, onConvert, onPayment, onEmail,
+  onDelete, onNavigate, onDuplicate, onConvert, onPayment, onEmail, converts,
 }: {
   row: DocListRow
   deleting: boolean
@@ -168,9 +171,10 @@ function KebabMenu({
   onDelete: (e: MouseEvent<HTMLButtonElement>, id: string) => void
   onNavigate: (id: string) => void
   onDuplicate: (id: string) => void
-  onConvert?: (id: string) => void
+  onConvert?: (id: string, toType?: DocTypeCode) => void
   onPayment?: (id: string, total: number, docNumber: string) => void
   onEmail?: (row: DocListRow) => void
+  converts?: ConvertOption[]
 }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
@@ -229,14 +233,15 @@ function KebabMenu({
             <Copy size={13} className="text-slate-400" />
             {duplicating ? 'กำลังทำซ้ำ…' : 'ทำซ้ำเอกสาร'}
           </button>
-          {row.doc_type === 'quotation' && onConvert && (
-            <button onClick={(e) => { e.stopPropagation(); setOpen(false); onConvert(row.id) }}
+          {converts?.map(c => (
+            <button key={c.toType}
+              onClick={(e) => { e.stopPropagation(); setOpen(false); onConvert?.(row.id, c.toType) }}
               disabled={converting}
               className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50">
               <ArrowRightLeft size={13} className="text-slate-400" />
-              {converting ? 'กำลังแปลง…' : 'แปลงเป็นใบแจ้งหนี้'}
+              {converting ? 'กำลังแปลง…' : c.label}
             </button>
-          )}
+          ))}
           {(row.doc_type === 'invoice' || row.doc_type === 'billing-note') && onPayment && row.status !== 'cancelled' && (
             <button onClick={(e) => { e.stopPropagation(); setOpen(false); onPayment(row.id, row.total_amount, row.doc_number) }}
               className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-blue-600 transition-colors hover:bg-blue-50">
@@ -457,16 +462,33 @@ export default function DocumentListPage({ docType }: Props) {
     finally { setDuplicatingId(null) }
   }
 
-  async function handleConvert(id: string) {
+  async function handleConvert(id: string, toType?: DocTypeCode) {
     if (!user || convertingId) return
     setConvertingId(id)
     try {
-      const newId = await convertToInvoice(id, user.id)
-      toast.success('แปลงเป็นใบแจ้งหนี้เรียบร้อย')
+      const effectiveType = toType ?? 'invoice'
+      const newId = effectiveType === 'invoice'
+        ? await convertToInvoice(id, user.id)
+        : await convertDocument(id, effectiveType, user.id)
+      const label = DOC_TYPE_CODES[effectiveType] ?? effectiveType
+      toast.success(`แปลงเป็น${label}เรียบร้อย`)
       navigate(`/editor/${newId}`)
-    } catch { toast.error('แปลงเป็นใบแจ้งหนี้ไม่สำเร็จ') }
+    } catch { toast.error('แปลงเอกสารไม่สำเร็จ') }
     finally { setConvertingId(null) }
   }
+
+  // Conversion options per doc type
+  const convertOptions: ConvertOption[] = (() => {
+    if (docType === 'quotation')    return [{ label: 'แปลงเป็นใบแจ้งหนี้', toType: 'invoice' }]
+    if (docType === 'invoice')      return [
+      { label: 'แปลงเป็นใบเสร็จรับเงิน', toType: 'receipt' },
+      { label: 'แปลงเป็นใบกำกับภาษี',    toType: 'tax-invoice' },
+      { label: 'ออกใบลดหนี้',              toType: 'credit-note' },
+    ]
+    if (docType === 'receipt')      return [{ label: 'แปลงเป็นใบกำกับภาษี', toType: 'tax-invoice' }]
+    if (docType === 'billing-note') return [{ label: 'แปลงเป็นใบแจ้งหนี้', toType: 'invoice' }]
+    return []
+  })()
 
   // number of cols for colSpan
   const colCount = isQuotation ? 8 : 6
@@ -738,7 +760,8 @@ export default function DocumentListPage({ docType }: Props) {
                         onDelete={handleDelete}
                         onNavigate={(id) => navigate(`/editor/${id}`)}
                         onDuplicate={handleDuplicate}
-                        onConvert={isQuotation ? handleConvert : undefined}
+                        onConvert={convertOptions.length > 0 ? handleConvert : undefined}
+                        converts={convertOptions.length > 0 ? convertOptions : undefined}
                         onPayment={(id, total, title) => setPaymentDoc({ id, total, title })}
                         onEmail={(r) => setEmailDoc(r)}
                       />

@@ -23,6 +23,8 @@ import VatReportPage from './pages/VatReportPage'
 import WhtReportPage from './pages/WhtReportPage'
 import PlReportPage from './pages/PlReportPage'
 import ExpensesPage from './pages/ExpensesPage'
+import ArAgingPage from './pages/ArAgingPage'
+import SalesByProductPage from './pages/SalesByProductPage'
 
 function LoadingScreen() {
   return (
@@ -82,6 +84,7 @@ export default function App() {
             <Route path="/documents/receipts"      element={<DocumentListPage docType="receipt" />} />
             <Route path="/documents/billing-notes" element={<DocumentListPage docType="billing-note" />} />
             <Route path="/documents/tax-invoices"  element={<DocumentListPage docType="tax-invoice" />} />
+            <Route path="/documents/credit-notes"  element={<DocumentListPage docType="credit-note" />} />
 
             {/* คลังสินค้า */}
             <Route path="/inventory/products"     element={<ProductsPage />} />
@@ -95,9 +98,11 @@ export default function App() {
             <Route path="/settings"   element={<SettingsPage />} />
 
             {/* รายงาน */}
-            <Route path="/reports/vat" element={<VatReportPage />} />
-            <Route path="/reports/wht" element={<WhtReportPage />} />
-            <Route path="/reports/pl"  element={<PlReportPage />} />
+            <Route path="/reports/vat"              element={<VatReportPage />} />
+            <Route path="/reports/wht"              element={<WhtReportPage />} />
+            <Route path="/reports/pl"               element={<PlReportPage />} />
+            <Route path="/reports/ar-aging"         element={<ArAgingPage />} />
+            <Route path="/reports/sales-by-product" element={<SalesByProductPage />} />
           </Route>
 
           <Route path="/editor/:id" element={<EditorPage />} />
