@@ -92,6 +92,28 @@ export async function listAllMovements(): Promise<StockMovementRow[]> {
   return (data ?? []) as StockMovementRow[]
 }
 
+/** Server-side filtered movements — use this instead of listAllMovements for large datasets */
+export async function listMovementsFiltered(opts?: {
+  from?: string   // ISO date string YYYY-MM-DD
+  to?: string     // ISO date string YYYY-MM-DD (inclusive, treated as end of day)
+}): Promise<StockMovementRow[]> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  let query = supabase
+    .from('stock_movements')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  if (opts?.from) query = query.gte('created_at', opts.from + 'T00:00:00.000Z')
+  if (opts?.to)   query = query.lte('created_at', opts.to   + 'T23:59:59.999Z')
+
+  const { data, error } = await query.limit(2000)
+  if (error) throw new Error(error.message)
+  return (data ?? []) as StockMovementRow[]
+}
+
 // ─── Auto-deduction helpers (call from EditorPage on status change) ───────────
 
 interface DocLineItem {
