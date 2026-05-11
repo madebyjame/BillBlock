@@ -11,13 +11,9 @@ function isWidgetIdArray(v: unknown): v is WidgetId[] {
 function loadLayoutFromStorage(): WidgetId[] {
   try {
     const raw = localStorage.getItem(LAYOUT_KEY)
-    if (!raw) return DEFAULT_LAYOUT
+    if (raw === null) return DEFAULT_LAYOUT  // first ever visit
     const parsed = JSON.parse(raw) as unknown
-    if (isWidgetIdArray(parsed)) {
-      const savedSet = new Set(parsed)
-      const missing = DEFAULT_LAYOUT.filter(id => !savedSet.has(id))
-      return [...parsed, ...missing]
-    }
+    if (isWidgetIdArray(parsed)) return parsed  // trust saved layout exactly (may be [])
   } catch { /* ignore */ }
   return DEFAULT_LAYOUT
 }

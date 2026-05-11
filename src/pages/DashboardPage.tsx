@@ -9,13 +9,16 @@ import {
   fetchSalesForecast,
 } from '../lib/dashboardApi'
 import BentoGrid from '../components/BentoGrid'
-import type {
-  DashboardData,
-  DashboardDoc,
-  ProductAlert,
-  SpenderEntry,
-  GradeEntry,
-  GrossProfitSummary,
+import DateRangePicker from '../components/DateRangePicker'
+import {
+  getDateRange,
+  type DateRange,
+  type DashboardData,
+  type DashboardDoc,
+  type ProductAlert,
+  type SpenderEntry,
+  type GradeEntry,
+  type GrossProfitSummary,
 } from '../types/dashboard'
 
 const LOW_STOCK_THRESHOLD = 10
@@ -40,6 +43,8 @@ export default function DashboardPage() {
   const userId = user!.id
   const { layout, updateLayout } = useDashboardLayout(userId)
 
+  const [dateRange, setDateRange] = useState<DateRange>(() => getDateRange('30d'))
+
   const [dashData, setDashData] = useState<DashboardData>({
     loading: true,
     revenue30d: 0,
@@ -60,14 +65,19 @@ export default function DashboardPage() {
     topProducts: [],
     grossProfit: EMPTY_GROSS_PROFIT,
     salesForecast: [],
+    dateRange: getDateRange('30d'),
   })
 
   useEffect(() => {
-    void loadData()
+    void loadData(dateRange)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [dateRange])
 
-  async function loadData() {
+  function handleDateRangeChange(r: DateRange) {
+    setDateRange(r)
+  }
+
+  async function loadData(range: DateRange) {
     setDashData(prev => ({ ...prev, loading: true }))
     try {
       const [docsRes, productsRes, countRes, profileRes, gradesRes, topProducts, grossProfit, salesForecast] =
@@ -116,9 +126,10 @@ export default function DashboardPage() {
           ? profileRes.data.company_name
           : ''
 
-      const cutoff30d = new Date(now.getTime() - 30 * 86_400_000).toISOString()
+      // Use range.from/to for revenue calculation
+      const rangeFrom = range.from
       const revenue30d = docs
-        .filter(d => d.doc_type === 'invoice' && d.status === 'paid' && d.created_at >= cutoff30d)
+        .filter(d => d.doc_type === 'invoice' && d.status === 'paid' && d.created_at.slice(0, 10) >= rangeFrom)
         .reduce((s, d) => s + d.total_amount, 0)
 
       const sparklineDays = 14
@@ -183,6 +194,7 @@ export default function DashboardPage() {
         topProducts,
         grossProfit,
         salesForecast,
+        dateRange: range,
       })
     } catch {
       setDashData(prev => ({ ...prev, loading: false }))
@@ -193,11 +205,14 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full p-6 md:p-8 lg:p-10">
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight text-slate-800">Dashboard</h1>
         <p className="mt-1.5 text-sm text-slate-400">
           ยินดีต้อนรับ, <span className="font-medium text-slate-600">{displayName}</span>
         </p>
+        <div className="mt-3">
+          <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
+        </div>
       </div>
       <BentoGrid layout={layout} onLayoutChange={updateLayout} data={dashData} plan={plan} />
     </div>
