@@ -32,10 +32,22 @@ const TAX_TYPE_LABEL: Record<string, string> = {
 }
 
 function stockCls(val: number, minStock: number) {
-  if (val < 0)       return 'text-red-700 font-bold'
-  if (val === 0)     return 'text-red-600 font-semibold'
-  if (val <= minStock) return 'text-orange-500 font-semibold'
+  if (val < 0)                         return 'text-red-700 font-bold'
+  if (minStock > 0 && val <= minStock) return 'text-orange-500 font-semibold'
+  if (val === 0)                       return 'text-slate-400 font-medium'
   return 'text-green-600 font-semibold'
+}
+
+// Deterministic pastel avatar for products with no image
+function ProductAvatar({ name }: { name: string }) {
+  const initials = name.trim().slice(0, 2).toUpperCase() || '?'
+  const hue = [...name].reduce((a, c) => a + c.charCodeAt(0), 0) % 360
+  return (
+    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-[11px] font-bold select-none"
+      style={{ backgroundColor: `hsl(${hue},38%,88%)`, color: `hsl(${hue},38%,36%)` }}>
+      {initials}
+    </div>
+  )
 }
 
 // ─── Stock History Modal ───────────────────────────────────────────────────────
@@ -226,6 +238,9 @@ export default function ProductsPage() {
   const [page, setPage] = useState(1)
   const [historyProduct, setHistoryProduct] = useState<ProductRow | null>(null)
   const [quickAdjustProduct, setQuickAdjustProduct] = useState<ProductRow | null>(null)
+  const [bulkAction, setBulkAction] = useState<'category' | 'minstock' | null>(null)
+  const [bulkValue, setBulkValue] = useState('')
+  const [bulkSaving, setBulkSaving] = useState(false)
 
   const themeColor = typeof user?.user_metadata?.themeColor === 'string'
     ? user.user_metadata.themeColor : '#1e3a8a'
@@ -282,6 +297,42 @@ export default function ProductsPage() {
       setSelectedIds(new Set())
       await loadRows()
     } catch { toast.error('ลบไม่สำเร็จ กรุณาลองใหม่') }
+  }
+
+  function rowToInput(row: ProductRow): ProductInput {
+    return { name: row.name, price: row.price, unit: row.unit, stock: row.stock, category: row.category, sku: row.sku, cost_price: row.cost_price, min_stock: row.min_stock, description: row.description, tax_type: row.tax_type }
+  }
+
+  async function handleBulkCategory() {
+    const cat = bulkValue.trim()
+    if (!cat) return
+    setBulkSaving(true)
+    try {
+      await Promise.all([...selectedIds].map(id => {
+        const row = rows.find(r => r.id === id)
+        return row ? updateProduct(id, { ...rowToInput(row), category: cat }) : Promise.resolve()
+      }))
+      toast.success(`เปลี่ยนหมวดหมู่ ${selectedIds.size} รายการแล้ว`)
+      setBulkAction(null); setBulkValue(''); setSelectedIds(new Set())
+      await loadRows()
+    } catch { toast.error('อัปเดตไม่สำเร็จ') }
+    finally { setBulkSaving(false) }
+  }
+
+  async function handleBulkMinStock() {
+    const val = Number(bulkValue)
+    if (isNaN(val) || val < 0) return
+    setBulkSaving(true)
+    try {
+      await Promise.all([...selectedIds].map(id => {
+        const row = rows.find(r => r.id === id)
+        return row ? updateProduct(id, { ...rowToInput(row), min_stock: val }) : Promise.resolve()
+      }))
+      toast.success(`ตั้งค่า Min Stock ${selectedIds.size} รายการแล้ว`)
+      setBulkAction(null); setBulkValue(''); setSelectedIds(new Set())
+      await loadRows()
+    } catch { toast.error('อัปเดตไม่สำเร็จ') }
+    finally { setBulkSaving(false) }
   }
 
   function openCreate() { setEditingId(null); setForm(EMPTY_FORM); setShowModal(true) }
@@ -377,9 +428,62 @@ export default function ProductsPage() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="mb-3 flex items-center justify-between rounded-lg bg-slate-800 px-4 py-2.5">
-          <span className="text-sm text-white">เลือก {selectedIds.size} รายการ</span>
-          <button onClick={() => void handleBulkDelete()} className="text-sm font-medium text-red-400 hover:text-red-300">ลบที่เลือก</button>
+        <div className="mb-3 rounded-xl border border-slate-700 bg-slate-800 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5">
+            <span className="text-sm font-medium text-white">เลือก {selectedIds.size} รายการ</span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => { setBulkAction(bulkAction === 'category' ? null : 'category'); setBulkValue('') }}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${bulkAction === 'category' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}`}>
+                เปลี่ยนหมวดหมู่
+              </button>
+              <button
+                onClick={() => { setBulkAction(bulkAction === 'minstock' ? null : 'minstock'); setBulkValue('') }}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${bulkAction === 'minstock' ? 'bg-orange-500 text-white' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}`}>
+                ตั้งค่า Min Stock
+              </button>
+              <div className="mx-1 h-4 w-px bg-slate-600" />
+              <button onClick={() => void handleBulkDelete()} className="rounded-md px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-900/30 hover:text-red-300 transition-colors">
+                ลบที่เลือก
+              </button>
+              <button onClick={() => { setSelectedIds(new Set()); setBulkAction(null) }} className="ml-1 flex h-6 w-6 items-center justify-center rounded-full hover:bg-slate-600">
+                <X size={12} className="text-slate-400" />
+              </button>
+            </div>
+          </div>
+          {bulkAction === 'category' && (
+            <div className="flex items-center gap-2 border-t border-slate-700 bg-slate-900 px-4 py-2.5">
+              <span className="text-xs text-slate-400 shrink-0">หมวดหมู่ใหม่:</span>
+              <input
+                value={bulkValue} onChange={e => setBulkValue(e.target.value)}
+                placeholder="พิมพ์หมวดหมู่..." autoFocus
+                className="flex-1 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                list="bulk-category-list"
+                onKeyDown={e => e.key === 'Enter' && void handleBulkCategory()}
+              />
+              <datalist id="bulk-category-list">{categories.map(c => <option key={c} value={c} />)}</datalist>
+              <button onClick={() => void handleBulkCategory()} disabled={!bulkValue.trim() || bulkSaving}
+                className="rounded bg-blue-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-40 hover:bg-blue-500">
+                {bulkSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+              </button>
+            </div>
+          )}
+          {bulkAction === 'minstock' && (
+            <div className="flex items-center gap-2 border-t border-slate-700 bg-slate-900 px-4 py-2.5">
+              <span className="text-xs text-slate-400 shrink-0">Min Stock:</span>
+              <input
+                type="number" min={0} value={bulkValue} onChange={e => setBulkValue(e.target.value)}
+                placeholder="0" autoFocus
+                className="w-24 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-white placeholder-slate-500 focus:border-orange-400 focus:outline-none"
+                onKeyDown={e => e.key === 'Enter' && void handleBulkMinStock()}
+              />
+              <span className="text-xs text-slate-500">0 = ไม่แจ้งเตือน</span>
+              <button onClick={() => void handleBulkMinStock()} disabled={bulkValue === '' || bulkSaving}
+                className="rounded bg-orange-500 px-3 py-1 text-xs font-semibold text-white disabled:opacity-40 hover:bg-orange-400">
+                {bulkSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -392,6 +496,7 @@ export default function ProductsPage() {
                   <th className="w-10 px-4 py-3">
                     <input type="checkbox" checked={allPageSelected} onChange={toggleAll} className="h-4 w-4 rounded border-slate-300 accent-slate-700" />
                   </th>
+                  <th className="w-10 px-2 py-3" />
                   <th className="px-4 py-3 font-semibold">ชื่อสินค้า</th>
                   <th className="px-4 py-3 font-semibold">SKU</th>
                   <th className="px-4 py-3 font-semibold">หมวดหมู่</th>
@@ -405,7 +510,7 @@ export default function ProductsPage() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={10}>
+                  <tr><td colSpan={11}>
                     <EmptyState icon={<Box size={22} />}
                       title={rows.length === 0 ? 'ยังไม่มีข้อมูลสินค้า' : 'ไม่พบสินค้าที่ตรงกับเงื่อนไข'}
                       description={rows.length === 0 ? 'คลิก "เพิ่มสินค้าใหม่" เพื่อเพิ่มสินค้าหรือบริการรายการแรก' : 'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง'} />
@@ -418,15 +523,24 @@ export default function ProductsPage() {
                       <td className="px-4 py-3">
                         <input type="checkbox" checked={selectedIds.has(row.id)} onChange={() => toggleOne(row.id)} className="h-4 w-4 rounded border-slate-300 accent-slate-700" />
                       </td>
+                      <td className="px-2 py-3">
+                        <ProductAvatar name={row.name} />
+                      </td>
                       <td className="px-4 py-3">
                         <button onClick={() => navigate(`/inventory/products/${row.id}`)} className="text-left">
                           <p className="font-medium text-blue-600 hover:underline">{row.name}</p>
                           {row.description && <p className="text-[11px] text-slate-400 truncate max-w-[160px]">{row.description}</p>}
                         </button>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-500">{row.sku || '—'}</td>
-                      <td className="px-4 py-3 text-slate-500">{row.category || '—'}</td>
-                      <td className="px-4 py-3 text-slate-500">{row.unit || '—'}</td>
+                      <td className="px-4 py-3 font-mono text-xs">
+                        {row.sku ? <span className="text-slate-600">{row.sku}</span> : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {row.category ? <span className="text-slate-600">{row.category}</span> : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {row.unit ? <span className="text-slate-600">{row.unit}</span> : <span className="text-slate-300">—</span>}
+                      </td>
                       {/* on_hand */}
                       <td className="px-4 py-3 text-right">
                         <span className={stockCls(row.stock, row.min_stock)}>{row.stock.toLocaleString('th-TH')}</span>
