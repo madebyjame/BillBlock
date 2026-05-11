@@ -19,6 +19,8 @@ import PortalPage from './pages/PortalPage'
 import TermsPage from './pages/TermsPage'
 import PrivacyPage from './pages/PrivacyPage'
 import RefundPage from './pages/RefundPage'
+import VatReportPage from './pages/VatReportPage'
+import WhtReportPage from './pages/WhtReportPage'
 
 function LoadingScreen() {
   return (
@@ -88,6 +90,10 @@ export default function App() {
             <Route path="/products"   element={<Navigate to="/inventory/products" replace />} />
             <Route path="/customers"  element={<CustomersPage />} />
             <Route path="/settings"   element={<SettingsPage />} />
+
+            {/* รายงานภาษี */}
+            <Route path="/reports/vat" element={<VatReportPage />} />
+            <Route path="/reports/wht" element={<WhtReportPage />} />
           </Route>
 
           <Route path="/editor/:id" element={<EditorPage />} />

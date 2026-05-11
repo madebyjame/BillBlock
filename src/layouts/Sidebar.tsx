@@ -19,6 +19,8 @@ import {
   Users,
   X,
   Zap,
+  BarChart3,
+  FileBarChart2,
 } from 'lucide-react'
 import { usePlan } from '../hooks/usePlan'
 
@@ -48,6 +50,11 @@ const INVENTORY_NAV = [
   { to: '/inventory/products',    label: 'รายการสินค้า',       Icon: Box },
   { to: '/inventory/adjustments', label: 'รับเข้า/ปรับสต็อก', Icon: ArrowLeftRight },
   { to: '/inventory/movements',   label: 'ประวัติสต็อก',       Icon: History },
+]
+
+const REPORTS_NAV = [
+  { to: '/reports/vat', label: 'VAT (ภ.พ.30)',   Icon: BarChart3 },
+  { to: '/reports/wht', label: 'WHT (ภ.ง.ด.3/53)', Icon: FileBarChart2 },
 ]
 
 const BOTTOM_NAV = [
@@ -190,6 +197,14 @@ export default function Sidebar({
           <div className="pt-3">
             <SectionLabel label="คลังสินค้า" Icon={Package} collapsed={collapsed} />
             {INVENTORY_NAV.map(item => (
+              <NavItem key={item.to} {...item} collapsed={collapsed} onClick={close} themeColor={themeColor} />
+            ))}
+          </div>
+
+          {/* รายงานภาษี */}
+          <div className="pt-3">
+            <SectionLabel label="รายงานภาษี" Icon={BarChart3} collapsed={collapsed} />
+            {REPORTS_NAV.map(item => (
               <NavItem key={item.to} {...item} collapsed={collapsed} onClick={close} themeColor={themeColor} />
             ))}
           </div>
