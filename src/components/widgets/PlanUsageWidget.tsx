@@ -2,7 +2,7 @@ import { usePlan } from '../../hooks/usePlan'
 import { PLAN_LIMITS } from '../../lib/planLimits'
 
 export default function PlanUsageWidget() {
-  const { plan, usage, limits, loading } = usePlan()
+  const { plan, usage, loading } = usePlan()
 
   if (loading) {
     return (
