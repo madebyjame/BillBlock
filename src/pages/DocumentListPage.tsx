@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   FilePlus, Plus, Search, ChevronDown, MoreVertical,
   Eye, Pencil, Download, Trash2, Clock, CheckCircle2, XCircle, Copy, ArrowRightLeft,
-  TrendingUp, Hourglass, AlertCircle, FileSpreadsheet, CreditCard,
+  TrendingUp, Hourglass, AlertCircle, FileSpreadsheet, CreditCard, Mail,
 } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
@@ -23,6 +23,7 @@ import type { DocTypeCode } from '../types/document'
 import { DOC_TYPE_CODES } from '../types/document'
 import type { DocListRow } from '../hooks/useDocumentsByType'
 import PaymentModal from '../components/PaymentModal'
+import SendEmailModal from '../components/SendEmailModal'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -158,7 +159,7 @@ function StatusBadge({
 
 function KebabMenu({
   row, deleting, duplicating, converting,
-  onDelete, onNavigate, onDuplicate, onConvert, onPayment,
+  onDelete, onNavigate, onDuplicate, onConvert, onPayment, onEmail,
 }: {
   row: DocListRow
   deleting: boolean
@@ -169,6 +170,7 @@ function KebabMenu({
   onDuplicate: (id: string) => void
   onConvert?: (id: string) => void
   onPayment?: (id: string, total: number, docNumber: string) => void
+  onEmail?: (row: DocListRow) => void
 }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
@@ -242,6 +244,13 @@ function KebabMenu({
               บันทึกชำระเงิน
             </button>
           )}
+          {onEmail && (
+            <button onClick={(e) => { e.stopPropagation(); setOpen(false); onEmail(row) }}
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50">
+              <Mail size={13} className="text-slate-400" />
+              ส่งอีเมลลูกค้า
+            </button>
+          )}
           <div className="my-1 border-t border-slate-100" />
           <button onClick={(e) => { setOpen(false); onDelete(e, row.id) }}
             className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-red-500 transition-colors hover:bg-red-50">
@@ -312,6 +321,7 @@ export default function DocumentListPage({ docType }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkUpdating, setBulkUpdating] = useState(false)
   const [paymentDoc, setPaymentDoc] = useState<{ id: string; total: number; title: string } | null>(null)
+  const [emailDoc, setEmailDoc] = useState<DocListRow | null>(null)
 
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<DocumentRow['status'] | 'all' | 'overdue'>('all')
@@ -471,6 +481,15 @@ export default function DocumentListPage({ docType }: Props) {
           documentTitle={paymentDoc.title}
           onClose={() => setPaymentDoc(null)}
           onPaymentChanged={refetch}
+        />
+      )}
+      {emailDoc && (
+        <SendEmailModal
+          docNumber={emailDoc.doc_number}
+          docTypeLabel={DOC_TYPE_CODES[emailDoc.doc_type as DocTypeCode] ?? emailDoc.doc_type}
+          customerEmail={emailDoc.customer_email}
+          customerName={emailDoc.customer_name}
+          onClose={() => setEmailDoc(null)}
         />
       )}
       {upgradeModal && (
@@ -721,6 +740,7 @@ export default function DocumentListPage({ docType }: Props) {
                         onDuplicate={handleDuplicate}
                         onConvert={isQuotation ? handleConvert : undefined}
                         onPayment={(id, total, title) => setPaymentDoc({ id, total, title })}
+                        onEmail={(r) => setEmailDoc(r)}
                       />
                     </td>
                   </tr>

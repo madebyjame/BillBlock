@@ -39,6 +39,8 @@ export interface DocumentData {
     taxId: string
     address: string
     branch: string
+    email?: string
+    phone?: string
   }
   items: LineItem[]
   notes: string

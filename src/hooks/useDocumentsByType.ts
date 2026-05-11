@@ -14,6 +14,7 @@ export interface DocListRow {
   due_date: string | null
   doc_number: string
   customer_name: string
+  customer_email: string
   salesperson: string
   project_name: string
   credit: string
@@ -50,6 +51,7 @@ export function useDocumentsByType(docType: DocTypeCode) {
             due_date: typeof r.due_date === 'string' ? r.due_date : null,
             doc_number: content?.docMeta?.number ?? '-',
             customer_name: content?.customer?.name ?? '-',
+            customer_email: content?.customer?.email ?? '',
             salesperson: content?.docMeta?.salesperson ?? '',
             project_name: content?.docMeta?.projectName ?? '',
             credit: content?.docMeta?.credit ?? '',

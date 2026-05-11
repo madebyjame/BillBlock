@@ -22,6 +22,7 @@ import {
   BarChart3,
   FileBarChart2,
   TrendingUp,
+  Wallet,
 } from 'lucide-react'
 import { usePlan } from '../hooks/usePlan'
 
@@ -60,8 +61,9 @@ const REPORTS_NAV = [
 ]
 
 const BOTTOM_NAV = [
-  { to: '/customers', label: 'ลูกค้า',  end: false, Icon: Users },
-  { to: '/settings',  label: 'ตั้งค่า', end: false, Icon: Settings },
+  { to: '/customers', label: 'ลูกค้า',      end: false, Icon: Users },
+  { to: '/expenses',  label: 'ค่าใช้จ่าย', end: false, Icon: Wallet },
+  { to: '/settings',  label: 'ตั้งค่า',     end: false, Icon: Settings },
 ]
 
 function NavItem({ to, label, end = false, Icon, collapsed, onClick, themeColor }: {

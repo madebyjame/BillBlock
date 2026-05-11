@@ -22,6 +22,7 @@ import RefundPage from './pages/RefundPage'
 import VatReportPage from './pages/VatReportPage'
 import WhtReportPage from './pages/WhtReportPage'
 import PlReportPage from './pages/PlReportPage'
+import ExpensesPage from './pages/ExpensesPage'
 
 function LoadingScreen() {
   return (
@@ -90,6 +91,7 @@ export default function App() {
 
             <Route path="/products"   element={<Navigate to="/inventory/products" replace />} />
             <Route path="/customers"  element={<CustomersPage />} />
+            <Route path="/expenses"   element={<ExpensesPage />} />
             <Route path="/settings"   element={<SettingsPage />} />
 
             {/* รายงาน */}

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { TrendingUp, TrendingDown, FileSpreadsheet, Info, RefreshCw } from 'lucide-react'
+import { TrendingUp, TrendingDown, FileSpreadsheet, RefreshCw, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { getExpenseSummary } from '../lib/expenseApi'
 import * as XLSX from 'xlsx'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -12,6 +13,8 @@ interface PlRow {
   revenue: number
   cogs: number
   gross_profit: number
+  expenses: number
+  net_profit: number
   doc_count: number
 }
 
@@ -40,8 +43,8 @@ function currentYear() {
 
 export default function PlReportPage() {
   const { user } = useAuth()
-  const [rows, setRows] = useState<PlRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const [rows, setRows]         = useState<PlRow[]>([])
+  const [loading, setLoading]   = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
   const [year, setYear] = useState(currentYear)
@@ -59,22 +62,34 @@ export default function PlReportPage() {
     if (!user) return
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .rpc('get_pl_summary', { p_date_from: dateFrom, p_date_to: dateTo })
+      const [{ data, error }, expenseData] = await Promise.all([
+        supabase.rpc('get_pl_summary', { p_date_from: dateFrom, p_date_to: dateTo }),
+        getExpenseSummary(dateFrom, dateTo),
+      ])
       if (error) throw error
-      setRows((data ?? []).map((r: Record<string, unknown>) => ({
-        month_key:    String(r.month_key),
-        revenue:      Number(r.revenue),
-        cogs:         Number(r.cogs),
-        gross_profit: Number(r.gross_profit),
-        doc_count:    Number(r.doc_count),
-      })))
+
+      // Build expense map by month_key
+      const expMap = new Map(expenseData.map(e => [e.month_key, e.total_expenses]))
+
+      setRows((data ?? []).map((r: Record<string, unknown>) => {
+        const grossProfit = Number(r.gross_profit)
+        const expenses    = expMap.get(String(r.month_key)) ?? 0
+        return {
+          month_key:    String(r.month_key),
+          revenue:      Number(r.revenue),
+          cogs:         Number(r.cogs),
+          gross_profit: grossProfit,
+          expenses,
+          net_profit:   grossProfit - expenses,
+          doc_count:    Number(r.doc_count),
+        }
+      }))
     } finally {
       setLoading(false)
     }
   }
 
-  // Recalculate COGS for all paid docs in the period (useful if cost_price changed)
+  // Recalculate COGS for all paid docs in the period
   async function handleRefreshCogs() {
     if (!user) return
     setRefreshing(true)
@@ -90,7 +105,10 @@ export default function PlReportPage() {
 
       if (paidDocs && paidDocs.length > 0) {
         await Promise.all(
-          paidDocs.map(d => supabase.rpc('refresh_doc_cogs', { p_doc_id: d.id }))
+          paidDocs.map(d =>
+            supabase.rpc('refresh_doc_cogs', { p_doc_id: d.id })
+              .then(() => undefined, () => undefined),
+          ),
         )
       }
       await loadData()
@@ -106,6 +124,8 @@ export default function PlReportPage() {
     revenue:      rows.reduce((s, r) => s + r.revenue, 0),
     cogs:         rows.reduce((s, r) => s + r.cogs, 0),
     gross_profit: rows.reduce((s, r) => s + r.gross_profit, 0),
+    expenses:     rows.reduce((s, r) => s + r.expenses, 0),
+    net_profit:   rows.reduce((s, r) => s + r.net_profit, 0),
     doc_count:    rows.reduce((s, r) => s + r.doc_count, 0),
   }), [rows])
 
@@ -119,24 +139,26 @@ export default function PlReportPage() {
         'COGS (฿)': r.cogs,
         'กำไรขั้นต้น (฿)': r.gross_profit,
         'Gross Margin (%)': pct(r.gross_profit, r.revenue),
-        'ค่าใช้จ่าย (฿)': 0,
-        'กำไรสุทธิ (฿)': r.gross_profit,
+        'ค่าใช้จ่าย (฿)': r.expenses,
+        'กำไรสุทธิ (฿)': r.net_profit,
+        'Net Margin (%)': pct(r.net_profit, r.revenue),
         จำนวนเอกสาร: r.doc_count,
       })),
       {
-        เดือน: 'รวมทั้งปี',
+        เดือน: `รวมทั้งปี ${year}`,
         'รายได้ (฿)': totals.revenue,
         'COGS (฿)': totals.cogs,
         'กำไรขั้นต้น (฿)': totals.gross_profit,
         'Gross Margin (%)': pct(totals.gross_profit, totals.revenue),
-        'ค่าใช้จ่าย (฿)': 0,
-        'กำไรสุทธิ (฿)': totals.gross_profit,
+        'ค่าใช้จ่าย (฿)': totals.expenses,
+        'กำไรสุทธิ (฿)': totals.net_profit,
+        'Net Margin (%)': pct(totals.net_profit, totals.revenue),
         จำนวนเอกสาร: totals.doc_count,
       },
     ]
 
     const ws = XLSX.utils.json_to_sheet(exportRows)
-    ws['!cols'] = [{ wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 12 }]
+    ws['!cols'] = [{ wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 }]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, `P&L ${year}`)
     XLSX.writeFile(wb, `pl_report_${year}.xlsx`)
@@ -149,7 +171,7 @@ export default function PlReportPage() {
       <div className="mb-8 flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-800">กำไร & ขาดทุน (P&L)</h1>
-          <p className="mt-1.5 text-sm text-slate-400">รายได้ − ต้นทุนสินค้า (COGS) = กำไรขั้นต้น จากเอกสารที่ชำระแล้ว</p>
+          <p className="mt-1.5 text-sm text-slate-400">รายได้ − COGS − ค่าใช้จ่าย = กำไรสุทธิ จากเอกสารที่ชำระแล้ว</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -171,16 +193,6 @@ export default function PlReportPage() {
         </div>
       </div>
 
-      {/* Notice */}
-      <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-        <Info size={15} className="mt-0.5 shrink-0 text-amber-500" />
-        <p className="text-xs text-amber-700">
-          <strong>ค่าใช้จ่าย (Expenses) = 0</strong> เพราะยังไม่มีระบบบันทึกค่าใช้จ่าย
-          — กำไรสุทธิที่แสดงคือ <strong>กำไรขั้นต้น (Gross Profit)</strong> เท่านั้น
-          COGS คำนวณจาก cost_price × จำนวนของสินค้าที่เลือกจากคลัง
-        </p>
-      </div>
-
       {/* Year selector */}
       <div className="mb-6 flex items-center gap-2">
         {availableYears.map(y => (
@@ -199,7 +211,7 @@ export default function PlReportPage() {
       </div>
 
       {/* Summary KPI cards */}
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
         {[
           {
             label: `รายได้รวม ${year}`,
@@ -226,13 +238,20 @@ export default function PlReportPage() {
             iconColor: totals.gross_profit >= 0 ? 'text-blue-500' : 'text-red-400',
           },
           {
-            label: 'Gross Margin',
-            value: null,
-            display: pct(totals.gross_profit, totals.revenue),
-            color: 'text-indigo-700',
-            bg: 'bg-indigo-50 border-indigo-100',
+            label: 'ค่าใช้จ่าย',
+            value: totals.expenses,
+            color: 'text-red-600',
+            bg: 'bg-red-50 border-red-100',
+            Icon: Wallet,
+            iconColor: 'text-red-400',
+          },
+          {
+            label: 'กำไรสุทธิ',
+            value: totals.net_profit,
+            color: totals.net_profit >= 0 ? 'text-emerald-700' : 'text-red-600',
+            bg: totals.net_profit >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100',
             Icon: TrendingUp,
-            iconColor: 'text-indigo-400',
+            iconColor: totals.net_profit >= 0 ? 'text-emerald-500' : 'text-red-400',
           },
         ].map(card => (
           <div key={card.label} className={`rounded-2xl border p-5 shadow-sm ${card.bg}`}>
@@ -240,8 +259,8 @@ export default function PlReportPage() {
               <card.Icon size={15} className={card.iconColor} />
               <p className="text-xs font-medium text-slate-500">{card.label}</p>
             </div>
-            <p className={`text-2xl font-bold ${card.color}`}>
-              {card.display ?? `฿${fmtAmount(card.value ?? 0)}`}
+            <p className={`text-xl font-bold ${card.color}`}>
+              ฿{fmtAmount(card.value)}
             </p>
           </div>
         ))}
@@ -263,8 +282,8 @@ export default function PlReportPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/80 text-left">
-                {['เดือน', 'รายได้', 'COGS', 'กำไรขั้นต้น', 'Gross Margin', 'เอกสาร'].map(h => (
-                  <th key={h} className={`px-5 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400 ${h !== 'เดือน' && h !== 'เอกสาร' ? 'text-right' : ''}`}>
+                {['เดือน', 'รายได้', 'COGS', 'กำไรขั้นต้น', 'Gross Margin', 'ค่าใช้จ่าย', 'กำไรสุทธิ', 'Net Margin'].map(h => (
+                  <th key={h} className={`px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400 ${h !== 'เดือน' ? 'text-right' : ''}`}>
                     {h}
                   </th>
                 ))}
@@ -272,28 +291,43 @@ export default function PlReportPage() {
             </thead>
             <tbody>
               {rows.map(row => {
-                const margin = row.revenue > 0 ? (row.gross_profit / row.revenue * 100) : 0
-                const isLoss = row.gross_profit < 0
+                const grossMargin = row.revenue > 0 ? (row.gross_profit / row.revenue * 100) : 0
+                const netMargin   = row.revenue > 0 ? (row.net_profit / row.revenue * 100) : 0
+                const isNetLoss   = row.net_profit < 0
                 return (
                   <tr key={row.month_key} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
-                    <td className="px-5 py-4 font-medium text-slate-700">{monthLabel(row.month_key)}</td>
-                    <td className="px-5 py-4 text-right font-semibold text-green-700">฿{fmtAmount(row.revenue)}</td>
-                    <td className="px-5 py-4 text-right text-slate-500">
+                    <td className="px-4 py-4 font-medium text-slate-700">{monthLabel(row.month_key)}</td>
+                    <td className="px-4 py-4 text-right font-semibold text-green-700">฿{fmtAmount(row.revenue)}</td>
+                    <td className="px-4 py-4 text-right text-slate-500">
                       {row.cogs > 0 ? `฿${fmtAmount(row.cogs)}` : <span className="text-slate-300">—</span>}
                     </td>
-                    <td className={`px-5 py-4 text-right font-bold ${isLoss ? 'text-red-600' : 'text-blue-700'}`}>
+                    <td className={`px-4 py-4 text-right font-semibold ${row.gross_profit < 0 ? 'text-red-600' : 'text-blue-700'}`}>
                       ฿{fmtAmount(row.gross_profit)}
                     </td>
-                    <td className="px-5 py-4 text-right">
-                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                        margin >= 30 ? 'bg-green-100 text-green-700'
-                        : margin >= 10 ? 'bg-amber-100 text-amber-700'
+                    <td className="px-4 py-4 text-right">
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        grossMargin >= 30 ? 'bg-green-100 text-green-700'
+                        : grossMargin >= 10 ? 'bg-amber-100 text-amber-700'
                         : 'bg-red-100 text-red-600'
                       }`}>
                         {pct(row.gross_profit, row.revenue)}
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-center text-slate-400 text-xs">{row.doc_count}</td>
+                    <td className="px-4 py-4 text-right text-red-600">
+                      {row.expenses > 0 ? `฿${fmtAmount(row.expenses)}` : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td className={`px-4 py-4 text-right font-bold ${isNetLoss ? 'text-red-600' : 'text-emerald-700'}`}>
+                      ฿{fmtAmount(row.net_profit)}
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        netMargin >= 20 ? 'bg-emerald-100 text-emerald-700'
+                        : netMargin >= 5 ? 'bg-amber-100 text-amber-700'
+                        : 'bg-red-100 text-red-600'
+                      }`}>
+                        {pct(row.net_profit, row.revenue)}
+                      </span>
+                    </td>
                   </tr>
                 )
               })}
@@ -301,16 +335,20 @@ export default function PlReportPage() {
             {/* Grand total */}
             <tfoot>
               <tr className="border-t-2 border-slate-200 bg-slate-50">
-                <td className="px-5 py-4 font-bold text-slate-700">รวมทั้งปี {year}</td>
-                <td className="px-5 py-4 text-right font-bold text-green-700">฿{fmtAmount(totals.revenue)}</td>
-                <td className="px-5 py-4 text-right font-bold text-slate-600">฿{fmtAmount(totals.cogs)}</td>
-                <td className={`px-5 py-4 text-right font-bold text-lg ${totals.gross_profit < 0 ? 'text-red-600' : 'text-blue-700'}`}>
-                  ฿{fmtAmount(totals.gross_profit)}
-                </td>
-                <td className="px-5 py-4 text-right">
+                <td className="px-4 py-4 font-bold text-slate-700">รวมทั้งปี {year}</td>
+                <td className="px-4 py-4 text-right font-bold text-green-700">฿{fmtAmount(totals.revenue)}</td>
+                <td className="px-4 py-4 text-right font-bold text-slate-600">฿{fmtAmount(totals.cogs)}</td>
+                <td className="px-4 py-4 text-right font-bold text-blue-700">฿{fmtAmount(totals.gross_profit)}</td>
+                <td className="px-4 py-4 text-right">
                   <span className="text-sm font-bold text-slate-600">{pct(totals.gross_profit, totals.revenue)}</span>
                 </td>
-                <td className="px-5 py-4 text-center font-semibold text-slate-500">{totals.doc_count}</td>
+                <td className="px-4 py-4 text-right font-bold text-red-600">฿{fmtAmount(totals.expenses)}</td>
+                <td className={`px-4 py-4 text-right text-lg font-bold ${totals.net_profit < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                  ฿{fmtAmount(totals.net_profit)}
+                </td>
+                <td className="px-4 py-4 text-right">
+                  <span className="text-sm font-bold text-slate-600">{pct(totals.net_profit, totals.revenue)}</span>
+                </td>
               </tr>
             </tfoot>
           </table>
