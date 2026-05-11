@@ -10,6 +10,7 @@ import DocumentListPage from './pages/DocumentListPage'
 import EditorPage from './pages/EditorPage'
 import SettingsPage from './pages/SettingsPage'
 import CustomersPage from './pages/CustomersPage'
+import CustomerDetailPage from './pages/CustomerDetailPage'
 import ProductsPage from './pages/ProductsPage'
 import LandingPage from './pages/LandingPage'
 import StockAdjustmentPage from './pages/StockAdjustmentPage'
@@ -93,7 +94,8 @@ export default function App() {
             <Route path="/inventory/movements"    element={<StockMovementPage />} />
 
             <Route path="/products"   element={<Navigate to="/inventory/products" replace />} />
-            <Route path="/customers"  element={<CustomersPage />} />
+            <Route path="/customers"     element={<CustomersPage />} />
+            <Route path="/customers/:id" element={<CustomerDetailPage />} />
             <Route path="/expenses"   element={<ExpensesPage />} />
             <Route path="/settings"   element={<SettingsPage />} />
 
