@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useConfirm } from '../hooks/useConfirm'
 import {
-  computeCommittedQtys, createProduct, deleteProduct, listProducts, updateProduct,
+  computeCommittedQtys, createProduct, deleteProduct, listProducts, updateProduct, uploadProductImage,
   type ProductInput, type ProductRow,
 } from '../lib/productApi'
 import { PlanLimitError } from '../lib/planLimits'
@@ -21,7 +21,7 @@ import { listMovementsByProduct, recordStockMovement, type MovementType, type St
 
 const EMPTY_FORM: ProductInput = {
   name: '', price: 0, unit: '', stock: 0, category: '',
-  sku: '', cost_price: 0, min_stock: 0, description: '', tax_type: 'vat_included',
+  sku: '', cost_price: 0, min_stock: 0, description: '', tax_type: 'vat_included', image_url: '',
 }
 const PAGE_SIZE = 10
 
@@ -38,8 +38,11 @@ function stockCls(val: number, minStock: number) {
   return 'text-green-600 font-semibold'
 }
 
-// Deterministic pastel avatar for products with no image
-function ProductAvatar({ name }: { name: string }) {
+// Deterministic pastel avatar — shows thumbnail if image_url available
+function ProductAvatar({ name, imageUrl }: { name: string; imageUrl?: string }) {
+  if (imageUrl) {
+    return <img src={imageUrl} alt={name} className="h-9 w-9 flex-shrink-0 rounded-lg object-cover border border-slate-100" />
+  }
   const initials = name.trim().slice(0, 2).toUpperCase() || '?'
   const hue = [...name].reduce((a, c) => a + c.charCodeAt(0), 0) % 360
   return (
@@ -241,6 +244,8 @@ export default function ProductsPage() {
   const [bulkAction, setBulkAction] = useState<'category' | 'minstock' | null>(null)
   const [bulkValue, setBulkValue] = useState('')
   const [bulkSaving, setBulkSaving] = useState(false)
+  const [imagePreview, setImagePreview] = useState<string>('')   // local dataURL for preview
+  const [imageFile, setImageFile] = useState<File | null>(null)  // pending upload
 
   const themeColor = typeof user?.user_metadata?.themeColor === 'string'
     ? user.user_metadata.themeColor : '#1e3a8a'
@@ -300,7 +305,7 @@ export default function ProductsPage() {
   }
 
   function rowToInput(row: ProductRow): ProductInput {
-    return { name: row.name, price: row.price, unit: row.unit, stock: row.stock, category: row.category, sku: row.sku, cost_price: row.cost_price, min_stock: row.min_stock, description: row.description, tax_type: row.tax_type }
+    return { name: row.name, price: row.price, unit: row.unit, stock: row.stock, category: row.category, sku: row.sku, cost_price: row.cost_price, min_stock: row.min_stock, description: row.description, tax_type: row.tax_type, image_url: row.image_url }
   }
 
   async function handleBulkCategory() {
@@ -335,10 +340,14 @@ export default function ProductsPage() {
     finally { setBulkSaving(false) }
   }
 
-  function openCreate() { setEditingId(null); setForm(EMPTY_FORM); setShowModal(true) }
+  function openCreate() {
+    setEditingId(null); setForm(EMPTY_FORM); setImagePreview(''); setImageFile(null); setShowModal(true)
+  }
   function openEdit(row: ProductRow) {
     setEditingId(row.id)
-    setForm({ name: row.name, price: row.price, unit: row.unit, stock: row.stock, category: row.category, sku: row.sku, cost_price: row.cost_price, min_stock: row.min_stock, description: row.description, tax_type: row.tax_type })
+    setForm(rowToInput(row))
+    setImagePreview(row.image_url)
+    setImageFile(null)
     setShowModal(true)
   }
 
@@ -346,8 +355,24 @@ export default function ProductsPage() {
     if (!user || saving || !form.name.trim()) return
     setSaving(true)
     try {
-      if (editingId) { await updateProduct(editingId, form); toast.success('อัปเดตข้อมูลสินค้าแล้ว') }
-      else { await createProduct(user.id, form); toast.success('เพิ่มข้อมูลสินค้าแล้ว') }
+      let finalForm = form
+      if (editingId) {
+        // upload image first if new file selected
+        if (imageFile) {
+          const url = await uploadProductImage(user.id, editingId, imageFile)
+          finalForm = { ...form, image_url: url }
+        }
+        await updateProduct(editingId, finalForm)
+        toast.success('อัปเดตข้อมูลสินค้าแล้ว')
+      } else {
+        // create → get id → upload → update image_url
+        const newId = await createProduct(user.id, finalForm)
+        if (imageFile) {
+          const url = await uploadProductImage(user.id, newId, imageFile)
+          await updateProduct(newId, { ...finalForm, image_url: url })
+        }
+        toast.success('เพิ่มข้อมูลสินค้าแล้ว')
+      }
       setShowModal(false)
       await loadRows()
     } catch (err) {
@@ -524,7 +549,7 @@ export default function ProductsPage() {
                         <input type="checkbox" checked={selectedIds.has(row.id)} onChange={() => toggleOne(row.id)} className="h-4 w-4 rounded border-slate-300 accent-slate-700" />
                       </td>
                       <td className="px-2 py-3">
-                        <ProductAvatar name={row.name} />
+                        <ProductAvatar name={row.name} imageUrl={row.image_url || undefined} />
                       </td>
                       <td className="px-4 py-3">
                         <button onClick={() => navigate(`/inventory/products/${row.id}`)} className="text-left">
@@ -594,7 +619,38 @@ export default function ProductsPage() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
           <div className="w-full max-w-2xl rounded-xl bg-white p-5 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h2 className="mb-4 text-lg font-semibold text-slate-800">{editingId ? 'แก้ไขข้อมูลสินค้า' : 'เพิ่มข้อมูลสินค้า'}</h2>
+            {/* Header + image side-by-side */}
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <h2 className="text-lg font-semibold text-slate-800">{editingId ? 'แก้ไขข้อมูลสินค้า' : 'เพิ่มข้อมูลสินค้า'}</h2>
+              {/* Image upload */}
+              <label className="group relative flex h-20 w-20 flex-shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 transition-colors hover:border-blue-400 hover:bg-blue-50">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="preview" className="h-full w-full object-cover" />
+                ) : (
+                  <>
+                    <svg className="h-6 w-6 text-slate-300 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="mt-1 text-[10px] text-slate-400 group-hover:text-blue-400 transition-colors">รูปสินค้า</span>
+                  </>
+                )}
+                {imagePreview && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[10px] font-medium text-white">เปลี่ยนรูป</span>
+                  </div>
+                )}
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={e => {
+                    const f = e.target.files?.[0]; e.target.value = ''
+                    if (!f) return
+                    setImageFile(f)
+                    const reader = new FileReader()
+                    reader.onload = () => setImagePreview(reader.result as string)
+                    reader.readAsDataURL(f)
+                  }} />
+              </label>
+            </div>
 
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">ข้อมูลทั่วไป</p>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 mb-4">
