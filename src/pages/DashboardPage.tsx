@@ -20,6 +20,9 @@ export default function DashboardPage() {
     revenue30d: 0,
     pendingAmount: 0,
     pendingCount: 0,
+    overdueAmount: 0,
+    overdueCount: 0,
+    overdueDocs: [],
     sparkline: [],
     pendingDocs: [],
     recentDocs: [],
@@ -43,7 +46,7 @@ export default function DashboardPage() {
       const [docsRes, productsRes, countRes, profileRes, gradesRes] = await Promise.all([
         supabase
           .from('documents')
-          .select('id, doc_type, status, total_amount, created_at, content')
+          .select('id, doc_type, status, total_amount, created_at, due_date, content')
           .eq('user_id', userId)
           .order('created_at', { ascending: false }),
         supabase
@@ -70,6 +73,7 @@ export default function DashboardPage() {
         const customer = content?.customer as Record<string, unknown> | null
         return {
           ...r,
+          due_date: typeof r.due_date === 'string' ? r.due_date : null,
           doc_number: typeof docMeta?.number === 'string' ? docMeta.number : undefined,
           customer_name: typeof customer?.name === 'string' ? customer.name : '—',
         } as DashboardDoc
@@ -101,6 +105,13 @@ export default function DashboardPage() {
         value,
       }))
 
+      const todayStr = now.toISOString().split('T')[0]
+      const overdueDocs = docs.filter(d =>
+        d.doc_type === 'invoice' &&
+        d.status === 'sent' &&
+        d.due_date != null &&
+        d.due_date < todayStr
+      )
       const pendingDocs = docs.filter(d => d.doc_type === 'invoice' && d.status === 'sent')
 
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
@@ -124,6 +135,9 @@ export default function DashboardPage() {
         revenue30d,
         pendingAmount: pendingDocs.reduce((s, d) => s + d.total_amount, 0),
         pendingCount: pendingDocs.length,
+        overdueAmount: overdueDocs.reduce((s, d) => s + d.total_amount, 0),
+        overdueCount: overdueDocs.length,
+        overdueDocs,
         sparkline,
         pendingDocs,
         recentDocs: docs.slice(0, 20),

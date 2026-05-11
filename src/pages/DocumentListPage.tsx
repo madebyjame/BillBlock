@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   FilePlus, Plus, Search, ChevronDown, MoreVertical,
   Eye, Pencil, Download, Trash2, Clock, CheckCircle2, XCircle, Copy, ArrowRightLeft,
-  TrendingUp, Hourglass,
+  TrendingUp, Hourglass, AlertCircle,
 } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
@@ -68,6 +68,10 @@ function fmtAmount(n: number) {
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function isOverdue(row: { status: DocumentRow['status']; due_date: string | null }): boolean {
+  return row.status === 'sent' && row.due_date != null && row.due_date < new Date().toISOString().split('T')[0]
 }
 
 function statusLabel(status: DocumentRow['status'], docType: DocTypeCode) {
@@ -292,9 +296,10 @@ export default function DocumentListPage({ docType }: Props) {
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
   const [convertingId, setConvertingId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkUpdating, setBulkUpdating] = useState(false)
 
   const [search, setSearch] = useState('')
-  const [filterStatus, setFilterStatus] = useState<DocumentRow['status'] | 'all'>('all')
+  const [filterStatus, setFilterStatus] = useState<DocumentRow['status'] | 'all' | 'overdue'>('all')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
   const [page, setPage] = useState(1)
@@ -313,7 +318,9 @@ export default function DocumentListPage({ docType }: Props) {
           !row.customer_name.toLowerCase().includes(q) &&
           !row.project_name.toLowerCase().includes(q)) return false
     }
-    if (filterStatus !== 'all' && row.status !== filterStatus) return false
+    if (filterStatus === 'overdue') {
+      if (!isOverdue(row)) return false
+    } else if (filterStatus !== 'all' && row.status !== filterStatus) return false
     if (filterDateFrom && row.created_at < filterDateFrom) return false
     if (filterDateTo && row.created_at > filterDateTo + 'T23:59:59') return false
     return true
@@ -389,6 +396,18 @@ export default function DocumentListPage({ docType }: Props) {
       setSelectedIds(new Set())
       refetch()
     } catch { toast.error('ลบไม่สำเร็จ กรุณาลองใหม่') }
+  }
+
+  async function handleBulkStatusChange(status: DocumentRow['status']) {
+    if (!confirm(`เปลี่ยนสถานะ ${selectedIds.size} รายการ เป็น "${statusLabel(status, docType)}"?`)) return
+    setBulkUpdating(true)
+    try {
+      await Promise.all([...selectedIds].map(id => updateDocumentStatus(id, status)))
+      toast.success(`อัปเดต ${selectedIds.size} รายการเรียบร้อย`)
+      setSelectedIds(new Set())
+      refetch()
+    } catch { toast.error('อัปเดตสถานะไม่สำเร็จ') }
+    finally { setBulkUpdating(false) }
   }
 
   async function handleChangeStatus(id: string, status: DocumentRow['status']) {
@@ -495,13 +514,14 @@ export default function DocumentListPage({ docType }: Props) {
 
         <select
           value={filterStatus}
-          onChange={(e) => { setFilterStatus(e.target.value as DocumentRow['status'] | 'all'); setPage(1) }}
+          onChange={(e) => { setFilterStatus(e.target.value as DocumentRow['status'] | 'all' | 'overdue'); setPage(1) }}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-slate-400"
         >
           <option value="all">ทุกสถานะ</option>
           {ALL_STATUSES.map((s) => (
             <option key={s} value={s}>{statusLabel(s, docType)}</option>
           ))}
+          {docType === 'invoice' && <option value="overdue">เกินกำหนด</option>}
         </select>
 
         <div className="flex items-center gap-1.5">
@@ -526,11 +546,29 @@ export default function DocumentListPage({ docType }: Props) {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="mb-3 flex items-center justify-between rounded-lg bg-slate-800 px-4 py-2.5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-800 px-4 py-2.5">
           <span className="text-sm text-white">เลือก {selectedIds.size} รายการ</span>
-          <button onClick={() => void handleBulkDelete()} className="text-sm font-medium text-red-400 hover:text-red-300">
-            ลบที่เลือก
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400">เปลี่ยนสถานะ:</span>
+            {ALL_STATUSES.map((s) => (
+              <button
+                key={s}
+                disabled={bulkUpdating}
+                onClick={() => void handleBulkStatusChange(s)}
+                className="text-xs font-medium text-slate-300 hover:text-white disabled:opacity-50"
+              >
+                {statusLabel(s, docType)}
+              </button>
+            ))}
+            <div className="h-3 w-px bg-slate-600" />
+            <button
+              disabled={bulkUpdating}
+              onClick={() => void handleBulkDelete()}
+              className="text-sm font-medium text-red-400 hover:text-red-300 disabled:opacity-50"
+            >
+              ลบที่เลือก
+            </button>
+          </div>
         </div>
       )}
 
@@ -611,12 +649,20 @@ export default function DocumentListPage({ docType }: Props) {
                     )}
                     <td className="px-4 py-3 text-right font-medium text-slate-700">{fmtAmount(row.total_amount)}</td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <StatusBadge
-                        row={row}
-                        docType={docType}
-                        updating={updatingStatusId === row.id}
-                        onChangeStatus={handleChangeStatus}
-                      />
+                      <div className="flex flex-col gap-1">
+                        <StatusBadge
+                          row={row}
+                          docType={docType}
+                          updating={updatingStatusId === row.id}
+                          onChangeStatus={handleChangeStatus}
+                        />
+                        {isOverdue(row) && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-600">
+                            <AlertCircle size={8} className="shrink-0" />
+                            เกินกำหนด
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <KebabMenu
