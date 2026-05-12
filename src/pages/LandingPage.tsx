@@ -3,9 +3,9 @@ import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
   FileText, BarChart3, Users, Package,
-  CheckCircle2, Star, Zap, Shield, Globe, ArrowRight,
+  CheckCircle2, Zap, Shield, Globe, ArrowRight,
   Receipt, ClipboardList, Building2, Mail, TrendingUp,
-  X, Layers, Moon, Sun,
+  X, Layers, Moon, Sun, ChevronDown,
 } from 'lucide-react'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
@@ -168,30 +168,71 @@ const PLANS: PlanDef[] = [
   },
 ]
 
-const TESTIMONIALS = [
+const FAQ = [
   {
-    name: 'คุณสมชาย',
-    role: 'เจ้าของร้านค้าออนไลน์',
-    text: 'ประหยัดเวลาออกเอกสารไปกว่า 3 ชั่วโมงต่อสัปดาห์ ลูกค้าชื่นชมว่าเอกสารดูมืออาชีพมาก',
-    stars: 5,
+    q: 'ทดลองใช้ฟรีได้นานแค่ไหน?',
+    a: 'แผน Free ไม่มีวันหมดอายุ ใช้ได้ตลอดไป ภายในขีดจำกัดของแผน (5 เอกสาร/เดือน)',
   },
   {
-    name: 'คุณนภา',
-    role: 'Graphic Designer อิสระ',
-    text: 'ก่อนหน้าต้องทำใบเสนอราคาใน Word ทุกครั้ง ตอนนี้ไม่กี่คลิกก็เสร็จ PDF ส่งลูกค้าได้เลย',
-    stars: 5,
+    q: 'ถ้ายกเลิกแผนชำระเงิน ข้อมูลจะหายไหม?',
+    a: 'ไม่หาย — ข้อมูลทุกอย่างยังอยู่ครบ แค่บางฟีเจอร์จะถูกล็อกตามแผน Free',
   },
   {
-    name: 'คุณวิชัย',
-    role: 'ผู้จัดการฝ่ายบัญชี SME',
-    text: 'รายงาน VAT กับ P&L ช่วยประหยัดเวลาเตรียมข้อมูลภาษีได้มาก ทำเองได้ไม่ต้องพึ่งนักบัญชีตลอดเวลา',
-    stars: 5,
+    q: 'รองรับ e-Tax Invoice (ใบกำกับภาษีอิเล็กทรอนิกส์) ไหม?',
+    a: 'ปัจจุบันออกใบกำกับภาษีแบบ PDF ได้ ส่วน e-Tax ที่ผ่านระบบ ETDA อยู่ใน Roadmap',
+  },
+  {
+    q: 'ใช้ได้กี่อุปกรณ์พร้อมกัน?',
+    a: 'ไม่จำกัดอุปกรณ์ — ใช้ได้ทุก browser บน PC, tablet, มือถือในบัญชีเดียวกัน',
+  },
+  {
+    q: 'เปลี่ยนแผนได้ตอนไหน?',
+    a: 'เปลี่ยนได้ทุกเมื่อทันที ไม่มีสัญญาผูกมัด ยกเลิกได้ทุกเมื่อ',
+  },
+  {
+    q: 'ข้อมูลปลอดภัยแค่ไหน?',
+    a: 'ระบบใช้ Supabase + Row Level Security — ข้อมูลของบัญชีคุณมองเห็นได้เฉพาะคุณเท่านั้น เข้ารหัสด้วย TLS ทุก connection',
+  },
+  {
+    q: 'รองรับหลายบริษัทในบัญชีเดียวได้ไหม?',
+    a: 'ปัจจุบัน 1 บัญชี = 1 กิจการ ถ้าต้องการหลายกิจการให้สร้างบัญชีแยกกัน',
+  },
+  {
+    q: 'ชำระค่าบริการผ่านช่องทางไหน?',
+    a: 'บัตรเครดิต/เดบิต และโอนเงินผ่านบัญชีธนาคาร สามารถติดต่อทีมงานเพื่อขอ invoice ได้',
   },
 ]
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+}
+
+// ─── FaqItem ──────────────────────────────────────────────────────────────────
+
+function FaqItem({ q, a, isDark }: { q: string; a: string; isDark: boolean }) {
+  const [open, setOpen] = useState(false)
+  const card    = isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+  const qText   = isDark ? 'text-slate-100' : 'text-slate-800'
+  const aText   = isDark ? 'text-slate-400' : 'text-slate-600'
+  return (
+    <div className={`rounded-xl border ${card} overflow-hidden`}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={`flex w-full items-center justify-between px-5 py-4 text-left transition-colors ${
+          isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-50'
+        }`}
+      >
+        <span className={`font-medium ${qText}`}>{q}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${isDark ? 'text-slate-400' : 'text-slate-400'} ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className={`border-t px-5 py-4 text-sm leading-relaxed ${aText} ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
+          {a}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -216,7 +257,6 @@ export default function LandingPage() {
   const tableHead = d ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-100'
   const tableRow  = d ? 'hover:bg-slate-900 border-slate-800' : 'hover:bg-slate-50 border-slate-100'
   const tableText = d ? 'text-slate-300'                : 'text-slate-700'
-  const reviewCard = d ? 'bg-slate-800/60 ring-slate-700' : 'bg-white ring-slate-100'
 
   return (
     <div className={`min-h-screen ${bg} font-sans antialiased transition-colors duration-300`}>
@@ -231,9 +271,9 @@ export default function LandingPage() {
             <span className={`text-lg font-bold ${textPrime}`}>BillBlock</span>
           </div>
           <nav className={`hidden gap-8 text-sm md:flex ${navLink}`}>
-            <a href="#features"     className="transition-colors">ฟีเจอร์</a>
-            <a href="#pricing"      className="transition-colors">ราคา</a>
-            <a href="#testimonials" className="transition-colors">รีวิว</a>
+            <a href="#features" className="transition-colors">ฟีเจอร์</a>
+            <a href="#pricing"  className="transition-colors">ราคา</a>
+            <a href="#faq"      className="transition-colors">FAQ</a>
           </nav>
           <div className="flex items-center gap-3">
             {/* Dark/Light toggle */}
@@ -547,41 +587,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Testimonials ── */}
-      <section id="testimonials" className={`${bgSub} px-6 py-24 transition-colors duration-300`}>
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-14 text-center">
-            <h2 className={`text-4xl font-bold tracking-tight ${textPrime}`}>เสียงจากผู้ใช้จริง</h2>
-            <p className={`mt-3 ${textBody}`}>ฟรีแลนซ์และเจ้าของธุรกิจที่ใช้ BillBlock ทุกวัน</p>
+      {/* ── FAQ ── */}
+      <section id="faq" className={`${bgSub} px-6 py-24 transition-colors duration-300`}>
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-12 text-center">
+            <h2 className={`text-4xl font-bold tracking-tight ${textPrime}`}>คำถามที่พบบ่อย</h2>
+            <p className={`mt-3 ${textBody}`}>มีคำถามเพิ่มเติม ติดต่อเราได้ที่ support@billblock.app</p>
           </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {TESTIMONIALS.map(({ name, role, text, stars }, i) => (
-              <motion.div
-                key={name}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className={`rounded-2xl p-6 shadow-sm ring-1 ${reviewCard}`}
-              >
-                <div className="mb-3 flex gap-0.5">
-                  {Array.from({ length: stars }).map((_, j) => (
-                    <Star key={j} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <p className={`mb-5 text-sm leading-relaxed ${d ? 'text-slate-300' : 'text-slate-600'}`}>"{text}"</p>
-                <div className="flex items-center gap-3">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${
-                    d ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-600'
-                  }`}>
-                    {name[2]}
-                  </div>
-                  <div>
-                    <p className={`text-sm font-semibold ${d ? 'text-slate-100' : 'text-slate-800'}`}>{name}</p>
-                    <p className={`text-xs ${textMuted}`}>{role}</p>
-                  </div>
-                </div>
-              </motion.div>
+          <div className="space-y-3">
+            {FAQ.map(({ q, a }, i) => (
+              <FaqItem key={i} q={q} a={a} isDark={d} />
             ))}
           </div>
         </div>
@@ -623,7 +638,8 @@ export default function LandingPage() {
               <span className={`font-bold ${textPrime}`}>BillBlock</span>
               <span className={`text-sm ${textMuted}`}>ระบบเอกสารธุรกิจสำหรับธุรกิจไทย</span>
             </div>
-            <div className={`flex items-center gap-6 text-xs ${textMuted}`}>
+            <div className={`flex flex-wrap items-center gap-4 text-xs ${textMuted}`}>
+              <a href="mailto:support@billblock.app" className="hover:text-blue-500 transition-colors">support@billblock.app</a>
               <a href="/terms"   className="hover:text-blue-500 transition-colors">เงื่อนไขการใช้บริการ</a>
               <a href="/privacy" className="hover:text-blue-500 transition-colors">นโยบายความเป็นส่วนตัว</a>
               <a href="/refund"  className="hover:text-blue-500 transition-colors">นโยบายการคืนเงิน</a>
