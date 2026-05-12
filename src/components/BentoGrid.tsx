@@ -20,8 +20,10 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { motion } from 'framer-motion'
 import { GripVertical, LayoutDashboard, Check, Layers, Plus, X } from 'lucide-react'
-import { type WidgetId, WIDGET_META, PRESET_TEMPLATES } from '../types/dashboard'
+import { type WidgetId, WIDGET_META, WIDGET_REGISTRY, PRESET_TEMPLATES } from '../types/dashboard'
 import type { DashboardData, Plan } from '../types/dashboard'
+
+// ── Existing widgets ──
 import QuickActionsWidget from './widgets/QuickActionsWidget'
 import RevenueGoalWidget from './widgets/RevenueGoalWidget'
 import OverdueInvoicesWidget from './widgets/OverdueInvoicesWidget'
@@ -31,29 +33,110 @@ import QuickNoteWidget from './widgets/QuickNoteWidget'
 import TopSpendersWidget from './widgets/TopSpendersWidget'
 import CustomerGradesWidget from './widgets/CustomerGradesWidget'
 import OnboardingWidget from './widgets/OnboardingWidget'
-import TopProductsWidget from './widgets/TopProductsWidget'
 import GrossProfitWidget from './widgets/GrossProfitWidget'
 import LowStockDetailWidget from './widgets/LowStockDetailWidget'
 import SalesForecastWidget from './widgets/SalesForecastWidget'
+
+// ── New free widgets ──
+import PlanUsageWidget from './widgets/PlanUsageWidget'
+import AnnouncementsWidget from './widgets/AnnouncementsWidget'
+import Revenue30dWidget from './widgets/Revenue30dWidget'
+import TotalOutstandingWidget from './widgets/TotalOutstandingWidget'
+import PendingPaymentsWidget from './widgets/PendingPaymentsWidget'
+import TopSellersQtyWidget from './widgets/TopSellersQtyWidget'
+import TopProductsWidget from './widgets/TopProductsWidget'
+import NewCustomersWidget from './widgets/NewCustomersWidget'
+import OutOfStockWidget from './widgets/OutOfStockWidget'
+import DraftDocumentsWidget from './widgets/DraftDocumentsWidget'
+import GoalTrackerWidget from './widgets/GoalTrackerWidget'
+
+// ── Phase-2 widgets ──
+import MomRevenueWidget from './widgets/MomRevenueWidget'
+import TopInvoiceWidget from './widgets/TopInvoiceWidget'
+import PipelineValueWidget from './widgets/PipelineValueWidget'
+import ExpiringQuotesWidget from './widgets/ExpiringQuotesWidget'
+import WhtSummaryWidget from './widgets/WhtSummaryWidget'
+import TotalStockValueWidget from './widgets/TotalStockValueWidget'
+import QuoteConversionWidget from './widgets/QuoteConversionWidget'
+import PaymentMethodWidget from './widgets/PaymentMethodWidget'
+import HighRiskCustomersWidget from './widgets/HighRiskCustomersWidget'
+import InactiveCustomersWidget from './widgets/InactiveCustomersWidget'
+import ExpectedCashInflowWidget from './widgets/ExpectedCashInflowWidget'
+import CancellationRatioWidget from './widgets/CancellationRatioWidget'
+import RevConcentrationWidget from './widgets/RevConcentrationWidget'
+import YtdSummaryWidget from './widgets/YtdSummaryWidget'
+import CashflowChartWidget from './widgets/CashflowChartWidget'
+import AvgPaymentTimeWidget from './widgets/AvgPaymentTimeWidget'
+import ExportShortcutsWidget from './widgets/ExportShortcutsWidget'
+
+// ── Coming soon stub ──
+import ComingSoonWidget from './widgets/ComingSoonWidget'
+
 import WidgetDrawer from './WidgetDrawer'
 
 // ─── Widget content renderer ──────────────────────────────────────────────────
 
 function renderWidgetContent(id: WidgetId, data: DashboardData) {
   switch (id) {
+    // FREE — existing
     case 'quick-actions':     return <QuickActionsWidget />
-    case 'revenue-goal':      return <RevenueGoalWidget data={data} />
+    case 'onboarding':        return <OnboardingWidget data={data} />
+    case 'recent-activities': return <RecentActivitiesWidget data={data} />
     case 'overdue-invoices':  return <OverdueInvoicesWidget data={data} />
     case 'stock-alerts':      return <StockAlertsWidget data={data} />
-    case 'recent-activities': return <RecentActivitiesWidget data={data} />
-    case 'quick-note':        return <QuickNoteWidget />
+    // FREE — new
+    case 'plan-usage':        return <PlanUsageWidget />
+    case 'announcements':     return <AnnouncementsWidget />
+    case 'revenue-30d':       return <Revenue30dWidget data={data} />
+    case 'total-outstanding': return <TotalOutstandingWidget data={data} />
+    case 'pending-payments':  return <PendingPaymentsWidget data={data} />
+    case 'top-sellers-qty':   return <TopSellersQtyWidget data={data} />
+    case 'top-products':      return <TopProductsWidget data={data} />
+    case 'new-customers':     return <NewCustomersWidget />
+    case 'out-of-stock':      return <OutOfStockWidget />
+    case 'draft-documents':   return <DraftDocumentsWidget data={data} />
+    case 'goal-tracker':      return <GoalTrackerWidget data={data} />
+    // PRO — existing
+    case 'gross-profit':      return <GrossProfitWidget data={data} />
+    case 'revenue-goal':      return <RevenueGoalWidget data={data} />
     case 'top-spenders':      return <TopSpendersWidget data={data} />
     case 'customer-grades':   return <CustomerGradesWidget data={data} />
-    case 'onboarding':        return <OnboardingWidget data={data} />
-    case 'top-products':      return <TopProductsWidget data={data} />
-    case 'gross-profit':      return <GrossProfitWidget data={data} />
     case 'low-stock-detail':  return <LowStockDetailWidget data={data} />
+    case 'quick-note':        return <QuickNoteWidget />
+    // PRO — now real
+    case 'cashflow-chart':    return <CashflowChartWidget />
+    case 'mom-revenue':       return <MomRevenueWidget />
+    case 'wht-summary':       return <WhtSummaryWidget />
+    case 'top-invoice':       return <TopInvoiceWidget />
+    case 'pipeline-value':    return <PipelineValueWidget />
+    case 'high-risk-customers': return <HighRiskCustomersWidget />
+    case 'inactive-customers':  return <InactiveCustomersWidget />
+    case 'total-stock-value':   return <TotalStockValueWidget />
+    case 'quote-conversion-rate': return <QuoteConversionWidget />
+    case 'expiring-quotes':     return <ExpiringQuotesWidget />
+    case 'payment-method-stats': return <PaymentMethodWidget />
+    // PRO — still coming soon (needs portal/tracking infra)
+    case 'portal-views':        return <ComingSoonWidget titleTh="สถิติดูเอกสาร" requiredPlan="pro" descriptionTh="จำนวนครั้งที่ลูกค้าเปิดเอกสาร" />
+    case 'top-profitable-products': return <ComingSoonWidget titleTh="สินค้ากำไรสูงสุด" requiredPlan="pro" descriptionTh="สินค้าที่ทำกำไรสูงสุด" />
+    case 'recent-stock-adjustments': return <ComingSoonWidget titleTh="ประวัติปรับสต็อก" requiredPlan="pro" descriptionTh="การปรับสต็อกล่าสุด" />
+    // BUSINESS — existing
     case 'sales-forecast':    return <SalesForecastWidget data={data} />
+    // BUSINESS — now real
+    case 'expected-cash-inflow': return <ExpectedCashInflowWidget />
+    case 'avg-payment-time':  return <AvgPaymentTimeWidget />
+    case 'revenue-concentration': return <RevConcentrationWidget />
+    case 'export-shortcuts':  return <ExportShortcutsWidget />
+    case 'cancellation-ratio': return <CancellationRatioWidget />
+    case 'ytd-summary':       return <YtdSummaryWidget />
+    // BUSINESS — still coming soon (needs salesperson / category features)
+    case 'vat-payable':       return <ComingSoonWidget titleTh="VAT รอยื่น" requiredPlan="business" descriptionTh="ภาษีมูลค่าเพิ่มที่ต้องยื่น" />
+    case 'sales-by-salesperson': return <ComingSoonWidget titleTh="ยอดขายรายพนักงาน" requiredPlan="business" descriptionTh="ยอดขายแยกตามเซลส์" />
+    case 'top-converter-sales': return <ComingSoonWidget titleTh="พนักงานปิดยอดเก่ง" requiredPlan="business" descriptionTh="เซลส์ที่มีอัตราปิดสูงสุด" />
+    case 'overdue-by-salesperson': return <ComingSoonWidget titleTh="หนี้ค้างรายเซลส์" requiredPlan="business" descriptionTh="ยอดค้างชำระแยกตามเซลส์" />
+    case 'dead-stock':        return <ComingSoonWidget titleTh="สินค้าค้างสต็อก" requiredPlan="business" descriptionTh="ไม่ขายมานานกว่า 90 วัน" />
+    case 'inventory-turnover': return <ComingSoonWidget titleTh="อัตราหมุนเวียนสินค้า" requiredPlan="business" descriptionTh="ความถี่ที่สต็อกหมุนเวียนต่อปี" />
+    case 'sales-by-category': return <ComingSoonWidget titleTh="ยอดขายตามหมวด" requiredPlan="business" descriptionTh="ยอดขายแยกตามหมวดหมู่สินค้า" />
+    case 'audit-log':         return <ComingSoonWidget titleTh="ประวัติการใช้งาน" requiredPlan="business" descriptionTh="ติดตามการเปลี่ยนแปลงในระบบ" />
   }
 }
 
@@ -64,6 +147,29 @@ function cardClass(id: WidgetId) {
   return FULL_BLEED.has(id)
     ? 'h-full overflow-hidden rounded-2xl shadow-sm'
     : 'h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'
+}
+
+// ─── Empty dashboard state ────────────────────────────────────────────────────
+
+function EmptyDashboard({ onOpenDrawer }: { onOpenDrawer: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-center">
+      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
+        <LayoutDashboard size={28} className="text-slate-400" />
+      </div>
+      <h3 className="text-base font-semibold text-slate-700">Dashboard ว่างเปล่า</h3>
+      <p className="mt-1 max-w-xs text-sm text-slate-400">
+        คลิก "แก้ไข Dashboard" แล้วเลือก Widget ที่ต้องการแสดง
+      </p>
+      <button
+        onClick={onOpenDrawer}
+        className="mt-5 flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+      >
+        <Plus size={15} />
+        เพิ่ม Widget แรก
+      </button>
+    </div>
+  )
 }
 
 // ─── Sortable widget wrapper ──────────────────────────────────────────────────
@@ -187,9 +293,20 @@ export default function BentoGrid({ layout, onLayoutChange, data, plan }: BentoG
     }
   }
 
+  const PLAN_RANK: Record<Plan, number> = { free: 0, pro: 1, business: 2 }
+
   function applyTemplate(key: string) {
     const tpl = PRESET_TEMPLATES[key]
-    if (tpl) { onLayoutChange(tpl.layout); setShowTemplates(false) }
+    if (!tpl) return
+    // Filter out widgets the current plan can't access
+    const filtered = tpl.layout.filter(id => {
+      const entry = WIDGET_REGISTRY.find(e => e.id === id)
+      if (!entry) return true // unknown widget, allow (future-proof)
+      const required = entry.requiredPlan === 'free' ? 0 : entry.requiredPlan === 'pro' ? 1 : 2
+      return PLAN_RANK[plan] >= required
+    })
+    onLayoutChange(filtered)
+    setShowTemplates(false)
   }
 
   function handleRemoveWidget(id: WidgetId) {
@@ -200,6 +317,11 @@ export default function BentoGrid({ layout, onLayoutChange, data, plan }: BentoG
     if (!layout.includes(id)) {
       onLayoutChange([...layout, id])
     }
+  }
+
+  function handleOpenDrawer() {
+    setEditMode(true)
+    setDrawerOpen(true)
   }
 
   return (
@@ -261,46 +383,53 @@ export default function BentoGrid({ layout, onLayoutChange, data, plan }: BentoG
         )}
       </div>
 
-      {/* ── Grid area ── */}
-      <div
-        className="transition-[background] duration-300"
-        style={
-          editMode
-            ? {
-                backgroundImage: 'radial-gradient(circle, rgba(148,163,184,0.45) 1.5px, transparent 1.5px)',
-                backgroundSize: '28px 28px',
-                margin: '-12px',
-                padding: '12px',
-                borderRadius: '20px',
-              }
-            : undefined
-        }
-      >
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext items={layout} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
-              {layout.map(id => (
-                <SortableWidget
-                  key={id}
-                  id={id}
-                  editMode={editMode}
-                  data={data}
-                  onRemove={handleRemoveWidget}
-                />
-              ))}
-            </div>
-          </SortableContext>
+      {/* ── Empty state ── */}
+      {layout.length === 0 && (
+        <EmptyDashboard onOpenDrawer={handleOpenDrawer} />
+      )}
 
-          <DragOverlay>
-            {activeId ? <DragGhost id={activeId} /> : null}
-          </DragOverlay>
-        </DndContext>
-      </div>
+      {/* ── Grid area ── */}
+      {layout.length > 0 && (
+        <div
+          className="transition-[background] duration-300"
+          style={
+            editMode
+              ? {
+                  backgroundImage: 'radial-gradient(circle, rgba(148,163,184,0.45) 1.5px, transparent 1.5px)',
+                  backgroundSize: '28px 28px',
+                  margin: '-12px',
+                  padding: '12px',
+                  borderRadius: '20px',
+                }
+              : undefined
+          }
+        >
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={layout} strategy={rectSortingStrategy}>
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
+                {layout.map(id => (
+                  <SortableWidget
+                    key={id}
+                    id={id}
+                    editMode={editMode}
+                    data={data}
+                    onRemove={handleRemoveWidget}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+
+            <DragOverlay>
+              {activeId ? <DragGhost id={activeId} /> : null}
+            </DragOverlay>
+          </DndContext>
+        </div>
+      )}
 
       {/* ── Widget drawer ── */}
       <WidgetDrawer

@@ -3,6 +3,7 @@ import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import { useAuth } from './context/AuthContext'
 import { PlanProvider } from './context/PlanContext'
+import ErrorBoundary from './components/ErrorBoundary'
 import LoginPage from './components/LoginPage'
 import MainLayout from './layouts/MainLayout'
 import DashboardPage from './pages/DashboardPage'
@@ -10,6 +11,7 @@ import DocumentListPage from './pages/DocumentListPage'
 import EditorPage from './pages/EditorPage'
 import SettingsPage from './pages/SettingsPage'
 import CustomersPage from './pages/CustomersPage'
+import CustomerDetailPage from './pages/CustomerDetailPage'
 import ProductsPage from './pages/ProductsPage'
 import LandingPage from './pages/LandingPage'
 import StockAdjustmentPage from './pages/StockAdjustmentPage'
@@ -44,7 +46,7 @@ function ProtectedRoute() {
   const { user, loading } = useAuth()
   if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/login" replace />
-  return <PlanProvider><Outlet /></PlanProvider>
+  return <PlanProvider><ErrorBoundary><Outlet /></ErrorBoundary></PlanProvider>
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -93,7 +95,8 @@ export default function App() {
             <Route path="/inventory/movements"    element={<StockMovementPage />} />
 
             <Route path="/products"   element={<Navigate to="/inventory/products" replace />} />
-            <Route path="/customers"  element={<CustomersPage />} />
+            <Route path="/customers"     element={<CustomersPage />} />
+            <Route path="/customers/:id" element={<CustomerDetailPage />} />
             <Route path="/expenses"   element={<ExpensesPage />} />
             <Route path="/settings"   element={<SettingsPage />} />
 

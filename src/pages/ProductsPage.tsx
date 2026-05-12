@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useConfirm } from '../hooks/useConfirm'
 import {
-  computeCommittedQtys, createProduct, deleteProduct, listProducts, updateProduct,
+  computeCommittedQtys, createProduct, deleteProduct, listProducts, updateProduct, uploadProductImage,
   type ProductInput, type ProductRow,
 } from '../lib/productApi'
 import { PlanLimitError } from '../lib/planLimits'
@@ -21,7 +21,7 @@ import { listMovementsByProduct, recordStockMovement, type MovementType, type St
 
 const EMPTY_FORM: ProductInput = {
   name: '', price: 0, unit: '', stock: 0, category: '',
-  sku: '', cost_price: 0, min_stock: 0, description: '', tax_type: 'vat_included',
+  sku: '', cost_price: 0, min_stock: 0, description: '', tax_type: 'vat_included', image_url: '',
 }
 const PAGE_SIZE = 10
 
@@ -32,10 +32,25 @@ const TAX_TYPE_LABEL: Record<string, string> = {
 }
 
 function stockCls(val: number, minStock: number) {
-  if (val < 0)       return 'text-red-700 font-bold'
-  if (val === 0)     return 'text-red-600 font-semibold'
-  if (val <= minStock) return 'text-orange-500 font-semibold'
+  if (val < 0)                         return 'text-red-700 font-bold'
+  if (minStock > 0 && val <= minStock) return 'text-orange-500 font-semibold'
+  if (val === 0)                       return 'text-slate-400 font-medium'
   return 'text-green-600 font-semibold'
+}
+
+// Deterministic pastel avatar — shows thumbnail if image_url available
+function ProductAvatar({ name, imageUrl }: { name: string; imageUrl?: string }) {
+  if (imageUrl) {
+    return <img src={imageUrl} alt={name} className="h-9 w-9 flex-shrink-0 rounded-lg object-cover border border-slate-100" />
+  }
+  const initials = name.trim().slice(0, 2).toUpperCase() || '?'
+  const hue = [...name].reduce((a, c) => a + c.charCodeAt(0), 0) % 360
+  return (
+    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-[11px] font-bold select-none"
+      style={{ backgroundColor: `hsl(${hue},38%,88%)`, color: `hsl(${hue},38%,36%)` }}>
+      {initials}
+    </div>
+  )
 }
 
 // ─── Stock History Modal ───────────────────────────────────────────────────────
@@ -84,33 +99,35 @@ function StockHistoryModal({ product, onClose }: { product: ProductRow; onClose:
               <p className="text-sm text-slate-400">ยังไม่มีประวัติการเคลื่อนไหวสต็อก</p>
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs text-slate-400">
-                <tr>
-                  <th className="pb-2 font-medium">ประเภท</th>
-                  <th className="pb-2 text-right font-medium">จำนวน</th>
-                  <th className="pb-2 text-right font-medium">คงเหลือ</th>
-                  <th className="pb-2 font-medium">อ้างอิง</th>
-                  <th className="pb-2 font-medium">หมายเหตุ</th>
-                  <th className="pb-2 text-right font-medium">วันที่</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {rows.map(r => {
-                  const meta = TYPE_META[r.movement_type] ?? TYPE_META['ADJUST']
-                  return (
-                    <tr key={r.id}>
-                      <td className="py-2"><span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${meta.cls}`}>{meta.label}</span></td>
-                      <td className={`py-2 text-right font-semibold ${r.movement_type === 'OUT' ? 'text-red-600' : 'text-green-600'}`}>{meta.sign}{r.quantity.toLocaleString('th-TH')}</td>
-                      <td className="py-2 text-right text-slate-700">{r.balance_after.toLocaleString('th-TH')}</td>
-                      <td className="py-2 font-mono text-xs text-blue-600">{r.reference_document || '—'}</td>
-                      <td className="py-2 text-slate-500 max-w-[120px] truncate">{r.note || '—'}</td>
-                      <td className="py-2 text-right text-slate-400 text-[11px] whitespace-nowrap">{fmtDate(r.created_at)}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[480px] text-sm">
+                <thead className="text-left text-xs text-slate-400">
+                  <tr>
+                    <th className="pb-2 font-medium">ประเภท</th>
+                    <th className="pb-2 text-right font-medium">จำนวน</th>
+                    <th className="pb-2 text-right font-medium">คงเหลือ</th>
+                    <th className="pb-2 font-medium">อ้างอิง</th>
+                    <th className="pb-2 font-medium">หมายเหตุ</th>
+                    <th className="pb-2 text-right font-medium">วันที่</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {rows.map(r => {
+                    const meta = TYPE_META[r.movement_type] ?? TYPE_META['ADJUST']
+                    return (
+                      <tr key={r.id}>
+                        <td className="py-2"><span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${meta.cls}`}>{meta.label}</span></td>
+                        <td className={`py-2 text-right font-semibold ${r.movement_type === 'OUT' ? 'text-red-600' : 'text-green-600'}`}>{meta.sign}{r.quantity.toLocaleString('th-TH')}</td>
+                        <td className="py-2 text-right text-slate-700">{r.balance_after.toLocaleString('th-TH')}</td>
+                        <td className="py-2 font-mono text-xs text-blue-600">{r.reference_document || '—'}</td>
+                        <td className="py-2 text-slate-500 max-w-[120px] truncate">{r.note || '—'}</td>
+                        <td className="py-2 text-right text-slate-400 text-[11px] whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -226,6 +243,11 @@ export default function ProductsPage() {
   const [page, setPage] = useState(1)
   const [historyProduct, setHistoryProduct] = useState<ProductRow | null>(null)
   const [quickAdjustProduct, setQuickAdjustProduct] = useState<ProductRow | null>(null)
+  const [bulkAction, setBulkAction] = useState<'category' | 'minstock' | null>(null)
+  const [bulkValue, setBulkValue] = useState('')
+  const [bulkSaving, setBulkSaving] = useState(false)
+  const [imagePreview, setImagePreview] = useState<string>('')   // local dataURL for preview
+  const [imageFile, setImageFile] = useState<File | null>(null)  // pending upload
 
   const themeColor = typeof user?.user_metadata?.themeColor === 'string'
     ? user.user_metadata.themeColor : '#1e3a8a'
@@ -284,10 +306,50 @@ export default function ProductsPage() {
     } catch { toast.error('ลบไม่สำเร็จ กรุณาลองใหม่') }
   }
 
-  function openCreate() { setEditingId(null); setForm(EMPTY_FORM); setShowModal(true) }
+  function rowToInput(row: ProductRow): ProductInput {
+    return { name: row.name, price: row.price, unit: row.unit, stock: row.stock, category: row.category, sku: row.sku, cost_price: row.cost_price, min_stock: row.min_stock, description: row.description, tax_type: row.tax_type, image_url: row.image_url }
+  }
+
+  async function handleBulkCategory() {
+    const cat = bulkValue.trim()
+    if (!cat) return
+    setBulkSaving(true)
+    try {
+      await Promise.all([...selectedIds].map(id => {
+        const row = rows.find(r => r.id === id)
+        return row ? updateProduct(id, { ...rowToInput(row), category: cat }) : Promise.resolve()
+      }))
+      toast.success(`เปลี่ยนหมวดหมู่ ${selectedIds.size} รายการแล้ว`)
+      setBulkAction(null); setBulkValue(''); setSelectedIds(new Set())
+      await loadRows()
+    } catch { toast.error('อัปเดตไม่สำเร็จ') }
+    finally { setBulkSaving(false) }
+  }
+
+  async function handleBulkMinStock() {
+    const val = Number(bulkValue)
+    if (isNaN(val) || val < 0) return
+    setBulkSaving(true)
+    try {
+      await Promise.all([...selectedIds].map(id => {
+        const row = rows.find(r => r.id === id)
+        return row ? updateProduct(id, { ...rowToInput(row), min_stock: val }) : Promise.resolve()
+      }))
+      toast.success(`ตั้งค่า Min Stock ${selectedIds.size} รายการแล้ว`)
+      setBulkAction(null); setBulkValue(''); setSelectedIds(new Set())
+      await loadRows()
+    } catch { toast.error('อัปเดตไม่สำเร็จ') }
+    finally { setBulkSaving(false) }
+  }
+
+  function openCreate() {
+    setEditingId(null); setForm(EMPTY_FORM); setImagePreview(''); setImageFile(null); setShowModal(true)
+  }
   function openEdit(row: ProductRow) {
     setEditingId(row.id)
-    setForm({ name: row.name, price: row.price, unit: row.unit, stock: row.stock, category: row.category, sku: row.sku, cost_price: row.cost_price, min_stock: row.min_stock, description: row.description, tax_type: row.tax_type })
+    setForm(rowToInput(row))
+    setImagePreview(row.image_url)
+    setImageFile(null)
     setShowModal(true)
   }
 
@@ -295,8 +357,24 @@ export default function ProductsPage() {
     if (!user || saving || !form.name.trim()) return
     setSaving(true)
     try {
-      if (editingId) { await updateProduct(editingId, form); toast.success('อัปเดตข้อมูลสินค้าแล้ว') }
-      else { await createProduct(user.id, form); toast.success('เพิ่มข้อมูลสินค้าแล้ว') }
+      let finalForm = form
+      if (editingId) {
+        // upload image first if new file selected
+        if (imageFile) {
+          const url = await uploadProductImage(user.id, editingId, imageFile)
+          finalForm = { ...form, image_url: url }
+        }
+        await updateProduct(editingId, finalForm)
+        toast.success('อัปเดตข้อมูลสินค้าแล้ว')
+      } else {
+        // create → get id → upload → update image_url
+        const newId = await createProduct(user.id, finalForm)
+        if (imageFile) {
+          const url = await uploadProductImage(user.id, newId, imageFile)
+          await updateProduct(newId, { ...finalForm, image_url: url })
+        }
+        toast.success('เพิ่มข้อมูลสินค้าแล้ว')
+      }
       setShowModal(false)
       await loadRows()
     } catch (err) {
@@ -377,9 +455,62 @@ export default function ProductsPage() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="mb-3 flex items-center justify-between rounded-lg bg-slate-800 px-4 py-2.5">
-          <span className="text-sm text-white">เลือก {selectedIds.size} รายการ</span>
-          <button onClick={() => void handleBulkDelete()} className="text-sm font-medium text-red-400 hover:text-red-300">ลบที่เลือก</button>
+        <div className="mb-3 rounded-xl border border-slate-700 bg-slate-800 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5">
+            <span className="text-sm font-medium text-white">เลือก {selectedIds.size} รายการ</span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => { setBulkAction(bulkAction === 'category' ? null : 'category'); setBulkValue('') }}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${bulkAction === 'category' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}`}>
+                เปลี่ยนหมวดหมู่
+              </button>
+              <button
+                onClick={() => { setBulkAction(bulkAction === 'minstock' ? null : 'minstock'); setBulkValue('') }}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${bulkAction === 'minstock' ? 'bg-orange-500 text-white' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}`}>
+                ตั้งค่า Min Stock
+              </button>
+              <div className="mx-1 h-4 w-px bg-slate-600" />
+              <button onClick={() => void handleBulkDelete()} className="rounded-md px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-900/30 hover:text-red-300 transition-colors">
+                ลบที่เลือก
+              </button>
+              <button onClick={() => { setSelectedIds(new Set()); setBulkAction(null) }} className="ml-1 flex h-6 w-6 items-center justify-center rounded-full hover:bg-slate-600">
+                <X size={12} className="text-slate-400" />
+              </button>
+            </div>
+          </div>
+          {bulkAction === 'category' && (
+            <div className="flex items-center gap-2 border-t border-slate-700 bg-slate-900 px-4 py-2.5">
+              <span className="text-xs text-slate-400 shrink-0">หมวดหมู่ใหม่:</span>
+              <input
+                value={bulkValue} onChange={e => setBulkValue(e.target.value)}
+                placeholder="พิมพ์หมวดหมู่..." autoFocus
+                className="flex-1 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                list="bulk-category-list"
+                onKeyDown={e => e.key === 'Enter' && void handleBulkCategory()}
+              />
+              <datalist id="bulk-category-list">{categories.map(c => <option key={c} value={c} />)}</datalist>
+              <button onClick={() => void handleBulkCategory()} disabled={!bulkValue.trim() || bulkSaving}
+                className="rounded bg-blue-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-40 hover:bg-blue-500">
+                {bulkSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+              </button>
+            </div>
+          )}
+          {bulkAction === 'minstock' && (
+            <div className="flex items-center gap-2 border-t border-slate-700 bg-slate-900 px-4 py-2.5">
+              <span className="text-xs text-slate-400 shrink-0">Min Stock:</span>
+              <input
+                type="number" min={0} value={bulkValue} onChange={e => setBulkValue(e.target.value)}
+                placeholder="0" autoFocus
+                className="w-24 rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-white placeholder-slate-500 focus:border-orange-400 focus:outline-none"
+                onKeyDown={e => e.key === 'Enter' && void handleBulkMinStock()}
+              />
+              <span className="text-xs text-slate-500">0 = ไม่แจ้งเตือน</span>
+              <button onClick={() => void handleBulkMinStock()} disabled={bulkValue === '' || bulkSaving}
+                className="rounded bg-orange-500 px-3 py-1 text-xs font-semibold text-white disabled:opacity-40 hover:bg-orange-400">
+                {bulkSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -392,6 +523,7 @@ export default function ProductsPage() {
                   <th className="w-10 px-4 py-3">
                     <input type="checkbox" checked={allPageSelected} onChange={toggleAll} className="h-4 w-4 rounded border-slate-300 accent-slate-700" />
                   </th>
+                  <th className="w-10 px-2 py-3" />
                   <th className="px-4 py-3 font-semibold">ชื่อสินค้า</th>
                   <th className="px-4 py-3 font-semibold">SKU</th>
                   <th className="px-4 py-3 font-semibold">หมวดหมู่</th>
@@ -405,7 +537,7 @@ export default function ProductsPage() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={10}>
+                  <tr><td colSpan={11}>
                     <EmptyState icon={<Box size={22} />}
                       title={rows.length === 0 ? 'ยังไม่มีข้อมูลสินค้า' : 'ไม่พบสินค้าที่ตรงกับเงื่อนไข'}
                       description={rows.length === 0 ? 'คลิก "เพิ่มสินค้าใหม่" เพื่อเพิ่มสินค้าหรือบริการรายการแรก' : 'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง'} />
@@ -418,15 +550,24 @@ export default function ProductsPage() {
                       <td className="px-4 py-3">
                         <input type="checkbox" checked={selectedIds.has(row.id)} onChange={() => toggleOne(row.id)} className="h-4 w-4 rounded border-slate-300 accent-slate-700" />
                       </td>
+                      <td className="px-2 py-3">
+                        <ProductAvatar name={row.name} imageUrl={row.image_url || undefined} />
+                      </td>
                       <td className="px-4 py-3">
                         <button onClick={() => navigate(`/inventory/products/${row.id}`)} className="text-left">
                           <p className="font-medium text-blue-600 hover:underline">{row.name}</p>
                           {row.description && <p className="text-[11px] text-slate-400 truncate max-w-[160px]">{row.description}</p>}
                         </button>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-500">{row.sku || '—'}</td>
-                      <td className="px-4 py-3 text-slate-500">{row.category || '—'}</td>
-                      <td className="px-4 py-3 text-slate-500">{row.unit || '—'}</td>
+                      <td className="px-4 py-3 font-mono text-xs">
+                        {row.sku ? <span className="text-slate-600">{row.sku}</span> : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {row.category ? <span className="text-slate-600">{row.category}</span> : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {row.unit ? <span className="text-slate-600">{row.unit}</span> : <span className="text-slate-300">—</span>}
+                      </td>
                       {/* on_hand */}
                       <td className="px-4 py-3 text-right">
                         <span className={stockCls(row.stock, row.min_stock)}>{row.stock.toLocaleString('th-TH')}</span>
@@ -480,7 +621,38 @@ export default function ProductsPage() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
           <div className="w-full max-w-2xl rounded-xl bg-white p-5 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h2 className="mb-4 text-lg font-semibold text-slate-800">{editingId ? 'แก้ไขข้อมูลสินค้า' : 'เพิ่มข้อมูลสินค้า'}</h2>
+            {/* Header + image side-by-side */}
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <h2 className="text-lg font-semibold text-slate-800">{editingId ? 'แก้ไขข้อมูลสินค้า' : 'เพิ่มข้อมูลสินค้า'}</h2>
+              {/* Image upload */}
+              <label className="group relative flex h-20 w-20 flex-shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 transition-colors hover:border-blue-400 hover:bg-blue-50">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="preview" className="h-full w-full object-cover" />
+                ) : (
+                  <>
+                    <svg className="h-6 w-6 text-slate-300 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="mt-1 text-[10px] text-slate-400 group-hover:text-blue-400 transition-colors">รูปสินค้า</span>
+                  </>
+                )}
+                {imagePreview && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[10px] font-medium text-white">เปลี่ยนรูป</span>
+                  </div>
+                )}
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={e => {
+                    const f = e.target.files?.[0]; e.target.value = ''
+                    if (!f) return
+                    setImageFile(f)
+                    const reader = new FileReader()
+                    reader.onload = () => setImagePreview(reader.result as string)
+                    reader.readAsDataURL(f)
+                  }} />
+              </label>
+            </div>
 
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-400">ข้อมูลทั่วไป</p>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 mb-4">

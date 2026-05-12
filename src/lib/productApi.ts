@@ -14,6 +14,7 @@ export interface ProductRow {
   min_stock: number
   description: string
   tax_type: string
+  image_url: string
   created_at?: string
   updated_at?: string
 }
@@ -29,9 +30,10 @@ export interface ProductInput {
   min_stock: number
   description: string
   tax_type: string
+  image_url: string
 }
 
-const SELECT_FIELDS = 'id, user_id, name, price, unit, stock, category, sku, cost_price, min_stock, description, tax_type, created_at, updated_at'
+const SELECT_FIELDS = 'id, user_id, name, price, unit, stock, category, sku, cost_price, min_stock, description, tax_type, image_url, created_at, updated_at'
 
 export async function listProducts(): Promise<ProductRow[]> {
   const { data: { user } } = await supabase.auth.getUser()
@@ -87,6 +89,15 @@ export async function getProductById(id: string): Promise<ProductRow | null> {
     .maybeSingle()
   if (error) throw new Error(error.message)
   return data as ProductRow | null
+}
+
+export async function uploadProductImage(userId: string, productId: string, file: File): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const path = `${userId}/products/${productId}.${ext}`
+  const { error } = await supabase.storage.from('company-assets').upload(path, file, { upsert: true, contentType: file.type })
+  if (error) throw new Error(error.message)
+  const { data } = supabase.storage.from('company-assets').getPublicUrl(path)
+  return data.publicUrl
 }
 
 /**

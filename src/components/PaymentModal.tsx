@@ -128,7 +128,7 @@ export default function PaymentModal({ documentId, documentTotal, documentTitle,
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl shadow-slate-900/20"
+        className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl shadow-slate-900/20 max-h-[90vh] overflow-y-auto flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -147,7 +147,7 @@ export default function PaymentModal({ documentId, documentTotal, documentTitle,
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-5 flex-1 overflow-y-auto">
           {/* Progress bar */}
           <div>
             <div className="mb-1.5 flex justify-between text-xs">

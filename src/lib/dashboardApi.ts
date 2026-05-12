@@ -4,7 +4,6 @@
  */
 import { supabase } from './supabase'
 import {
-  DEFAULT_LAYOUT,
   type WidgetId,
   type TopProductEntry,
   type GrossProfitSummary,
@@ -14,23 +13,68 @@ import {
 // ─── Type-safe WidgetId guard ─────────────────────────────────────────────────
 
 const ALL_WIDGET_IDS: readonly WidgetId[] = [
+  // FREE (15)
   'quick-actions',
-  'revenue-goal',
-  'overdue-invoices',
-  'stock-alerts',
+  'onboarding',
+  'plan-usage',
   'recent-activities',
-  'quick-note',
+  'announcements',
+  'revenue-30d',
+  'total-outstanding',
+  'pending-payments',
+  'overdue-invoices',
+  'top-sellers-qty',
+  'top-products',
+  'new-customers',
+  'stock-alerts',
+  'out-of-stock',
+  'draft-documents',
+  'goal-tracker',
+  // PRO (20)
+  'gross-profit',
+  'cashflow-chart',
+  'mom-revenue',
+  'wht-summary',
+  'revenue-goal',
+  'top-invoice',
+  'pipeline-value',
   'top-spenders',
   'customer-grades',
-  'onboarding',
-  'top-products',
-  'gross-profit',
+  'high-risk-customers',
+  'inactive-customers',
+  'portal-views',
   'low-stock-detail',
+  'top-profitable-products',
+  'recent-stock-adjustments',
+  'total-stock-value',
+  'quote-conversion-rate',
+  'expiring-quotes',
+  'payment-method-stats',
+  'quick-note',
+  // BUSINESS (15)
   'sales-forecast',
+  'expected-cash-inflow',
+  'vat-payable',
+  'avg-payment-time',
+  'revenue-concentration',
+  'sales-by-salesperson',
+  'top-converter-sales',
+  'overdue-by-salesperson',
+  'dead-stock',
+  'inventory-turnover',
+  'sales-by-category',
+  'export-shortcuts',
+  'cancellation-ratio',
+  'audit-log',
+  'ytd-summary',
 ] as const
 
 function isWidgetId(v: unknown): v is WidgetId {
   return typeof v === 'string' && (ALL_WIDGET_IDS as readonly string[]).includes(v)
+}
+
+export function isKnownWidgetId(v: unknown): v is WidgetId {
+  return isWidgetId(v)
 }
 
 // ─── Config persistence ───────────────────────────────────────────────────────
@@ -50,7 +94,9 @@ function isDashboardConfigDoc(v: unknown): v is DashboardConfigDoc {
   )
 }
 
-export async function loadDashboardConfig(userId: string): Promise<WidgetId[]> {
+// Returns null when no config is stored (distinct from an intentionally-empty [])
+// so callers can decide whether to fall back to localStorage
+export async function loadDashboardConfig(userId: string): Promise<WidgetId[] | null> {
   try {
     const { data } = await supabase
       .from('profiles')
@@ -62,9 +108,9 @@ export async function loadDashboardConfig(userId: string): Promise<WidgetId[]> {
       return data.dashboard_config.widgets
     }
   } catch {
-    // fall through to default
+    // network error or missing column — preserve local state
   }
-  return DEFAULT_LAYOUT
+  return null
 }
 
 export async function saveDashboardConfig(

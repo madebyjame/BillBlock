@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   FilePlus, Plus, Search, ChevronDown, MoreVertical,
   Eye, Pencil, Download, Trash2, Clock, CheckCircle2, XCircle, Copy, ArrowRightLeft,
-  TrendingUp, Hourglass, AlertCircle, FileSpreadsheet, CreditCard, Mail,
+  TrendingUp, Hourglass, AlertCircle, FileSpreadsheet, Lock, CreditCard, Mail,
 } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
@@ -16,8 +16,9 @@ import { useAuth } from '../context/AuthContext'
 import { PlanLimitError } from '../lib/planLimits'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDocumentsByType } from '../hooks/useDocumentsByType'
-import { createDocument, deleteDocument, updateDocumentStatus, duplicateDocument, convertToInvoice, convertDocument } from '../lib/documentApi'
+import { createDocument, deleteDocument, updateDocumentStatus, duplicateDocument, convertToInvoice, convertToReceipt, convertToTaxInvoice } from '../lib/documentApi'
 import { exportDocumentsToExcel } from '../lib/excelExport'
+import { usePlan } from '../hooks/usePlan'
 import type { DocumentRow } from '../lib/documentApi'
 import type { DocTypeCode } from '../types/document'
 import { DOC_TYPE_CODES } from '../types/document'
@@ -270,38 +271,46 @@ function KebabMenu({
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
 
-function Pagination({ page, totalPages, total, onPage }: {
-  page: number; totalPages: number; total: number; onPage: (p: number) => void
+function Pagination({ page, totalPages, total, pageSize, onPage }: {
+  page: number; totalPages: number; total: number; pageSize: number; onPage: (p: number) => void
 }) {
-  if (totalPages <= 1) return null
+  if (total === 0) return null
+  const from = (page - 1) * pageSize + 1
+  const to = Math.min(page * pageSize, total)
+
   const pages: (number | '…')[] = []
   for (let i = 1; i <= totalPages; i++) {
     if (i === 1 || i === totalPages || Math.abs(i - page) <= 1) pages.push(i)
     else if (pages[pages.length - 1] !== '…') pages.push('…')
   }
+
   return (
     <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3">
-      <p className="text-xs text-slate-400">{total} รายการ</p>
-      <div className="flex items-center gap-1">
-        <button disabled={page === 1} onClick={() => onPage(page - 1)}
-          className="rounded-lg px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30">
-          ‹ ก่อนหน้า
-        </button>
-        {pages.map((p, i) =>
-          p === '…' ? (
-            <span key={`e-${i}`} className="px-1 text-xs text-slate-300">…</span>
-          ) : (
-            <button key={p} onClick={() => onPage(p as number)}
-              className={`min-w-7 rounded-lg px-2 py-1 text-xs transition-colors ${p === page ? 'bg-slate-800 font-semibold text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
-              {p}
-            </button>
-          )
-        )}
-        <button disabled={page === totalPages} onClick={() => onPage(page + 1)}
-          className="rounded-lg px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30">
-          ถัดไป ›
-        </button>
-      </div>
+      <p className="text-xs text-slate-400">
+        แสดง {from}–{to} จาก <span className="font-medium text-slate-600">{total}</span> รายการ
+      </p>
+      {totalPages > 1 && (
+        <div className="flex items-center gap-1">
+          <button disabled={page === 1} onClick={() => onPage(page - 1)}
+            className="rounded-lg px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30">
+            ‹ ก่อนหน้า
+          </button>
+          {pages.map((p, i) =>
+            p === '…' ? (
+              <span key={`e-${i}`} className="px-1 text-xs text-slate-300">…</span>
+            ) : (
+              <button key={p} onClick={() => onPage(p as number)}
+                className={`min-w-7 rounded-lg px-2 py-1 text-xs transition-colors ${p === page ? 'bg-slate-800 font-semibold text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
+                {p}
+              </button>
+            )
+          )}
+          <button disabled={page === totalPages} onClick={() => onPage(page + 1)}
+            className="rounded-lg px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30">
+            ถัดไป ›
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -313,6 +322,7 @@ interface Props { docType: DocTypeCode }
 export default function DocumentListPage({ docType }: Props) {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { isPro, isBusiness } = usePlan()
   const { rows, loading, error, refetch } = useDocumentsByType(docType)
 
   const { confirm, pending: confirmPending, onConfirm, onCancel } = useConfirm()
@@ -366,16 +376,60 @@ export default function DocumentListPage({ docType }: Props) {
   // Reset selections when page changes
   useEffect(() => { setSelectedIds(new Set()) }, [page])
 
-  // Summary for quotations
-  const summary = useMemo(() => {
-    if (!isQuotation) return null
-    return {
-      pending: filtered.filter(r => r.status === 'sent').reduce((s, r) => s + r.total_amount, 0),
-      won: filtered.filter(r => r.status === 'paid').reduce((s, r) => s + r.total_amount, 0),
-      pendingCount: filtered.filter(r => r.status === 'sent').length,
-      wonCount: filtered.filter(r => r.status === 'paid').length,
+  // Summary cards per doc type
+  type SummaryCard = { label: string; value: number; color: string; icon: string }
+  const summary: SummaryCard[] = useMemo(() => {
+    const sum = (arr: DocListRow[]) => arr.reduce((s, r) => s + r.total_amount, 0)
+    const byStatus = {
+      draft:     rows.filter(r => r.status === 'draft'),
+      sent:      rows.filter(r => r.status === 'sent'),
+      paid:      rows.filter(r => r.status === 'paid'),
+      cancelled: rows.filter(r => r.status === 'cancelled'),
     }
-  }, [filtered, isQuotation])
+    const overdueRows = rows.filter(r => isOverdue(r))
+
+    if (docType === 'quotation') {
+      return [
+        { label: `รอตัดสินใจ (${byStatus.sent.length} ใบ)`,  value: sum(byStatus.sent),      color: 'amber',  icon: 'hourglass'  },
+        { label: `อนุมัติแล้ว (${byStatus.paid.length} ใบ)`, value: sum(byStatus.paid),      color: 'green',  icon: 'trending'   },
+        { label: `ฉบับร่าง (${byStatus.draft.length} ใบ)`,   value: sum(byStatus.draft),     color: 'slate',  icon: 'pencil'     },
+        { label: `ปฏิเสธ (${byStatus.cancelled.length} ใบ)`, value: sum(byStatus.cancelled), color: 'red',    icon: 'xcircle'    },
+      ]
+    }
+    if (docType === 'invoice') {
+      return [
+        { label: `ค้างชำระ (${byStatus.sent.length} ใบ)`,      value: sum(byStatus.sent),      color: 'amber', icon: 'hourglass' },
+        { label: `ชำระแล้ว (${byStatus.paid.length} ใบ)`,      value: sum(byStatus.paid),      color: 'green', icon: 'trending'  },
+        { label: `เกินกำหนด (${overdueRows.length} ใบ)`,        value: sum(overdueRows),        color: 'red',   icon: 'alert'     },
+        { label: `ฉบับร่าง (${byStatus.draft.length} ใบ)`,     value: sum(byStatus.draft),     color: 'slate', icon: 'pencil'    },
+      ]
+    }
+    if (docType === 'receipt') {
+      return [
+        { label: `ทั้งหมด (${rows.length} ใบ)`,             value: sum(rows),           color: 'blue',  icon: 'trending'  },
+        { label: `ชำระแล้ว (${byStatus.paid.length} ใบ)`,   value: sum(byStatus.paid),  color: 'green', icon: 'checkmark' },
+      ]
+    }
+    if (docType === 'billing-note') {
+      return [
+        { label: `รอชำระ (${byStatus.sent.length} ใบ)`,     value: sum(byStatus.sent),  color: 'amber', icon: 'hourglass' },
+        { label: `ชำระแล้ว (${byStatus.paid.length} ใบ)`,   value: sum(byStatus.paid),  color: 'green', icon: 'trending'  },
+      ]
+    }
+    if (docType === 'tax-invoice') {
+      const issued = [...byStatus.sent, ...byStatus.paid]
+      return [
+        { label: `ออกแล้ว (${issued.length} ใบ)`,           value: sum(issued),         color: 'blue',  icon: 'trending'  },
+        { label: `ยอดภาษีขาย (VAT 7%)`,                     value: sum(issued) * 0.07,  color: 'slate', icon: 'checkmark' },
+      ]
+    }
+    if (docType === 'credit-note') {
+      return [
+        { label: `ใบลดหนี้ทั้งหมด (${rows.length} ใบ)`,   value: sum(rows),           color: 'red',   icon: 'xcircle'   },
+      ]
+    }
+    return []
+  }, [rows, docType])
 
   function toggleAll() {
     setSelectedIds(prev => {
@@ -469,7 +523,9 @@ export default function DocumentListPage({ docType }: Props) {
       const effectiveType = toType ?? 'invoice'
       const newId = effectiveType === 'invoice'
         ? await convertToInvoice(id, user.id)
-        : await convertDocument(id, effectiveType, user.id)
+        : effectiveType === 'receipt'
+          ? await convertToReceipt(id, user.id)
+          : await convertToTaxInvoice(id, user.id)
       const label = DOC_TYPE_CODES[effectiveType] ?? effectiveType
       toast.success(`แปลงเป็น${label}เรียบร้อย`)
       navigate(`/editor/${newId}`)
@@ -532,15 +588,16 @@ export default function DocumentListPage({ docType }: Props) {
           {/* Excel export */}
           <button
             onClick={() => {
+              if (!isBusiness) { toast.error('ฟีเจอร์นี้ต้องการแผน Business'); return }
               if (!user) return
               void exportDocumentsToExcel(user.id, docType, filterDateFrom || undefined, filterDateTo || undefined)
                 .then(() => toast.success('Export สำเร็จ'))
                 .catch(() => toast.error('Export ไม่สำเร็จ'))
             }}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:shadow"
-            title="Export Excel"
+            className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 hover:shadow ${!isBusiness ? 'opacity-60' : ''}`}
+            title={isBusiness ? 'Export Excel' : 'ต้องการแผน Business'}
           >
-            <FileSpreadsheet size={15} className="text-green-600" />
+            {isBusiness ? <FileSpreadsheet size={15} className="text-green-600" /> : <Lock size={15} className="text-slate-400" />}
             Excel
           </button>
 
@@ -562,27 +619,35 @@ export default function DocumentListPage({ docType }: Props) {
         </div>
       </div>
 
-      {/* Summary widgets — quotations only */}
-      {isQuotation && summary && (
-        <div className="mb-4 grid grid-cols-2 gap-3">
-          <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
-              <Hourglass size={15} className="text-amber-600" />
-            </div>
-            <div>
-              <p className="text-xs text-amber-600">รอตัดสินใจ ({summary.pendingCount} ใบ)</p>
-              <p className="text-sm font-bold text-amber-800">฿{fmtAmount(summary.pending)}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100">
-              <TrendingUp size={15} className="text-green-600" />
-            </div>
-            <div>
-              <p className="text-xs text-green-600">อนุมัติแล้ว ({summary.wonCount} ใบ)</p>
-              <p className="text-sm font-bold text-green-800">฿{fmtAmount(summary.won)}</p>
-            </div>
-          </div>
+      {/* Summary widgets */}
+      {summary.length > 0 && (
+        <div className={`mb-4 grid gap-3 ${summary.length >= 4 ? 'grid-cols-2 lg:grid-cols-4' : summary.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          {summary.map((card) => {
+            const colorMap: Record<string, { border: string; bg: string; text: string; iconBg: string; iconText: string; valueText: string }> = {
+              amber: { border: 'border-amber-200', bg: 'bg-amber-50', text: 'text-amber-600', iconBg: 'bg-amber-100', iconText: 'text-amber-600', valueText: 'text-amber-800' },
+              green: { border: 'border-green-200', bg: 'bg-green-50', text: 'text-green-600', iconBg: 'bg-green-100', iconText: 'text-green-600', valueText: 'text-green-800' },
+              blue:  { border: 'border-blue-200',  bg: 'bg-blue-50',  text: 'text-blue-600',  iconBg: 'bg-blue-100',  iconText: 'text-blue-600',  valueText: 'text-blue-800'  },
+              red:   { border: 'border-red-200',   bg: 'bg-red-50',   text: 'text-red-500',   iconBg: 'bg-red-100',   iconText: 'text-red-500',   valueText: 'text-red-700'   },
+              slate: { border: 'border-slate-200', bg: 'bg-slate-50', text: 'text-slate-500', iconBg: 'bg-slate-100', iconText: 'text-slate-500', valueText: 'text-slate-700' },
+            }
+            const c = colorMap[card.color] ?? colorMap['slate']
+            const IconEl = card.icon === 'hourglass' ? Hourglass
+                         : card.icon === 'trending'  ? TrendingUp
+                         : card.icon === 'alert'     ? AlertCircle
+                         : card.icon === 'xcircle'   ? XCircle
+                         : CheckCircle2
+            return (
+              <div key={card.label} className={`flex items-center gap-3 rounded-xl border ${c.border} ${c.bg} px-4 py-3`}>
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${c.iconBg}`}>
+                  <IconEl size={15} className={c.iconText} />
+                </div>
+                <div className="min-w-0">
+                  <p className={`truncate text-xs ${c.text}`}>{card.label}</p>
+                  <p className={`text-sm font-bold ${c.valueText}`}>฿{fmtAmount(card.value)}</p>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -611,14 +676,20 @@ export default function DocumentListPage({ docType }: Props) {
           {docType === 'invoice' && <option value="overdue">เกินกำหนด</option>}
         </select>
 
-        <div className="flex items-center gap-1.5">
-          <input type="date" value={filterDateFrom}
-            onChange={(e) => { setFilterDateFrom(e.target.value); setPage(1) }}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-slate-400" />
-          <span className="text-xs text-slate-400">ถึง</span>
-          <input type="date" value={filterDateTo}
-            onChange={(e) => { setFilterDateTo(e.target.value); setPage(1) }}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-slate-400" />
+        <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-medium text-slate-400">จากวันที่ (ค.ศ.)</span>
+            <input type="date" value={filterDateFrom}
+              onChange={(e) => { setFilterDateFrom(e.target.value); setPage(1) }}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-slate-400" />
+          </div>
+          <span className="mt-4 text-xs text-slate-400">—</span>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-medium text-slate-400">ถึงวันที่ (ค.ศ.)</span>
+            <input type="date" value={filterDateTo}
+              onChange={(e) => { setFilterDateTo(e.target.value); setPage(1) }}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none transition focus:border-slate-400" />
+          </div>
         </div>
 
         {(search || filterStatus !== 'all' || filterDateFrom || filterDateTo) && (
@@ -660,12 +731,12 @@ export default function DocumentListPage({ docType }: Props) {
       )}
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto overflow-hidden rounded-xl border border-slate-200 bg-white">
         {loading ? (
           <TableSkeleton cols={colCount} rows={6} hasCheckbox />
         ) : (
           <>
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[700px] text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/80 text-left">
                   <th className="w-12 px-5 py-4">
@@ -695,19 +766,24 @@ export default function DocumentListPage({ docType }: Props) {
                         title={rows.length === 0 ? `ยังไม่มี${pageTitle}ในระบบ` : 'ไม่พบเอกสารที่ตรงกับเงื่อนไข'}
                         description={
                           rows.length === 0
-                            ? 'คลิกปุ่มด้านบนเพื่อเริ่มสร้างเอกสารรายการแรก'
+                            ? `สร้าง${pageTitle}ฉบับแรก ใช้เวลาไม่กี่วินาที ระบบจำข้อมูลลูกค้าและสินค้าให้`
                             : 'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง'
                         }
                         action={
                           rows.length === 0 ? (
-                            <button
-                              onClick={() => void handleCreate()}
-                              disabled={creating}
-                              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                              style={{ backgroundColor: themeColor }}
-                            >
-                              <Plus size={14} /> {createLabel}
-                            </button>
+                            <div className="flex flex-col items-center gap-3">
+                              <button
+                                onClick={() => void handleCreate()}
+                                disabled={creating}
+                                className="inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:opacity-90 hover:shadow-lg disabled:opacity-60"
+                                style={{ backgroundColor: themeColor }}
+                              >
+                                <Plus size={15} /> {createLabel}
+                              </button>
+                              <p className="text-xs text-slate-400">
+                                สร้างแล้ว Export PDF ได้ทันที · ส่งอีเมลหาลูกค้าได้เลย
+                              </p>
+                            </div>
                           ) : undefined
                         }
                       />
@@ -763,7 +839,10 @@ export default function DocumentListPage({ docType }: Props) {
                         onConvert={convertOptions.length > 0 ? handleConvert : undefined}
                         converts={convertOptions.length > 0 ? convertOptions : undefined}
                         onPayment={(id, total, title) => setPaymentDoc({ id, total, title })}
-                        onEmail={(r) => setEmailDoc(r)}
+                        onEmail={(r) => {
+                          if (!isPro) { navigate('/settings?tab=billing'); return }
+                          setEmailDoc(r)
+                        }}
                       />
                     </td>
                   </tr>
@@ -771,7 +850,7 @@ export default function DocumentListPage({ docType }: Props) {
               </tbody>
             </table>
 
-            <Pagination page={page} totalPages={totalPages} total={filtered.length}
+            <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE}
               onPage={p => { setPage(p); setSelectedIds(new Set()) }} />
           </>
         )}

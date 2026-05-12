@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Package, FileSpreadsheet, TrendingUp } from 'lucide-react'
+import { Package, FileSpreadsheet, Lock, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '../lib/supabase'
+import { usePlan } from '../hooks/usePlan'
+import { useAuth } from '../context/AuthContext'
+import ProUpgradeWall from '../components/ProUpgradeWall'
 import * as XLSX from 'xlsx'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -35,6 +38,8 @@ function currentYear() { return new Date().getFullYear() }
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function SalesByProductPage() {
+  const { user } = useAuth()
+  const { isPro, isBusiness } = usePlan()
   const [rows, setRows]       = useState<SalesRow[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -50,7 +55,7 @@ export default function SalesByProductPage() {
     setLoading(true)
     try {
       const { data, error } = await supabase
-        .rpc('get_sales_by_product', { p_date_from: dateFrom, p_date_to: dateTo })
+        .rpc('get_sales_by_product', { uid: user?.id, date_from: dateFrom, date_to: dateTo })
       if (error) throw error
       setRows((data ?? []).map((r: Record<string, unknown>) => ({
         product_id:    String(r.product_id),
@@ -91,6 +96,8 @@ export default function SalesByProductPage() {
     toast.success('Export Excel สำเร็จ')
   }
 
+  if (!isPro) return <ProUpgradeWall feature="reports" />
+
   return (
     <div className="w-full p-6 md:p-8 lg:p-10">
       {/* Header */}
@@ -99,9 +106,12 @@ export default function SalesByProductPage() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-800">ยอดขายต่อสินค้า</h1>
           <p className="mt-1.5 text-sm text-slate-400">รายได้และกำไรรายสินค้า จากเอกสารที่ชำระแล้ว</p>
         </div>
-        <button onClick={exportExcel}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50">
-          <FileSpreadsheet size={15} className="text-green-600" />
+        <button
+          onClick={() => isBusiness ? exportExcel() : toast.error('ฟีเจอร์นี้ต้องการแผน Business')}
+          title={isBusiness ? undefined : 'ต้องการแผน Business'}
+          className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50 ${!isBusiness ? 'opacity-60' : ''}`}
+        >
+          {isBusiness ? <FileSpreadsheet size={15} className="text-green-600" /> : <Lock size={15} className="text-slate-400" />}
           Export Excel
         </button>
       </div>
@@ -147,8 +157,8 @@ export default function SalesByProductPage() {
           <p className="mt-1 text-xs text-slate-300">เปลี่ยนสถานะเอกสารเป็น "ชำระแล้ว" เพื่อให้ปรากฏในรายงาน</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <table className="w-full min-w-[600px] text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/80 text-left">
                 <th className="px-5 py-4 text-xs font-semibold uppercase tracking-wider text-slate-400">#</th>

@@ -28,12 +28,19 @@ export function SignatureBox({ pdfMode, label, title, onLabelChange, onTitleChan
       <div className="flex-1 w-full flex flex-col items-center justify-end pb-2 relative">
         {onSignatureUpload && (
           <div className="flex flex-col items-center gap-1 w-full">
-            <label className={`flex items-center justify-center ${pdfMode ? '' : 'cursor-pointer'}`}>
+            <label className={`w-full flex items-center justify-center ${pdfMode ? '' : 'cursor-pointer'}`}>
               {signatureUrl
                 ? <img src={signatureUrl} alt="sig"
                     style={{ height: `${sigH}px` }}
                     className="object-contain max-w-full" />
-                : !pdfMode && <span className="text-[10px] text-slate-300 hover:text-slate-500 transition-colors">+ อัปโหลดลายเซ็น</span>
+                : !pdfMode && (
+                  <div className="w-full h-14 border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center gap-0.5 hover:border-blue-300 hover:bg-blue-50/30 transition-colors">
+                    <svg className="h-4 w-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    <span className="text-[9px] text-slate-300">อัปโหลดลายเซ็น</span>
+                  </div>
+                )
               }
               {!pdfMode && <input type="file" accept="image/*" className="hidden"
                 onChange={e => {

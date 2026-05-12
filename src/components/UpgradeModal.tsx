@@ -33,7 +33,7 @@ export default function UpgradeModal({ resource, limit, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl">
+      <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl max-h-[90vh] overflow-y-auto flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between p-5 pb-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
@@ -48,7 +48,7 @@ export default function UpgradeModal({ resource, limit, onClose }: Props) {
         </div>
 
         {/* Body */}
-        <div className="px-5 pb-5">
+        <div className="px-5 pb-5 flex-1 overflow-y-auto">
           <h3 className="mb-2 text-base font-bold text-slate-900">{title}</h3>
           <p className="mb-5 text-sm leading-relaxed text-slate-500">{desc(limit)}</p>
 
@@ -56,13 +56,13 @@ export default function UpgradeModal({ resource, limit, onClose }: Props) {
           <div className="mb-5 rounded-xl border border-slate-100 bg-slate-50 p-4">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-slate-500">Free</span>
-              <span className="font-semibold text-blue-600">Pro — ฿299/เดือน</span>
+              <span className="font-semibold text-blue-600">Pro — ฿149/เดือน</span>
             </div>
             <div className="mt-3 space-y-1.5 text-xs text-slate-600">
               {[
                 ['เอกสาร', '20 ฉบับ/เดือน', 'ไม่จำกัด'],
-                ['ลูกค้า', '10 ราย', 'ไม่จำกัด'],
-                ['สินค้า', '10 รายการ', 'ไม่จำกัด'],
+                ['ลูกค้า', '50 ราย', 'ไม่จำกัด'],
+                ['สินค้า', '50 รายการ', 'ไม่จำกัด'],
               ].map(([label, free, pro]) => (
                 <div key={label} className="flex items-center justify-between">
                   <span className="text-slate-400">{label}</span>
@@ -77,7 +77,7 @@ export default function UpgradeModal({ resource, limit, onClose }: Props) {
 
           {/* Actions */}
           <button
-            onClick={() => { navigate('/settings/billing'); onClose() }}
+            onClick={() => { navigate('/settings?tab=billing'); onClose() }}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
           >
             <Zap className="h-4 w-4" />

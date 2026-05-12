@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FileSpreadsheet, Receipt } from 'lucide-react'
+import { FileSpreadsheet, Lock, Receipt } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
+import { usePlan } from '../hooks/usePlan'
 import { supabase } from '../lib/supabase'
 import type { PaymentRow } from '../lib/paymentApi'
+import ProUpgradeWall from '../components/ProUpgradeWall'
 import * as XLSX from 'xlsx'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -46,6 +48,7 @@ const WHT_FORM: Record<number, string> = {
 
 export default function WhtReportPage() {
   const { user } = useAuth()
+  const { isPro, isBusiness } = usePlan()
   const [payments, setPayments] = useState<PaymentWithDoc[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -155,6 +158,8 @@ export default function WhtReportPage() {
     toast.success('Export Excel สำเร็จ')
   }
 
+  if (!isPro) return <ProUpgradeWall feature="reports" />
+
   return (
     <div className="w-full p-6 md:p-8 lg:p-10">
       {/* Header */}
@@ -164,10 +169,11 @@ export default function WhtReportPage() {
           <p className="mt-1.5 text-sm text-slate-400">ภาษีหัก ณ ที่จ่าย — จากรายการชำระที่บันทึก WHT ไว้</p>
         </div>
         <button
-          onClick={exportExcel}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50"
+          onClick={() => isBusiness ? exportExcel() : toast.error('ฟีเจอร์นี้ต้องการแผน Business')}
+          title={isBusiness ? undefined : 'ต้องการแผน Business'}
+          className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-slate-50 ${!isBusiness ? 'opacity-60' : ''}`}
         >
-          <FileSpreadsheet size={15} className="text-green-600" />
+          {isBusiness ? <FileSpreadsheet size={15} className="text-green-600" /> : <Lock size={15} className="text-slate-400" />}
           Export Excel
         </button>
       </div>
@@ -236,7 +242,7 @@ export default function WhtReportPage() {
       ) : (
         <div className="space-y-6">
           {groups.map(group => (
-            <div key={group.rate} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div key={group.rate} className="overflow-x-auto overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-5 py-3">
                 <div>
                   <span className="text-sm font-bold text-amber-700">WHT {group.rate}%</span>
@@ -249,7 +255,7 @@ export default function WhtReportPage() {
                 </div>
               </div>
 
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[700px] text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 text-left">
                     {['วันที่', 'เลขที่เอกสาร', 'ชื่อผู้รับเงิน', 'เลขผู้เสียภาษี', 'จำนวนเงิน', 'ภาษีที่หัก', 'สุทธิ', 'หมายเหตุ'].map(h => (

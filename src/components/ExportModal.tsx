@@ -85,7 +85,7 @@ export default function ExportModal({ open, progress, themeColor, onClose, onExp
 
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
+        <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto flex flex-col">
 
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
@@ -102,7 +102,7 @@ export default function ExportModal({ open, progress, themeColor, onClose, onExp
             )}
           </div>
 
-          <div className="p-6 space-y-5">
+          <div className="p-6 space-y-5 flex-1 overflow-y-auto">
 
             {/* ─── ชื่อไฟล์ ─── */}
             <div>

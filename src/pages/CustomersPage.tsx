@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Search, Download, Users, X, FileText, Link2, FileSpreadsheet } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Plus, Search, Download, Users, FileSpreadsheet, Lock, Link2, X } from 'lucide-react'
 import EmptyState from '../components/EmptyState'
 import TableSkeleton from '../components/TableSkeleton'
 import { KebabMenu } from '../components/KebabMenu'
@@ -12,12 +13,15 @@ import { useAuth } from '../context/AuthContext'
 import { useConfirm } from '../hooks/useConfirm'
 import { supabase } from '../lib/supabase'
 import { exportCustomersToExcel } from '../lib/excelExport'
+import { usePlan } from '../hooks/usePlan'
 import {
   createCustomer, deleteCustomer, listCustomers, updateCustomer,
   type CustomerInput, type CustomerRow,
 } from '../lib/customerApi'
 import { PlanLimitError } from '../lib/planLimits'
 import { generatePortalToken, buildPortalUrl } from '../lib/portalApi'
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const EMPTY_FORM: CustomerInput = {
   name: '', address: '', tax_id: '', email: '', phone: '',
@@ -34,147 +38,90 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   blocked:  { label: 'ระงับ',      cls: 'bg-red-100 text-red-600' },
 }
 
+/** Grade derived from status — no DB column needed */
+const GRADE_META: Record<string, { grade: string; cls: string }> = {
+  vip:      { grade: 'A', cls: 'bg-yellow-100 text-yellow-700 border border-yellow-200' },
+  active:   { grade: 'B', cls: 'bg-green-100 text-green-700 border border-green-200' },
+  inactive: { grade: 'C', cls: 'bg-slate-100 text-slate-500 border border-slate-200' },
+  blocked:  { grade: 'F', cls: 'bg-red-100 text-red-600 border border-red-200' },
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function CustomerAvatar({ name }: { name: string }) {
+  const letter = name.trim().charAt(0).toUpperCase() || '?'
+  const hue    = [...name].reduce((s, c) => s + c.charCodeAt(0), 0) % 360
+  return (
+    <div
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+      style={{ backgroundColor: `hsl(${hue},38%,88%)`, color: `hsl(${hue},40%,40%)` }}
+    >
+      {letter}
+    </div>
+  )
+}
+
 function StatusBadge({ status }: { status: string }) {
   const meta = STATUS_META[status] ?? { label: status, cls: 'bg-slate-100 text-slate-500' }
   return <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.cls}`}>{meta.label}</span>
 }
 
-// ─── Customer History Modal ────────────────────────────────────────────────────
-
-interface HistoryDoc {
-  id: string
-  doc_type: string
-  status: string
-  total_amount: number
-  created_at: string
-  doc_number?: string
+function GradeBadge({ status }: { status: string }) {
+  const meta = GRADE_META[status] ?? { grade: '—', cls: 'bg-slate-100 text-slate-400' }
+  return (
+    <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${meta.cls}`}>
+      {meta.grade}
+    </span>
+  )
 }
 
-const DOC_TYPE_LABEL: Record<string, string> = {
-  quotation:      'ใบเสนอราคา',
-  invoice:        'ใบแจ้งหนี้',
-  receipt:        'ใบเสร็จรับเงิน',
-  'billing-note': 'ใบวางบิล',
-  'tax-invoice':  'ใบกำกับภาษี',
+// ─── Outstanding AR loader ────────────────────────────────────────────────────
+
+async function loadOutstandingMap(): Promise<Map<string, number>> {
+  try {
+    const { data } = await supabase
+      .from('documents')
+      .select('content, total_amount')
+      .in('status', ['pending', 'overdue', 'sent'])
+      .in('doc_type', ['invoice', 'billing-note', 'tax-invoice'])
+    const map = new Map<string, number>()
+    for (const raw of (data ?? [])) {
+      const doc = raw as { content: unknown; total_amount: number }
+      const name = (doc.content as { customer?: { name?: string } } | null)
+        ?.customer?.name?.trim()
+      if (name) map.set(name, (map.get(name) ?? 0) + doc.total_amount)
+    }
+    return map
+  } catch {
+    return new Map()
+  }
 }
 
 function fmtAmount(n: number) {
   return n.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })
-}
-
-function CustomerHistoryModal({ customer, onClose }: { customer: CustomerRow; onClose: () => void }) {
-  const [docs, setDocs] = useState<HistoryDoc[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    void (async () => {
-      setLoading(true)
-      try {
-        const { data } = await supabase
-          .from('documents')
-          .select('id, doc_type, status, total_amount, created_at, content')
-          .order('created_at', { ascending: false })
-        const matched: HistoryDoc[] = (data ?? [])
-          .filter((d: Record<string, unknown>) => {
-            const c = d.content as { customer?: { name?: string } } | null
-            return c?.customer?.name?.trim() === customer.name.trim()
-          })
-          .map((d: Record<string, unknown>) => {
-            const c = d.content as { docMeta?: { number?: string } } | null
-            return {
-              id: d.id as string,
-              doc_type: d.doc_type as string,
-              status: d.status as string,
-              total_amount: d.total_amount as number,
-              created_at: d.created_at as string,
-              doc_number: c?.docMeta?.number,
-            }
-          })
-        setDocs(matched)
-      } finally {
-        setLoading(false)
-      }
-    })()
-  }, [customer.name])
-
-  const totalPaid = docs
-    .filter(d => d.doc_type === 'invoice' && d.status === 'paid')
-    .reduce((s, d) => s + d.total_amount, 0)
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-      <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <div>
-            <h2 className="text-base font-semibold text-slate-800">ประวัติลูกค้า — {customer.name}</h2>
-            {!loading && <p className="text-xs text-slate-500 mt-0.5">ยอดชำระรวม: ฿{fmtAmount(totalPaid)} ({docs.length} รายการ)</p>}
-          </div>
-          <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-slate-100">
-            <X size={15} className="text-slate-500" />
-          </button>
-        </div>
-        <div className="max-h-[60vh] overflow-y-auto p-5">
-          {loading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map(i => <div key={i} className="h-10 animate-pulse rounded-lg bg-slate-100" />)}
-            </div>
-          ) : docs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <FileText size={28} className="mb-2 text-slate-200" />
-              <p className="text-sm text-slate-400">ไม่พบประวัติเอกสารของลูกค้านี้</p>
-            </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs text-slate-400">
-                <tr>
-                  <th className="pb-2 font-medium">เลขที่</th>
-                  <th className="pb-2 font-medium">ประเภท</th>
-                  <th className="pb-2 font-medium">สถานะ</th>
-                  <th className="pb-2 text-right font-medium">ยอด</th>
-                  <th className="pb-2 text-right font-medium">วันที่</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {docs.map(doc => (
-                  <tr key={doc.id}>
-                    <td className="py-2 font-mono text-xs text-blue-600">{doc.doc_number || '—'}</td>
-                    <td className="py-2 text-slate-600">{DOC_TYPE_LABEL[doc.doc_type] ?? doc.doc_type}</td>
-                    <td className="py-2 text-slate-500">{doc.status}</td>
-                    <td className="py-2 text-right font-semibold text-slate-700">฿{fmtAmount(doc.total_amount)}</td>
-                    <td className="py-2 text-right text-slate-400">{fmtDate(doc.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CustomersPage() {
-  const { user } = useAuth()
+  const navigate  = useNavigate()
+  const { user }  = useAuth()
   const { confirm, pending: confirmPending, onConfirm, onCancel } = useConfirm()
-  const [rows, setRows] = useState<CustomerRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [saving, setSaving] = useState(false)
+
+  const [rows, setRows]         = useState<CustomerRow[]>([])
+  const [outstandingMap, setOutstandingMap] = useState<Map<string, number>>(new Map())
+  const [loading, setLoading]   = useState(true)
+  const [search, setSearch]     = useState('')
+  const [saving, setSaving]     = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [upgradeModal, setUpgradeModal] = useState<{ resource: 'customers'; limit: number } | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState<CustomerInput>(EMPTY_FORM)
+  const [form, setForm]         = useState<CustomerInput>(EMPTY_FORM)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [page, setPage] = useState(1)
-  const [historyCustomer, setHistoryCustomer] = useState<CustomerRow | null>(null)
+  const [page, setPage]         = useState(1)
   const [tagInput, setTagInput] = useState('')
 
+  const { isBusiness } = usePlan()
   const themeColor = typeof user?.user_metadata?.themeColor === 'string'
     ? user.user_metadata.themeColor : '#1e3a8a'
 
@@ -182,9 +129,18 @@ export default function CustomersPage() {
 
   async function loadRows() {
     setLoading(true)
-    try { setRows(await listCustomers()) }
-    catch { toast.error('โหลดรายชื่อลูกค้าไม่สำเร็จ') }
-    finally { setLoading(false) }
+    try {
+      const [customers, outstanding] = await Promise.all([
+        listCustomers(),
+        loadOutstandingMap(),
+      ])
+      setRows(customers)
+      setOutstandingMap(outstanding)
+    } catch {
+      toast.error('โหลดรายชื่อลูกค้าไม่สำเร็จ')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const filtered = useMemo(() => {
@@ -200,8 +156,8 @@ export default function CustomersPage() {
     )
   }, [rows, search])
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const totalPages    = Math.ceil(filtered.length / PAGE_SIZE)
+  const paginated     = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const allPageSelected = paginated.length > 0 && paginated.every(r => selectedIds.has(r.id))
 
   function toggleAll() {
@@ -244,8 +200,8 @@ export default function CustomersPage() {
       ].join(',')),
     ]
     const blob = new Blob(['﻿' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
     a.href = url; a.download = `customers_${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
@@ -279,8 +235,8 @@ export default function CustomersPage() {
     if (!user || saving || !form.name.trim()) return
     setSaving(true)
     try {
-      if (editingId) { await updateCustomer(editingId, form); toast.success('เรียบร้อย! อัปเดตข้อมูลลูกค้าแล้ว') }
-      else { await createCustomer(user.id, form); toast.success('เรียบร้อย! เพิ่มลูกค้าใหม่แล้ว') }
+      if (editingId) { await updateCustomer(editingId, form); toast.success('อัปเดตข้อมูลลูกค้าแล้ว') }
+      else { await createCustomer(user.id, form); toast.success('เพิ่มลูกค้าใหม่แล้ว') }
       setShowModal(false)
       await loadRows()
     } catch (err) {
@@ -290,8 +246,7 @@ export default function CustomersPage() {
       } else {
         toast.error('บันทึกข้อมูลลูกค้าไม่สำเร็จ')
       }
-    }
-    finally { setSaving(false) }
+    } finally { setSaving(false) }
   }
 
   async function onDelete(id: string) {
@@ -303,7 +258,7 @@ export default function CustomersPage() {
   async function onSharePortal(customerId: string) {
     try {
       const token = await generatePortalToken(customerId)
-      const url = buildPortalUrl(token)
+      const url   = buildPortalUrl(token)
       await navigator.clipboard.writeText(url)
       toast.success('คัดลอกลิงก์ Portal แล้ว', { description: url })
     } catch {
@@ -317,16 +272,24 @@ export default function CustomersPage() {
     <div className="w-full p-6 md:p-8 lg:p-10">
       {confirmPending && <ConfirmDialog {...confirmPending} onConfirm={onConfirm} onCancel={onCancel} />}
       {upgradeModal && (
-        <UpgradeModal
-          resource={upgradeModal.resource}
-          limit={upgradeModal.limit}
-          onClose={() => setUpgradeModal(null)}
-        />
+        <UpgradeModal resource={upgradeModal.resource} limit={upgradeModal.limit} onClose={() => setUpgradeModal(null)} />
       )}
 
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-800">ลูกค้า</h1>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-800">ลูกค้า</h1>
+          {!loading && (
+            <p className="mt-1 text-sm text-slate-400">
+              {rows.length} ราย
+              {outstandingMap.size > 0 && (
+                <span className="ml-2 text-red-500 font-medium">
+                  · ค้างชำระ {outstandingMap.size} ราย
+                </span>
+              )}
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={exportCsv}
@@ -336,14 +299,16 @@ export default function CustomersPage() {
           </button>
           <button
             onClick={() => {
+              if (!isBusiness) { toast.error('ฟีเจอร์นี้ต้องการแผน Business'); return }
               if (!user) return
               void exportCustomersToExcel(user.id)
                 .then(() => toast.success('Export Excel สำเร็จ'))
                 .catch(() => toast.error('Export ไม่สำเร็จ'))
             }}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+            title={isBusiness ? undefined : 'ต้องการแผน Business'}
+            className={`inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 ${!isBusiness ? 'opacity-60' : ''}`}
           >
-            <FileSpreadsheet size={15} className="text-green-600" /> Excel
+            {isBusiness ? <FileSpreadsheet size={15} className="text-green-600" /> : <Lock size={15} className="text-slate-400" />} Excel
           </button>
           <button
             onClick={openCreate}
@@ -376,11 +341,12 @@ export default function CustomersPage() {
         </div>
       )}
 
+      {/* Table */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        {loading ? <TableSkeleton cols={7} rows={6} hasCheckbox /> : (<>
+        {loading ? <TableSkeleton cols={9} rows={6} hasCheckbox /> : (<>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-slate-500">
+              <thead className="bg-slate-50 text-left text-xs text-slate-500">
                 <tr>
                   <th className="w-10 px-4 py-3">
                     <input type="checkbox" checked={allPageSelected} onChange={toggleAll}
@@ -390,15 +356,16 @@ export default function CustomersPage() {
                   <th className="px-4 py-3 font-semibold">ผู้ติดต่อ</th>
                   <th className="px-4 py-3 font-semibold">โทรศัพท์</th>
                   <th className="px-4 py-3 font-semibold">สถานะ</th>
+                  <th className="px-4 py-3 font-semibold">เกรด</th>
+                  <th className="px-4 py-3 text-right font-semibold whitespace-nowrap">ยอดค้างชำระ</th>
                   <th className="px-4 py-3 font-semibold">แท็ก</th>
-                  <th className="px-4 py-3 font-semibold">เซลส์</th>
                   <th className="w-10 px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <EmptyState
                         icon={<Users size={22} />}
                         title={rows.length === 0 ? 'ยังไม่มีข้อมูลลูกค้า' : 'ไม่พบลูกค้าที่ตรงกับเงื่อนไข'}
@@ -410,59 +377,95 @@ export default function CustomersPage() {
                       />
                     </td>
                   </tr>
-                ) : paginated.map(row => (
-                  <tr key={row.id} className={`border-t border-slate-100 transition-colors ${selectedIds.has(row.id) ? 'bg-slate-50' : ''}`}>
-                    <td className="px-4 py-3">
-                      <input type="checkbox" checked={selectedIds.has(row.id)} onChange={() => toggleOne(row.id)}
-                        className="h-4 w-4 rounded border-slate-300 accent-slate-700" />
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => setHistoryCustomer(row)}
-                        className="font-medium text-blue-600 hover:underline text-left"
-                      >
-                        {row.name}
-                      </button>
-                      {row.tax_id && <p className="text-[11px] text-slate-400">{row.tax_id}</p>}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">{row.contact_person || '—'}</td>
-                    <td className="px-4 py-3 text-slate-500">{row.phone || '—'}</td>
-                    <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {row.tags.length > 0
-                          ? row.tags.map(t => (
-                            <span key={t} className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-600">{t}</span>
-                          ))
-                          : <span className="text-slate-400">—</span>
+                ) : paginated.map(row => {
+                  const ar = outstandingMap.get(row.name) ?? 0
+                  return (
+                    <tr
+                      key={row.id}
+                      className={`border-t border-slate-100 transition-colors hover:bg-slate-50/60 ${selectedIds.has(row.id) ? 'bg-slate-50' : ''}`}
+                    >
+                      {/* Checkbox */}
+                      <td className="px-4 py-3">
+                        <input type="checkbox" checked={selectedIds.has(row.id)} onChange={() => toggleOne(row.id)}
+                          className="h-4 w-4 rounded border-slate-300 accent-slate-700" />
+                      </td>
+
+                      {/* Avatar + Name */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <CustomerAvatar name={row.name} />
+                          <div>
+                            <button
+                              onClick={() => navigate(`/customers/${row.id}`)}
+                              className="font-medium text-blue-600 hover:underline text-left"
+                            >
+                              {row.name}
+                            </button>
+                            {row.tax_id && <p className="text-[11px] text-slate-400">{row.tax_id}</p>}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* ผู้ติดต่อ */}
+                      <td className="px-4 py-3 text-slate-500">
+                        {row.contact_person || <span className="text-slate-300">—</span>}
+                      </td>
+
+                      {/* โทรศัพท์ */}
+                      <td className="px-4 py-3 text-slate-500">
+                        {row.phone || <span className="text-slate-300">—</span>}
+                      </td>
+
+                      {/* สถานะ */}
+                      <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
+
+                      {/* เกรด */}
+                      <td className="px-4 py-3"><GradeBadge status={row.status} /></td>
+
+                      {/* ยอดค้างชำระ */}
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {ar > 0
+                          ? <span className="font-semibold text-red-600">฿{fmtAmount(ar)}</span>
+                          : <span className="text-slate-300">—</span>
                         }
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">{row.salesperson || '—'}</td>
-                    <td className="px-4 py-3 text-right">
-                      <KebabMenu
-                        onEdit={() => openEdit(row)}
-                        onDelete={() => void onDelete(row.id)}
-                        deleteLabel="ลบลูกค้า"
-                        extraItems={[
-                          { label: 'ประวัติลูกค้า', onClick: () => setHistoryCustomer(row) },
-                          { label: 'สร้าง Portal Link', onClick: () => void onSharePortal(row.id), icon: <Link2 size={13} /> },
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+
+                      {/* แท็ก */}
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {row.tags.length > 0
+                            ? row.tags.map(t => (
+                              <span key={t} className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-600">{t}</span>
+                            ))
+                            : <span className="text-slate-300">—</span>
+                          }
+                        </div>
+                      </td>
+
+                      {/* KebabMenu */}
+                      <td className="px-4 py-3 text-right">
+                        <KebabMenu
+                          onEdit={() => openEdit(row)}
+                          onDelete={() => void onDelete(row.id)}
+                          deleteLabel="ลบลูกค้า"
+                          extraItems={[
+                            { label: 'ดูรายละเอียด', onClick: () => navigate(`/customers/${row.id}`) },
+                            { label: 'สร้าง Portal Link', onClick: () => void onSharePortal(row.id), icon: <Link2 size={13} /> },
+                          ]}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
-          <Pagination page={page} totalPages={totalPages} total={filtered.length} onPage={p => { setPage(p); setSelectedIds(new Set()) }} />
+          <Pagination
+            page={page} totalPages={totalPages} total={filtered.length}
+            onPage={p => { setPage(p); setSelectedIds(new Set()) }}
+          />
         </>)}
       </div>
-
-      {/* Customer History Modal */}
-      {historyCustomer && (
-        <CustomerHistoryModal customer={historyCustomer} onClose={() => setHistoryCustomer(null)} />
-      )}
 
       {/* Add/Edit Modal */}
       {showModal && (
@@ -491,10 +494,10 @@ export default function CustomersPage() {
               </FormField>
               <FormField label="สถานะ">
                 <select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))} className={inputCls}>
-                  <option value="active">ใช้งาน</option>
-                  <option value="inactive">ไม่ใช้งาน</option>
-                  <option value="vip">VIP</option>
-                  <option value="blocked">ระงับ</option>
+                  <option value="active">ใช้งาน (เกรด B)</option>
+                  <option value="vip">VIP (เกรด A)</option>
+                  <option value="inactive">ไม่ใช้งาน (เกรด C)</option>
+                  <option value="blocked">ระงับ (เกรด F)</option>
                 </select>
               </FormField>
               <FormField label="เครดิตเทอม">

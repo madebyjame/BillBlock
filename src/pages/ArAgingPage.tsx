@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, FileSpreadsheet, RefreshCw } from 'lucide-react'
+import { AlertTriangle, FileSpreadsheet, Lock, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '../lib/supabase'
+import { usePlan } from '../hooks/usePlan'
+import ProUpgradeWall from '../components/ProUpgradeWall'
 import * as XLSX from 'xlsx'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -78,6 +80,7 @@ export default function ArAgingPage() {
   }))
 
   const grandTotal = rows.reduce((s, r) => s + r.total_amount, 0)
+  const { isPro, isBusiness } = usePlan()
 
   function exportExcel() {
     if (rows.length === 0) { toast.error('ไม่มีข้อมูล'); return }
@@ -98,6 +101,8 @@ export default function ArAgingPage() {
     toast.success('Export Excel สำเร็จ')
   }
 
+  if (!isPro) return <ProUpgradeWall feature="reports" />
+
   return (
     <div className="w-full p-6 md:p-8 lg:p-10">
       {/* Header */}
@@ -112,9 +117,12 @@ export default function ArAgingPage() {
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             รีเฟรช
           </button>
-          <button onClick={exportExcel}
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50">
-            <FileSpreadsheet size={15} className="text-green-600" />
+          <button
+            onClick={() => isBusiness ? exportExcel() : toast.error('ฟีเจอร์นี้ต้องการแผน Business')}
+            title={isBusiness ? undefined : 'ต้องการแผน Business'}
+            className={`flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50 ${!isBusiness ? 'opacity-60' : ''}`}
+          >
+            {isBusiness ? <FileSpreadsheet size={15} className="text-green-600" /> : <Lock size={15} className="text-slate-400" />}
             Export Excel
           </button>
         </div>
@@ -157,8 +165,8 @@ export default function ArAgingPage() {
           <p className="mt-1 text-xs text-slate-300">เอกสารที่สถานะ "ส่งแล้ว" และมีวันครบกำหนดจะปรากฏที่นี่</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/80 text-left">
                 {['เลขที่', 'ประเภท', 'ลูกค้า', 'วันครบกำหนด', 'ค้างชำระ', 'ยอดคงค้าง', 'อายุหนี้'].map(h => (

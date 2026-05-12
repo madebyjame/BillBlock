@@ -53,10 +53,49 @@ serve(async (req) => {
     if (!res.ok) return json({ error: charge.message ?? 'omise_error' }, 502)
 
     if (charge.status === 'successful') {
+      const paidDate = new Date().toISOString().split('T')[0]
       await supabase
         .from('documents')
-        .update({ status: 'paid', paid_date: new Date().toISOString().split('T')[0] })
+        .update({ status: 'paid', paid_date: paidDate })
         .eq('id', document_id)
+
+      // ── Send payment confirmation email ──────────────────────────────
+      // Fetch customer email + doc number for the email
+      const { data: fullDoc } = await supabase
+        .from('documents')
+        .select('content, customers(email, name)')
+        .eq('id', document_id)
+        .single()
+
+      type DocWithCustomer = {
+        content: { docMeta?: { number?: string } } | null
+        customers: { email?: string; name?: string } | null
+      }
+      const d = fullDoc as DocWithCustomer | null
+      const customerEmail = d?.customers?.email
+      const docNumber = d?.content?.docMeta?.number ?? document_id
+
+      if (customerEmail) {
+        // Fire-and-forget — don't block the payment response
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+        fetch(`${supabaseUrl}/functions/v1/send-email`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'payment',
+            to: customerEmail,
+            data: {
+              docNumber,
+              amount: charge.amount / 100,
+              paidDate,
+            },
+          }),
+        }).catch(console.error)
+      }
     }
 
     return json({ status: charge.status })

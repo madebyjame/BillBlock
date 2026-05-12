@@ -69,6 +69,19 @@ export async function updateCustomer(id: string, input: CustomerInput): Promise<
   if (error) throw new Error(error.message)
 }
 
+export async function getCustomerById(id: string): Promise<CustomerRow | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data, error } = await supabase
+    .from('customers')
+    .select(SELECT_FIELDS)
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+  if (error) return null
+  return data as CustomerRow
+}
+
 export async function deleteCustomer(id: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')

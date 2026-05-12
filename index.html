@@ -4,21 +4,185 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- PWA / app meta -->
-    <meta name="theme-color" content="#1e293b" />
-    <meta name="description" content="ระบบออกใบเสนอราคา ใบแจ้งหนี้ และบัญชีสำหรับ SME" />
-    <meta name="application-name" content="BillBlock" />
+    <!-- ── Primary SEO ──────────────────────────────────────────── -->
+    <title>BillBlock — ออกบิลออนไลน์ฟรี ใบเสนอราคา ใบแจ้งหนี้ สำหรับ SME และฟรีแลนซ์ไทย</title>
+    <meta name="description" content="BillBlock ระบบออกเอกสารธุรกิจออนไลน์ฟรี ครอบคลุมใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จรับเงิน ใบกำกับภาษี VAT WHT P&L รองรับ PromptPay ส่ง PDF ทางอีเมล เหมาะสำหรับ SME และฟรีแลนซ์ไทย ไม่ต้องใช้บัตรเครดิต" />
+    <meta name="keywords" content="ออกบิล,ใบเสนอราคา,ใบแจ้งหนี้,ใบเสร็จรับเงิน,ระบบบัญชี,SME,ฟรีแลนซ์,VAT,ภาษี,PromptPay,BillBlock" />
+    <meta name="author" content="BillBlock" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://billblock.app/" />
 
-    <!-- iOS PWA -->
+    <!-- ── Open Graph (Facebook, LINE, Discord) ─────────────────── -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:url"         content="https://billblock.app/" />
+    <meta property="og:title"       content="BillBlock — ออกบิลออนไลน์ฟรี สำหรับ SME และฟรีแลนซ์ไทย" />
+    <meta property="og:description" content="ระบบออกเอกสารธุรกิจครบวงจร ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ VAT WHT P&L รับชำระ PromptPay ฟรีไม่ต้องใช้บัตรเครดิต" />
+    <meta property="og:image"       content="https://billblock.app/og-image.png" />
+    <meta property="og:image:width"  content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale"      content="th_TH" />
+    <meta property="og:site_name"   content="BillBlock" />
+
+    <!-- ── Twitter Card ─────────────────────────────────────────── -->
+    <meta name="twitter:card"        content="summary_large_image" />
+    <meta name="twitter:title"       content="BillBlock — ออกบิลออนไลน์ฟรี สำหรับ SME และฟรีแลนซ์ไทย" />
+    <meta name="twitter:description" content="ระบบออกเอกสารธุรกิจครบวงจร ฟรีไม่ต้องใช้บัตรเครดิต" />
+    <meta name="twitter:image"       content="https://billblock.app/og-image.png" />
+
+    <!-- ── PWA / App meta ───────────────────────────────────────── -->
+    <meta name="theme-color" content="#1e3a8a" />
+    <meta name="application-name" content="BillBlock" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="BillBlock" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
-
-    <!-- Icons -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-    <title>BillBlock</title>
+    <!-- ── Structured Data (JSON-LD) ────────────────────────────── -->
+
+    <!-- SoftwareApplication schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "BillBlock",
+      "url": "https://billblock.app",
+      "description": "ระบบออกเอกสารธุรกิจออนไลน์ครบวงจร สำหรับ SME และฟรีแลนซ์ไทย รองรับใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ VAT WHT P&L และรับชำระผ่าน PromptPay",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "inLanguage": "th",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Free",
+          "price": "0",
+          "priceCurrency": "THB",
+          "description": "ใช้งานฟรีตลอด เอกสาร 5 ฉบับ/เดือน ลูกค้า 5 ราย"
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro",
+          "price": "149",
+          "priceCurrency": "THB",
+          "description": "เอกสาร 100 ฉบับ/เดือน ลูกค้า 50 ราย รายงาน VAT/WHT/P&L"
+        },
+        {
+          "@type": "Offer",
+          "name": "Business",
+          "price": "450",
+          "priceCurrency": "THB",
+          "description": "ไม่จำกัดทุกอย่าง Export Excel ทุกหน้า"
+        }
+      ]
+    }
+    </script>
+
+    <!-- Organization schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "BillBlock",
+      "url": "https://billblock.app",
+      "logo": "https://billblock.app/favicon.svg",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "email": "support@billblock.app",
+        "contactType": "customer support",
+        "availableLanguage": "Thai"
+      }
+    }
+    </script>
+
+    <!-- FAQPage schema (AEO — ตรงกับ FAQ section ในหน้าแรก) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "BillBlock ทดลองใช้ฟรีได้นานแค่ไหน?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "แผน Free ไม่มีวันหมดอายุ ใช้ได้ตลอดไปภายในขีดจำกัด (5 เอกสาร/เดือน ลูกค้า 5 ราย สินค้า 5 รายการ)"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "ถ้ายกเลิกแผนชำระเงิน ข้อมูล BillBlock จะหายไหม?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "ไม่หาย ข้อมูลทุกอย่างยังอยู่ครบ แค่บางฟีเจอร์จะถูกล็อกตามแผน Free"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "BillBlock รองรับ e-Tax Invoice ไหม?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "ปัจจุบันออกใบกำกับภาษีแบบ PDF ได้ ส่วน e-Tax ผ่านระบบ ETDA อยู่ใน Roadmap"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "BillBlock ใช้ได้กี่อุปกรณ์พร้อมกัน?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "ไม่จำกัดอุปกรณ์ ใช้ได้ทุก browser บน PC, tablet, มือถือในบัญชีเดียวกัน"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "BillBlock ปลอดภัยแค่ไหน?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "ระบบใช้ Supabase + Row Level Security ข้อมูลของบัญชีคุณมองเห็นได้เฉพาะคุณเท่านั้น เข้ารหัสด้วย TLS ทุก connection"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "BillBlock ราคาเท่าไหร่?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "BillBlock มี 3 แผน: Free (ฟรีตลอด), Pro (฿149/เดือน หรือ ฿1,490/ปี), Business (฿450/เดือน หรือ ฿4,500/ปี) ชำระรายปีประหยัดเท่ากับ 2 เดือนฟรี"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "BillBlock รองรับหลายบริษัทในบัญชีเดียวได้ไหม?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "ปัจจุบัน 1 บัญชี = 1 กิจการ ถ้าต้องการหลายกิจการให้สร้างบัญชีแยกกัน"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "BillBlock รองรับ PromptPay ไหม?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "รองรับ สร้าง QR Code PromptPay ในเอกสาร ลูกค้าสแกนชำระ สถานะอัพเดทอัตโนมัติ"
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- WebSite schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "BillBlock",
+      "url": "https://billblock.app",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://billblock.app/?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
   </head>
   <body>
     <div id="root"></div>

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Mail, X, Copy, Check, ExternalLink } from 'lucide-react'
+import { Mail, X, Copy, Check, ExternalLink, Send } from 'lucide-react'
 import { toast } from 'sonner'
+import { supabase } from '../lib/supabase'
 
 interface SendEmailModalProps {
   docNumber: string
@@ -25,27 +26,45 @@ export default function SendEmailModal({
   const [to, setTo]           = useState(customerEmail)
   const [message, setMessage] = useState('')
   const [copied, setCopied]   = useState(false)
+  const [sending, setSending] = useState(false)
 
   const subject = `${docTypeLabel} ${docNumber}${companyName ? ` จาก ${companyName}` : ''}`
 
-  const defaultBody = [
-    customerName ? `เรียน คุณ${customerName}` : 'เรียน ลูกค้า',
-    '',
-    `ขอส่ง${docTypeLabel} ${docNumber} มาพร้อมกับอีเมลฉบับนี้`,
-    message ? '' : undefined,
-    message || undefined,
-    '',
-    portalUrl
-      ? `สามารถดูเอกสารออนไลน์ได้ที่:\n${portalUrl}`
-      : 'กรุณาดูเอกสารในไฟล์ที่แนบมา',
-    '',
-    companyName ? `ขอบคุณครับ/ค่ะ\n${companyName}` : 'ขอบคุณครับ/ค่ะ',
-  ].filter(l => l !== undefined).join('\n')
+  // ─── Send via Edge Function (Resend) ────────────────────────────────────────
+  async function sendEmail() {
+    if (!to) { toast.error('กรุณาระบุอีเมลผู้รับ'); return }
+    setSending(true)
+    try {
+      const { error } = await supabase.functions.invoke('send-email', {
+        body: {
+          type: 'invoice',
+          to,
+          data: { docNumber, docTypeLabel, customerName, companyName, portalUrl, message: message || undefined },
+        },
+      })
+      if (error) throw error
+      toast.success('ส่งอีเมลสำเร็จ')
+      onClose()
+    } catch {
+      toast.error('ส่งอีเมลไม่สำเร็จ — ลองเปิด email client แทน')
+      setSending(false)
+    }
+  }
 
+  // ─── Fallback: open mailto ───────────────────────────────────────────────────
   function openMailto() {
     if (!to) { toast.error('กรุณาระบุอีเมลผู้รับ'); return }
-    const mailtoUrl = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(defaultBody)}`
-    window.open(mailtoUrl, '_blank')
+    const body = [
+      customerName ? `เรียน คุณ${customerName}` : 'เรียน ลูกค้า',
+      '',
+      `ขอส่ง${docTypeLabel} ${docNumber} มาพร้อมกับอีเมลฉบับนี้`,
+      message ? `\n${message}` : '',
+      '',
+      portalUrl ? `สามารถดูเอกสารออนไลน์ได้ที่:\n${portalUrl}` : 'กรุณาดูเอกสารในไฟล์ที่แนบมา',
+      '',
+      companyName ? `ขอบคุณครับ/ค่ะ\n${companyName}` : 'ขอบคุณครับ/ค่ะ',
+    ].filter(Boolean).join('\n')
+    window.open(`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank')
     toast.success('เปิด email client แล้ว')
     onClose()
   }
@@ -60,7 +79,7 @@ export default function SendEmailModal({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl max-h-[90vh] overflow-y-auto flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div className="flex items-center gap-2.5">
@@ -77,7 +96,7 @@ export default function SendEmailModal({
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="space-y-4 px-6 py-5 flex-1 overflow-y-auto">
           {/* To */}
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-slate-600">ส่งถึง (อีเมลลูกค้า) *</label>
@@ -129,23 +148,32 @@ export default function SendEmailModal({
               </div>
             </div>
           )}
-
-          <p className="text-[11px] text-slate-400">
-            ระบบจะเปิด email client ของคุณ (Gmail / Outlook) พร้อมข้อความที่เตรียมไว้ — คุณสามารถแก้ไขและแนบ PDF ก่อนส่งได้
-          </p>
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
-          <button onClick={onClose}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
-            ยกเลิก
+        <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+          <button
+            onClick={openMailto}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600"
+            title="เปิด email client แทน"
+          >
+            <ExternalLink size={12} />
+            เปิด email client
           </button>
-          <button onClick={openMailto}
-            className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-500">
-            <Mail size={14} />
-            เปิด Email Client
-          </button>
+          <div className="flex gap-2">
+            <button onClick={onClose}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+              ยกเลิก
+            </button>
+            <button
+              onClick={() => void sendEmail()}
+              disabled={sending}
+              className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-60"
+            >
+              <Send size={14} />
+              {sending ? 'กำลังส่ง...' : 'ส่งอีเมล'}
+            </button>
+          </div>
         </div>
       </div>
     </div>,

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { PlanContext } from '../context/PlanContext'
 import { useEditorCallbacks } from '../context/EditorCallbacksContext'
 import {
@@ -20,6 +20,7 @@ import {
   calcDocSummary, formatNumber, formatDate, numberToThaiText,
 } from '../utils/calculations'
 import { readImageFileAsDataUrl } from '../utils/fileToDataUrl'
+import { buildPromptPayString } from '../utils/promptpayQR'
 import { GripIcon, XSmallIcon, LogoPlaceholder } from './document/DocumentIcons'
 import { F, CustomerLookupInput, DiscountInput } from './document/InvoiceInputs'
 import { SortableRow, StaticRow, MetaRow, SummaryRow } from './document/InvoiceRows'
@@ -104,7 +105,11 @@ export default function InvoiceDocument({ doc, dispatch, docRef, catalog, custom
           <div>
             {/* Company */}
             <div className="flex items-start gap-3 mb-4">
-              <label className={`flex-shrink-0 flex h-16 w-16 items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-50 ${pdfMode ? 'pointer-events-none' : 'cursor-pointer hover:border-blue-300 hover:bg-blue-50'}`}>
+              <label className={`flex-shrink-0 flex h-16 w-16 items-center justify-center overflow-hidden rounded transition-colors ${
+                doc.company.logoUrl
+                  ? 'border border-slate-200 bg-slate-50'
+                  : 'border-2 border-dashed border-slate-300 bg-slate-50/60'
+              } ${pdfMode ? 'pointer-events-none' : 'cursor-pointer hover:border-blue-400 hover:bg-blue-50'}`}>
                 {doc.company.logoUrl
                   ? <img src={doc.company.logoUrl} alt="logo" className="h-full w-full object-contain p-0.5" />
                   : <LogoPlaceholder />}
@@ -379,8 +384,8 @@ function SortableBlock({ block, doc, dispatch, pdfMode, tc, v }: {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id })
   return (
     <div ref={setNodeRef}
-      style={pdfMode ? undefined : { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.35 : 1 }}
-      className={pdfMode ? 'relative' : 'group/blk relative block-enter'}>
+      style={pdfMode ? undefined : { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }}
+      className={pdfMode ? 'relative' : `group/blk relative block-enter rounded-lg transition-colors hover:bg-slate-50/60 ${isDragging ? 'ring-2 ring-blue-300 ring-dashed bg-blue-50/20' : ''}`}>
       {!pdfMode && (
         <button {...attributes} {...listeners}
           className="absolute left-1 top-1/2 -translate-y-1/2 z-10 cursor-grab touch-none opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-300 hover:text-slate-500 active:cursor-grabbing">
@@ -389,7 +394,7 @@ function SortableBlock({ block, doc, dispatch, pdfMode, tc, v }: {
       )}
       {!pdfMode && (
         <button onClick={() => dispatch({ type: 'REMOVE_BLOCK', id: block.id })}
-          className="absolute top-1 right-1 z-10 opacity-0 group-hover/blk:opacity-100 transition-opacity text-slate-300 hover:text-red-500 rounded p-0.5 hover:bg-red-50">
+          className="absolute top-1 right-1 z-10 opacity-0 group-hover/blk:opacity-70 hover:!opacity-100 transition-opacity text-slate-400 hover:text-red-500 rounded p-1 hover:bg-red-50 bg-white shadow-sm border border-slate-100">
           <XSmallIcon />
         </button>
       )}
@@ -441,15 +446,37 @@ function BlockContent({ block, doc, dispatch, pdfMode, tc, v }: {
       return (
         <div data-pdf-no-break style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
           className={`mt-4 rounded border p-3 text-xs ${pdfMode ? 'border-slate-300 bg-white text-slate-800' : 'border-slate-100 bg-slate-50 text-slate-500'}`}>
-          <p className={`font-semibold mb-1 ${pdfMode ? 'text-slate-900' : 'text-slate-600'}`}>ชำระเงินผ่าน</p>
-          <F pdfMode={pdfMode} value={doc.footer.bankName} className="inline"
-            onChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { bankName: val } })} />
-          {' · '}
-          <F pdfMode={pdfMode} value={doc.footer.accountName} className="inline"
-            onChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { accountName: val } })} />
-          {' · '}
-          <F pdfMode={pdfMode} value={doc.footer.accountNumber} className="inline font-mono"
-            onChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { accountNumber: val } })} />
+          <div className="flex items-start gap-4">
+            <div className="flex-1">
+              <p className={`font-semibold mb-1.5 ${pdfMode ? 'text-slate-900' : 'text-slate-600'}`}>ชำระเงินผ่าน</p>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1">
+                  <span className={pdfMode ? 'text-slate-500' : 'text-slate-400'}>ธนาคาร:</span>
+                  <F pdfMode={pdfMode} value={doc.footer.bankName} className="inline font-medium"
+                    onChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { bankName: val } })} />
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className={pdfMode ? 'text-slate-500' : 'text-slate-400'}>ชื่อบัญชี:</span>
+                  <F pdfMode={pdfMode} value={doc.footer.accountName} className="inline font-medium"
+                    onChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { accountName: val } })} />
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className={pdfMode ? 'text-slate-500' : 'text-slate-400'}>เลขที่:</span>
+                  <F pdfMode={pdfMode} value={doc.footer.accountNumber} className="inline font-mono font-medium"
+                    onChange={val => dispatch({ type: 'UPDATE_FOOTER', data: { accountNumber: val } })} />
+                </div>
+                {doc.footer.bankNote && (
+                  <p className={`mt-1 ${pdfMode ? 'text-slate-500' : 'text-slate-400'}`}>{doc.footer.bankNote}</p>
+                )}
+              </div>
+            </div>
+            {doc.footer.promptpayId && (
+              <div className="flex flex-col items-center gap-1 shrink-0">
+                <PromptPayQR promptpayId={doc.footer.promptpayId} size={90} />
+                <span className={`text-[10px] ${pdfMode ? 'text-slate-500' : 'text-slate-400'}`}>PromptPay</span>
+              </div>
+            )}
+          </div>
         </div>
       )
     case 'customText':
@@ -475,5 +502,34 @@ function BlockContent({ block, doc, dispatch, pdfMode, tc, v }: {
     default:
       return null
   }
+}
+
+// ─── PromptPay QR Code (lazy-loaded via dynamic import) ──────────────────────
+function PromptPayQR({ promptpayId, size = 120 }: { promptpayId: string; size?: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    if (!canvasRef.current || !promptpayId.trim()) return
+    const qrString = buildPromptPayString(promptpayId)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    import('qrcode').then((mod: any) => {
+      return (mod.default ?? mod).toCanvas(canvasRef.current, qrString, {
+        width: size,
+        margin: 1,
+        color: { dark: '#1e293b', light: '#ffffff' },
+        errorCorrectionLevel: 'M',
+      })
+    }).then(() => setReady(true)).catch(() => {})
+  }, [promptpayId, size])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={size}
+      height={size}
+      style={{ imageRendering: 'pixelated', opacity: ready ? 1 : 0, transition: 'opacity 0.2s' }}
+    />
+  )
 }
 

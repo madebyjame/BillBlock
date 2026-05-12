@@ -82,7 +82,7 @@ function NavItem({ to, label, end = false, Icon, collapsed, onClick, themeColor 
       end={end}
       onClick={onClick}
       className={({ isActive }) =>
-        ['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200',
+        ['flex items-center gap-3 rounded-xl px-3 py-2.5 md:py-2.5 text-sm transition-all duration-200 min-h-[44px]',
           isActive ? 'font-semibold text-white shadow-sm' : 'text-slate-400 hover:bg-slate-800 hover:text-white',
         ].join(' ')
       }
@@ -189,7 +189,7 @@ export default function Sidebar({
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-2.5 py-4 space-y-0.5">
+        <nav className="flex-1 overflow-y-auto px-2.5 py-4 space-y-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {/* Top nav */}
           {TOP_NAV.map(item => (
             <NavItem key={item.to} {...item} collapsed={collapsed} onClick={close} themeColor={themeColor} />
@@ -236,7 +236,7 @@ export default function Sidebar({
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">แผน Free</span>
                 <button
-                  onClick={() => navigate('/settings/billing')}
+                  onClick={() => navigate('/settings?tab=billing')}
                   className="flex items-center gap-1 rounded-md bg-blue-600/20 px-1.5 py-0.5 text-[10px] font-semibold text-blue-400 hover:bg-blue-600/30 transition-colors"
                 >
                   <Zap size={9} />
