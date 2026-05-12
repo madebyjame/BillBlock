@@ -25,7 +25,7 @@ import { toast } from 'sonner'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useConfirm } from '../hooks/useConfirm'
 import { useAuth } from '../context/AuthContext'
-import { getProfile, upsertProfile, uploadCompanyFile } from '../lib/profileApi'
+import { getProfile, upsertProfile, uploadCompanyFile, deleteCompanyFile } from '../lib/profileApi'
 import type { Profile } from '../lib/profileApi'
 import { usePlan } from '../hooks/usePlan'
 import { PLAN_LABELS, PLAN_LIMITS, PLAN_PRICES } from '../lib/planLimits'
@@ -182,6 +182,14 @@ export default function SettingsPage() {
     } finally {
       setUploadingLogo(false)
     }
+  }
+
+  async function handleLogoClear() {
+    if (!user) return
+    update({ logo_url: '' })
+    try {
+      await deleteCompanyFile(user.id, 'logo')
+    } catch { /* best-effort */ }
   }
 
   async function handleSave() {
@@ -462,7 +470,7 @@ function DesignTab({
               url={form.logo_url}
               uploading={uploadingLogo}
               onUpload={onUploadLogo}
-              onClear={() => update({ logo_url: '' })}
+              onClear={() => void handleLogoClear()}
               buttonLabel="เลือกโลโก้"
             />
           </Field>
