@@ -373,7 +373,9 @@ function EditorUI({
       alert(`กรุณากรอกข้อมูลต่อไปนี้ก่อน Export PDF:\n\n• ${messages.join('\n• ')}`)
       return
     }
-    void exportPdf('bill-block-document.pdf')
+    const docType = doc.docMeta.documentType || 'เอกสาร'
+    const docNumber = doc.docMeta.number?.trim() || 'ไม่มีเลข'
+    void exportPdf(`${docType}_${docNumber}.pdf`)
   }
 
   async function handleBack() {
