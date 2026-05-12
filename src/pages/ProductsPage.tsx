@@ -99,33 +99,35 @@ function StockHistoryModal({ product, onClose }: { product: ProductRow; onClose:
               <p className="text-sm text-slate-400">ยังไม่มีประวัติการเคลื่อนไหวสต็อก</p>
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs text-slate-400">
-                <tr>
-                  <th className="pb-2 font-medium">ประเภท</th>
-                  <th className="pb-2 text-right font-medium">จำนวน</th>
-                  <th className="pb-2 text-right font-medium">คงเหลือ</th>
-                  <th className="pb-2 font-medium">อ้างอิง</th>
-                  <th className="pb-2 font-medium">หมายเหตุ</th>
-                  <th className="pb-2 text-right font-medium">วันที่</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {rows.map(r => {
-                  const meta = TYPE_META[r.movement_type] ?? TYPE_META['ADJUST']
-                  return (
-                    <tr key={r.id}>
-                      <td className="py-2"><span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${meta.cls}`}>{meta.label}</span></td>
-                      <td className={`py-2 text-right font-semibold ${r.movement_type === 'OUT' ? 'text-red-600' : 'text-green-600'}`}>{meta.sign}{r.quantity.toLocaleString('th-TH')}</td>
-                      <td className="py-2 text-right text-slate-700">{r.balance_after.toLocaleString('th-TH')}</td>
-                      <td className="py-2 font-mono text-xs text-blue-600">{r.reference_document || '—'}</td>
-                      <td className="py-2 text-slate-500 max-w-[120px] truncate">{r.note || '—'}</td>
-                      <td className="py-2 text-right text-slate-400 text-[11px] whitespace-nowrap">{fmtDate(r.created_at)}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[480px] text-sm">
+                <thead className="text-left text-xs text-slate-400">
+                  <tr>
+                    <th className="pb-2 font-medium">ประเภท</th>
+                    <th className="pb-2 text-right font-medium">จำนวน</th>
+                    <th className="pb-2 text-right font-medium">คงเหลือ</th>
+                    <th className="pb-2 font-medium">อ้างอิง</th>
+                    <th className="pb-2 font-medium">หมายเหตุ</th>
+                    <th className="pb-2 text-right font-medium">วันที่</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {rows.map(r => {
+                    const meta = TYPE_META[r.movement_type] ?? TYPE_META['ADJUST']
+                    return (
+                      <tr key={r.id}>
+                        <td className="py-2"><span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${meta.cls}`}>{meta.label}</span></td>
+                        <td className={`py-2 text-right font-semibold ${r.movement_type === 'OUT' ? 'text-red-600' : 'text-green-600'}`}>{meta.sign}{r.quantity.toLocaleString('th-TH')}</td>
+                        <td className="py-2 text-right text-slate-700">{r.balance_after.toLocaleString('th-TH')}</td>
+                        <td className="py-2 font-mono text-xs text-blue-600">{r.reference_document || '—'}</td>
+                        <td className="py-2 text-slate-500 max-w-[120px] truncate">{r.note || '—'}</td>
+                        <td className="py-2 text-right text-slate-400 text-[11px] whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>

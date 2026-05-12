@@ -729,12 +729,12 @@ export default function DocumentListPage({ docType }: Props) {
       )}
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto overflow-hidden rounded-xl border border-slate-200 bg-white">
         {loading ? (
           <TableSkeleton cols={colCount} rows={6} hasCheckbox />
         ) : (
           <>
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[700px] text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/80 text-left">
                   <th className="w-12 px-5 py-4">

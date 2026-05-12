@@ -239,7 +239,7 @@ export default function WhtReportPage() {
       ) : (
         <div className="space-y-6">
           {groups.map(group => (
-            <div key={group.rate} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div key={group.rate} className="overflow-x-auto overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-5 py-3">
                 <div>
                   <span className="text-sm font-bold text-amber-700">WHT {group.rate}%</span>
@@ -252,7 +252,7 @@ export default function WhtReportPage() {
                 </div>
               </div>
 
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[700px] text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 text-left">
                     {['วันที่', 'เลขที่เอกสาร', 'ชื่อผู้รับเงิน', 'เลขผู้เสียภาษี', 'จำนวนเงิน', 'ภาษีที่หัก', 'สุทธิ', 'หมายเหตุ'].map(h => (

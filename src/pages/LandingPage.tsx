@@ -437,8 +437,8 @@ export default function LandingPage() {
       <section className="px-6 py-16">
         <div className="mx-auto max-w-4xl">
           <h2 className="mb-8 text-center text-2xl font-bold text-slate-900">เปรียบเทียบแผน</h2>
-          <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+            <table className="w-full min-w-[480px] text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
                   <th className="px-6 py-4 text-left font-semibold text-slate-600">ฟีเจอร์</th>

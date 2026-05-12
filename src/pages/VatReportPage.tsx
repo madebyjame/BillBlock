@@ -270,7 +270,7 @@ export default function VatReportPage() {
       ) : (
         <div className="space-y-6">
           {groups.map(group => (
-            <div key={group.monthKey} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div key={group.monthKey} className="overflow-x-auto overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
               {/* Month header */}
               <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-5 py-3">
                 <p className="text-sm font-semibold text-slate-700">{group.monthLabel}</p>
@@ -281,7 +281,7 @@ export default function VatReportPage() {
                 </div>
               </div>
 
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 text-left">
                     <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400">วันที่</th>
