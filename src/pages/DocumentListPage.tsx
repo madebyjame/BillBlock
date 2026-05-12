@@ -16,7 +16,7 @@ import { useAuth } from '../context/AuthContext'
 import { PlanLimitError } from '../lib/planLimits'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDocumentsByType } from '../hooks/useDocumentsByType'
-import { createDocument, deleteDocument, updateDocumentStatus, duplicateDocument, convertToInvoice, convertDocument } from '../lib/documentApi'
+import { createDocument, deleteDocument, updateDocumentStatus, duplicateDocument, convertToInvoice, convertToReceipt, convertToTaxInvoice } from '../lib/documentApi'
 import { exportDocumentsToExcel } from '../lib/excelExport'
 import { usePlan } from '../hooks/usePlan'
 import type { DocumentRow } from '../lib/documentApi'
@@ -523,7 +523,9 @@ export default function DocumentListPage({ docType }: Props) {
       const effectiveType = toType ?? 'invoice'
       const newId = effectiveType === 'invoice'
         ? await convertToInvoice(id, user.id)
-        : await convertDocument(id, effectiveType, user.id)
+        : effectiveType === 'receipt'
+          ? await convertToReceipt(id, user.id)
+          : await convertToTaxInvoice(id, user.id)
       const label = DOC_TYPE_CODES[effectiveType] ?? effectiveType
       toast.success(`แปลงเป็น${label}เรียบร้อย`)
       navigate(`/editor/${newId}`)

@@ -38,6 +38,7 @@ function getProfilePrefix(profile: Profile, docType: DocTypeCode): string {
     case 'receipt':      return profile.receipt_prefix      || DOC_NUMBER_PREFIX.receipt
     case 'billing-note': return profile.billing_note_prefix || DOC_NUMBER_PREFIX['billing-note']
     case 'tax-invoice':  return profile.tax_invoice_prefix  || DOC_NUMBER_PREFIX['tax-invoice']
+    default:             return DOC_NUMBER_PREFIX[docType as DocTypeCode] ?? 'DOC'
   }
 }
 
@@ -248,14 +249,9 @@ async function convertDocument(
   userId: string,
   targetType: DocTypeCode,
 ): Promise<string> {
-  const [{ data, error }, profile, { count }] = await Promise.all([
+  const [{ data, error }, profile] = await Promise.all([
     supabase.from('documents').select('content').eq('id', id).single(),
     getProfile(userId).catch(() => null),
-    supabase
-      .from('documents')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('doc_type', targetType),
   ])
 
   if (error) throw new Error(error.message)
