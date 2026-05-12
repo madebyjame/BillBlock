@@ -35,7 +35,7 @@ export async function seedDemoData(userId: string): Promise<void> {
         shipping_address: '',
         credit_term: '30',
         salesperson: '',
-      }),
+      }).then(),
     )
   }
 
@@ -54,7 +54,7 @@ export async function seedDemoData(userId: string): Promise<void> {
         min_stock: 0,
         tax_type: 'vat',
         image_url: '',
-      }),
+      }).then(),
     )
   }
 
