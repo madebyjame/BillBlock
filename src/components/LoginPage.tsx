@@ -1,13 +1,10 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Eye, EyeOff, FlaskConical, Loader2, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '../lib/supabase'
 
 type Mode = 'login' | 'register'
-
-const DEMO_EMAIL = 'test@billblock.demo'
-const DEMO_PASSWORD = 'Test1234'
 
 const ERROR_MAP: Record<string, string> = {
   'Invalid login credentials': 'อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง',
@@ -24,7 +21,7 @@ function toThaiError(msg: string): string {
 }
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<Mode>('login')
+  const [mode, setMode] = useState<Mode>('register')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -63,10 +60,21 @@ export default function LoginPage() {
     }
   }
 
-  function fillDemo() {
-    setMode('login')
-    setEmail(DEMO_EMAIL)
-    setPassword(DEMO_PASSWORD)
+  async function handleForgotPassword() {
+    if (!email) { toast.error('กรุณากรอกอีเมลก่อน'); return }
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (error) throw error
+      toast.success('ส่งลิงก์รีเซ็ตรหัสผ่านแล้ว', {
+        description: `ตรวจสอบกล่องจดหมาย ${email}`,
+        duration: 6000,
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด'
+      toast.error(toThaiError(msg))
+    }
   }
 
   async function handleGoogle() {
@@ -104,7 +112,7 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-3xl font-extrabold text-[#1e3a8a] tracking-tight">BillBlock</h1>
-          <p className="text-sm text-slate-500 mt-1">เอกสารธุรกิจออนไลน์ ครบจบในที่เดียว</p>
+          <p className="text-sm font-medium text-emerald-600 mt-1">ฟรี · ไม่ต้องใช้บัตรเครดิต · ยกเลิกได้ทุกเมื่อ</p>
         </div>
 
         {/* Main card */}
@@ -112,19 +120,26 @@ export default function LoginPage() {
 
           {/* Tab toggle */}
           <div className="flex rounded-xl border border-slate-200 bg-slate-50 overflow-hidden mb-7 text-sm font-semibold p-1 gap-1">
-            {(['login', 'register'] as Mode[]).map(m => (
-              <button
-                key={m}
-                onClick={() => switchMode(m)}
-                className={`flex-1 py-2 rounded-lg transition-all duration-200 ${
-                  mode === m
-                    ? 'bg-[#1e3a8a] text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {m === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
-              </button>
-            ))}
+            <button
+              onClick={() => switchMode('login')}
+              className={`flex-1 py-2 rounded-lg transition-all duration-200 ${
+                mode === 'login'
+                  ? 'bg-[#1e3a8a] text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              เข้าสู่ระบบ
+            </button>
+            <button
+              onClick={() => switchMode('register')}
+              className={`flex-1 py-2 rounded-lg transition-all duration-200 ${
+                mode === 'register'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              สมัครฟรี ✨
+            </button>
           </div>
 
           {/* Google Sign-in */}
@@ -140,17 +155,6 @@ export default function LoginPage() {
               <GoogleIcon />
             )}
             <span>เข้าสู่ระบบด้วย Google</span>
-          </button>
-
-          {/* Demo login */}
-          <button
-            type="button"
-            onClick={fillDemo}
-            disabled={loading || googleLoading}
-            className="w-full flex items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 hover:border-amber-300 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed mb-4"
-          >
-            <FlaskConical className="h-3.5 w-3.5" />
-            กรอกบัญชีทดสอบให้อัตโนมัติ
           </button>
 
           {/* Divider */}
@@ -181,9 +185,18 @@ export default function LoginPage() {
 
             {/* Password */}
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                รหัสผ่าน
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-600">รหัสผ่าน</label>
+                {mode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-xs text-[#1e3a8a] hover:text-[#1e40af] hover:underline transition-colors"
+                  >
+                    ลืมรหัสผ่าน?
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
