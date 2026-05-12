@@ -1,0 +1,27 @@
+User-agent: *
+Allow: /
+Allow: /#pricing
+Allow: /#features
+Allow: /#faq
+Allow: /terms
+Allow: /privacy
+Allow: /refund
+Allow: /login
+
+# ห้าม crawl หน้าที่ต้อง login
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /customers
+Disallow: /products
+Disallow: /quotations
+Disallow: /invoices
+Disallow: /receipts
+Disallow: /tax-invoices
+Disallow: /credit-notes
+Disallow: /billing
+Disallow: /portal
+Disallow: /stock
+Disallow: /expenses
+Disallow: /reports
+
+Sitemap: https://billblock.app/sitemap.xml
