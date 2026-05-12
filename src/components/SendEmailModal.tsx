@@ -79,7 +79,7 @@ export default function SendEmailModal({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl max-h-[90vh] overflow-y-auto flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div className="flex items-center gap-2.5">
@@ -96,7 +96,7 @@ export default function SendEmailModal({
           </button>
         </div>
 
-        <div className="space-y-4 px-6 py-5">
+        <div className="space-y-4 px-6 py-5 flex-1 overflow-y-auto">
           {/* To */}
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-slate-600">ส่งถึง (อีเมลลูกค้า) *</label>

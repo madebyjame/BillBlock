@@ -52,7 +52,7 @@ export function KebabMenu({
         >
           <button
             onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit() }}
-            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 hover:bg-slate-50"
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 hover:bg-slate-50 min-h-[44px]"
           >
             <Pencil size={13} className="text-slate-400" /> แก้ไข
           </button>
@@ -60,7 +60,7 @@ export function KebabMenu({
             <button
               key={item.label}
               onClick={(e) => { e.stopPropagation(); setOpen(false); item.onClick() }}
-              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 hover:bg-slate-50"
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-slate-700 hover:bg-slate-50 min-h-[44px]"
             >
               {item.icon && <span className="text-slate-400">{item.icon}</span>}
               {item.label}
@@ -69,7 +69,7 @@ export function KebabMenu({
           <div className="border-t border-slate-100" />
           <button
             onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete() }}
-            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-red-500 hover:bg-red-50"
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-xs text-red-500 hover:bg-red-50 min-h-[44px]"
           >
             <Trash2 size={13} /> {deleteLabel}
           </button>

@@ -162,8 +162,8 @@ export default function ArAgingPage() {
           <p className="mt-1 text-xs text-slate-300">เอกสารที่สถานะ "ส่งแล้ว" และมีวันครบกำหนดจะปรากฏที่นี่</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/80 text-left">
                 {['เลขที่', 'ประเภท', 'ลูกค้า', 'วันครบกำหนด', 'ค้างชำระ', 'ยอดคงค้าง', 'อายุหนี้'].map(h => (

@@ -299,8 +299,8 @@ export default function ExpensesPage() {
           <p className="mt-1 text-xs text-slate-300">กดปุ่ม "เพิ่มค่าใช้จ่าย" เพื่อบันทึก</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <table className="w-full min-w-[600px] text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/80 text-left">
                 {['วันที่', 'หมวดหมู่', 'ผู้รับเงิน / หมายเหตุ', 'จำนวนเงิน', ''].map(h => (

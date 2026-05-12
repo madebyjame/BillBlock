@@ -33,7 +33,7 @@ export default function UpgradeModal({ resource, limit, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl">
+      <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl max-h-[90vh] overflow-y-auto flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between p-5 pb-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
@@ -48,7 +48,7 @@ export default function UpgradeModal({ resource, limit, onClose }: Props) {
         </div>
 
         {/* Body */}
-        <div className="px-5 pb-5">
+        <div className="px-5 pb-5 flex-1 overflow-y-auto">
           <h3 className="mb-2 text-base font-bold text-slate-900">{title}</h3>
           <p className="mb-5 text-sm leading-relaxed text-slate-500">{desc(limit)}</p>
 

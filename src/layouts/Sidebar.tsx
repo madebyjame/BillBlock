@@ -82,7 +82,7 @@ function NavItem({ to, label, end = false, Icon, collapsed, onClick, themeColor 
       end={end}
       onClick={onClick}
       className={({ isActive }) =>
-        ['flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200',
+        ['flex items-center gap-3 rounded-xl px-3 py-2.5 md:py-2.5 text-sm transition-all duration-200 min-h-[44px]',
           isActive ? 'font-semibold text-white shadow-sm' : 'text-slate-400 hover:bg-slate-800 hover:text-white',
         ].join(' ')
       }
