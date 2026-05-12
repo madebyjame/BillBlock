@@ -73,7 +73,9 @@ export async function uploadCompanyFile(
   if (uploadError) throw new Error(uploadError.message)
 
   const { data } = supabase.storage.from('company-assets').getPublicUrl(path)
-  return data.publicUrl
+  // Append cache-buster so browsers always fetch the latest image
+  // (upsert overwrites the same path → same URL → stale cache without this)
+  return `${data.publicUrl}?v=${Date.now()}`
 }
 
 /**

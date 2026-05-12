@@ -122,6 +122,7 @@ export default function EditorPage() {
                     phone: profile.phone || loaded.company.phone,
                     email: profile.email || loaded.company.email,
                     taxId: profile.tax_id || loaded.company.taxId,
+                    logoUrl: profile.logo_url || loaded.company.logoUrl,
                   },
                 }
               }
