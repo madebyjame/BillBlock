@@ -1,5 +1,6 @@
 import type { ChangeEvent, ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   BarChart2,
   Building2,
@@ -23,6 +24,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import ConfirmDialog from '../components/ConfirmDialog'
+import OmiseCheckoutModal from '../components/OmiseCheckoutModal'
 import { useConfirm } from '../hooks/useConfirm'
 import { useAuth } from '../context/AuthContext'
 import { getProfile, upsertProfile, uploadCompanyFile, deleteCompanyFile } from '../lib/profileApi'
@@ -116,7 +118,10 @@ const INPUT_CLS =
 
 export default function SettingsPage() {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState<TabId>('company')
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState<TabId>(
+    () => (searchParams.get('tab') as TabId | null) ?? 'company'
+  )
   const [form, setForm]           = useState<FormState>(EMPTY_FORM)
   const [savedForm, setSavedForm] = useState<FormState>(EMPTY_FORM)
   const [loading, setLoading]     = useState(true)
@@ -902,11 +907,14 @@ function UsageBar({ label, used, limit }: { label: string; used: number; limit: 
   )
 }
 
+type CheckoutTarget = { plan: 'pro' | 'business'; cycle: BillingCycle } | null
+
 function BillingTab() {
   const { user }                = useAuth()
   const { plan, usage, loading } = usePlan()
   const [cycle, setCycle]       = useState<BillingCycle>('monthly')
   const [periodEnd, setPeriodEnd] = useState<string | null>(null)
+  const [checkout, setCheckout] = useState<CheckoutTarget>(null)
 
   useEffect(() => {
     if (!user || plan === 'free') return
@@ -1092,7 +1100,7 @@ function BillingTab() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => toast.info('ระบบชำระเงินกำลังเปิดใช้เร็วๆ นี้')}
+                  onClick={() => setCheckout({ plan: p.id as 'pro' | 'business', cycle })}
                   className={`w-full rounded-xl py-2.5 text-sm font-semibold text-white transition-all ${
                     p.id === 'pro'
                       ? 'bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-200'
@@ -1111,6 +1119,20 @@ function BillingTab() {
       <p className="text-center text-[11px] text-slate-400">
         ทุกแผนสามารถยกเลิกได้ทุกเมื่อ · ข้อมูลปลอดภัยด้วย SSL Encryption
       </p>
+
+      {/* Omise checkout modal */}
+      {checkout && (
+        <OmiseCheckoutModal
+          plan={checkout.plan}
+          cycle={checkout.cycle}
+          onClose={() => setCheckout(null)}
+          onSuccess={() => {
+            setCheckout(null)
+            // Reload page to refresh plan state
+            window.location.reload()
+          }}
+        />
+      )}
     </div>
   )
 }

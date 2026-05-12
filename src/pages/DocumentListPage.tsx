@@ -840,7 +840,7 @@ export default function DocumentListPage({ docType }: Props) {
                         converts={convertOptions.length > 0 ? convertOptions : undefined}
                         onPayment={(id, total, title) => setPaymentDoc({ id, total, title })}
                         onEmail={(r) => {
-                          if (!isPro) { navigate('/settings/billing'); return }
+                          if (!isPro) { navigate('/settings?tab=billing'); return }
                           setEmailDoc(r)
                         }}
                       />

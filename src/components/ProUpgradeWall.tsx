@@ -68,7 +68,7 @@ export default function ProUpgradeWall({ feature }: Props) {
         </div>
 
         <button
-          onClick={() => navigate('/settings/billing')}
+          onClick={() => navigate('/settings?tab=billing')}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
         >
           <Zap size={15} />
