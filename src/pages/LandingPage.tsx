@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
-  FileText, BarChart3, Users, Package, Download, Palette,
+  FileText, BarChart3, Users, Package,
   CheckCircle2, Star, Zap, Shield, Globe, ArrowRight,
   Receipt, ClipboardList, Building2, Mail, TrendingUp,
-  Lock, FileSpreadsheet, X, Layers,
+  X, Layers,
 } from 'lucide-react'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
