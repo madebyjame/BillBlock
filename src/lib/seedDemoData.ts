@@ -17,7 +17,7 @@ export async function seedDemoData(userId: string): Promise<void> {
       .eq('user_id', userId),
   ])
 
-  const tasks: Promise<unknown>[] = []
+  const tasks: PromiseLike<unknown>[] = []
 
   if ((custRes.count ?? 0) === 0) {
     tasks.push(
