@@ -241,6 +241,7 @@ export default function SettingsPage() {
           update={update}
           uploadingLogo={uploadingLogo}
           onUploadLogo={(f) => void handleUpload('logo', f)}
+          onLogoClear={() => void handleLogoClear()}
         />
       )}
       {activeTab === 'payment' && (
@@ -387,11 +388,13 @@ function DesignTab({
   update,
   uploadingLogo,
   onUploadLogo,
+  onLogoClear,
 }: {
   form: FormState
   update: (p: Partial<FormState>) => void
   uploadingLogo: boolean
   onUploadLogo: (f: File) => void
+  onLogoClear: () => void
 }) {
   const { user } = useAuth()
   const { plan, limits } = usePlan()
@@ -470,7 +473,7 @@ function DesignTab({
               url={form.logo_url}
               uploading={uploadingLogo}
               onUpload={onUploadLogo}
-              onClear={() => void handleLogoClear()}
+              onClear={onLogoClear}
               buttonLabel="เลือกโลโก้"
             />
           </Field>
