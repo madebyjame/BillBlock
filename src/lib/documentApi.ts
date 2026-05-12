@@ -4,6 +4,7 @@ import type { DocumentData, DocTypeCode } from '../types/document'
 import { calcDocSummary } from '../utils/calculations'
 import { getProfile } from './profileApi'
 import { checkPlanLimit } from './planLimits'
+import type { Profile } from './profileApi'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface DocumentRow {
@@ -28,6 +29,16 @@ const DOC_NUMBER_PREFIX: Record<DocTypeCode, string> = {
   'billing-note': 'BN',
   'tax-invoice': 'TAX',
   'credit-note': 'CN',
+}
+
+function getProfilePrefix(profile: Profile, docType: DocTypeCode): string {
+  switch (docType) {
+    case 'quotation':    return profile.quotation_prefix    || DOC_NUMBER_PREFIX.quotation
+    case 'invoice':      return profile.invoice_prefix      || DOC_NUMBER_PREFIX.invoice
+    case 'receipt':      return profile.receipt_prefix      || DOC_NUMBER_PREFIX.receipt
+    case 'billing-note': return profile.billing_note_prefix || DOC_NUMBER_PREFIX['billing-note']
+    case 'tax-invoice':  return profile.tax_invoice_prefix  || DOC_NUMBER_PREFIX['tax-invoice']
+  }
 }
 
 // ─── Create (with Smart Defaults from profile) ────────────────────────────────
@@ -62,22 +73,14 @@ export async function createDocument(
   try {
     const profile = await getProfile(userId)
     if (profile) {
-      // Custom doc number prefix (ใบเสนอราคา / ใบแจ้งหนี้)
-      const effectivePrefix =
-        docType === 'quotation' && profile.quotation_prefix
-          ? profile.quotation_prefix
-          : docType === 'invoice' && profile.invoice_prefix
-            ? profile.invoice_prefix
-            : prefix
+      const effectivePrefix = getProfilePrefix(profile, docType)
       const effectiveDocNumber = `${effectivePrefix}-${year}-${String(seq).padStart(3, '0')}`
 
-      // VAT type → vatMode + visibility
       let vatMode: 'exclusive' | 'inclusive' = 'exclusive'
       let showVat = false
       if (profile.vat_type === 'included') { vatMode = 'inclusive'; showVat = true }
       if (profile.vat_type === 'excluded') { vatMode = 'exclusive'; showVat = true }
 
-      // Credit terms
       const creditStr = profile.credit_days > 0 ? `${profile.credit_days} วัน` : ''
 
       content = {
@@ -101,6 +104,8 @@ export async function createDocument(
           bankName: profile.bank_name || content.footer.bankName,
           accountName: profile.bank_account_name || content.footer.accountName,
           accountNumber: profile.bank_account_number || content.footer.accountNumber,
+          bankNote: profile.bank_note || '',
+          promptpayId: profile.promptpay_id || '',
           signatureUrl: profile.signature_url || content.footer.signatureUrl,
         },
         settings: {
@@ -191,9 +196,6 @@ export async function updateDocumentStatus(id: string, status: DocumentRow['stat
 }
 
 // ─── Duplicate ────────────────────────────────────────────────────────────────
-/**
- * ทำซ้ำเอกสาร — copy content ทั้งหมด, ใส่เลขที่ใหม่ + วันที่วันนี้, สถานะ draft
- */
 export async function duplicateDocument(id: string, userId: string): Promise<string> {
   const { data, error } = await supabase
     .from('documents')
@@ -206,7 +208,6 @@ export async function duplicateDocument(id: string, userId: string): Promise<str
   const docType = data.doc_type as DocTypeCode
   const original = data.content as DocumentData
 
-  // Generate new sequential number (atomic)
   const year = new Date().getFullYear()
   const prefix = DOC_NUMBER_PREFIX[docType] ?? 'DOC'
   const { data: seqData } = await supabase
@@ -241,35 +242,38 @@ export async function duplicateDocument(id: string, userId: string): Promise<str
   return (newDoc as { id: string }).id
 }
 
-// ─── Convert Quotation → Invoice ──────────────────────────────────────────────
-/**
- * แปลงใบเสนอราคาเป็นใบแจ้งหนี้ — สร้างเอกสารใหม่, ข้อมูลเดิมครบ, วันที่ใหม่
- * เอกสารต้นฉบับยังคงอยู่ (ไม่ถูกลบ)
- */
-export async function convertToInvoice(id: string, userId: string): Promise<string> {
-  const { data, error } = await supabase
-    .from('documents')
-    .select('content')
-    .eq('id', id)
-    .single()
+// ─── Convert Document (shared logic) ─────────────────────────────────────────
+async function convertDocument(
+  id: string,
+  userId: string,
+  targetType: DocTypeCode,
+): Promise<string> {
+  const [{ data, error }, profile, { count }] = await Promise.all([
+    supabase.from('documents').select('content').eq('id', id).single(),
+    getProfile(userId).catch(() => null),
+    supabase
+      .from('documents')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('doc_type', targetType),
+  ])
 
   if (error) throw new Error(error.message)
 
   const original = data.content as DocumentData
-
-  // Generate invoice number (atomic)
   const year = new Date().getFullYear()
+  const prefix = profile ? getProfilePrefix(profile, targetType) : DOC_NUMBER_PREFIX[targetType]
   const { data: seqData } = await supabase
-    .rpc('next_doc_number', { p_user_id: userId, p_doc_type: 'invoice', p_year: year })
+    .rpc('next_doc_number', { p_user_id: userId, p_doc_type: targetType, p_year: year })
   const seq: number = seqData == null ? 1 : (seqData as number)
-  const invoiceNumber = `INV-${year}-${String(seq).padStart(3, '0')}`
+  const newNumber = `${prefix}-${year}-${String(seq).padStart(3, '0')}`
 
   const newContent: DocumentData = {
-    ...(original as DocumentData),
+    ...original,
     docMeta: {
-      ...(original as DocumentData).docMeta,
-      documentType: DOC_TYPE_CODES['invoice'],
-      number: invoiceNumber,
+      ...original.docMeta,
+      documentType: DOC_TYPE_CODES[targetType],
+      number: newNumber,
       date: new Date().toISOString().split('T')[0],
     },
   }
@@ -280,7 +284,7 @@ export async function convertToInvoice(id: string, userId: string): Promise<stri
     .from('documents')
     .insert({
       user_id: userId,
-      doc_type: 'invoice',
+      doc_type: targetType,
       status: 'draft',
       total_amount: Math.round(total * 100) / 100,
       content: newContent,
@@ -292,55 +296,14 @@ export async function convertToInvoice(id: string, userId: string): Promise<stri
   return (newDoc as { id: string }).id
 }
 
-// ─── Generic Convert ──────────────────────────────────────────────────────────
-// Converts any doc type to another: INV→REC, INV→TAX, REC→TAX, INV→CN, etc.
-// Source doc is preserved. New doc starts as draft.
-export async function convertDocument(
-  fromId: string,
-  toType: DocTypeCode,
-  userId: string,
-): Promise<string> {
-  const { data, error } = await supabase
-    .from('documents')
-    .select('content')
-    .eq('id', fromId)
-    .single()
+export async function convertToInvoice(id: string, userId: string): Promise<string> {
+  return convertDocument(id, userId, 'invoice')
+}
 
-  if (error) throw new Error(error.message)
+export async function convertToReceipt(id: string, userId: string): Promise<string> {
+  return convertDocument(id, userId, 'receipt')
+}
 
-  const original = data.content as DocumentData
-  const year     = new Date().getFullYear()
-  const prefix   = DOC_NUMBER_PREFIX[toType]
-
-  const { data: seqData } = await supabase
-    .rpc('next_doc_number', { p_user_id: userId, p_doc_type: toType, p_year: year })
-  const seq: number = seqData == null ? 1 : (seqData as number)
-  const newNumber = `${prefix}-${year}-${String(seq).padStart(3, '0')}`
-
-  const newContent: DocumentData = {
-    ...original,
-    docMeta: {
-      ...original.docMeta,
-      documentType: DOC_TYPE_CODES[toType],
-      number: newNumber,
-      date: new Date().toISOString().split('T')[0],
-    },
-  }
-
-  const { total } = calcDocSummary(newContent)
-
-  const { data: newDoc, error: insertErr } = await supabase
-    .from('documents')
-    .insert({
-      user_id: userId,
-      doc_type: toType,
-      status: 'draft',
-      total_amount: Math.round(total * 100) / 100,
-      content: newContent,
-    })
-    .select('id')
-    .single()
-
-  if (insertErr) throw new Error(insertErr.message)
-  return (newDoc as { id: string }).id
+export async function convertToTaxInvoice(id: string, userId: string): Promise<string> {
+  return convertDocument(id, userId, 'tax-invoice')
 }

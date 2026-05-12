@@ -85,24 +85,28 @@ const VAT_OPTIONS: { value: string; label: string }[] = [
 ]
 
 const EMPTY_FORM: FormState = {
-  company_name:       '',
-  address:            '',
-  tax_id:             '',
-  phone:              '',
-  email:              '',
-  website:            '',
-  logo_url:           '',
-  signature_url:      '',
-  theme_color:        '#1e3a8a',
-  invoice_prefix:     'INV',
-  quotation_prefix:   'QT',
-  bank_name:          '',
-  bank_branch:        '',
-  bank_account_name:  '',
+  company_name:        '',
+  address:             '',
+  tax_id:              '',
+  phone:               '',
+  email:               '',
+  website:             '',
+  logo_url:            '',
+  signature_url:       '',
+  theme_color:         '#1e3a8a',
+  invoice_prefix:      'INV',
+  quotation_prefix:    'QT',
+  receipt_prefix:      'REC',
+  billing_note_prefix: 'BN',
+  tax_invoice_prefix:  'TAX',
+  bank_name:           '',
+  bank_branch:         '',
+  bank_account_name:   '',
   bank_account_number: '',
-  bank_note:          '',
-  vat_type:           'none',
-  credit_days:        30,
+  bank_note:           '',
+  promptpay_id:        '',
+  vat_type:            'none',
+  credit_days:         30,
 }
 
 const INPUT_CLS =
@@ -137,13 +141,17 @@ export default function SettingsPage() {
               logo_url:            profile.logo_url,
               signature_url:       profile.signature_url,
               theme_color:         profile.theme_color || '#1e3a8a',
-              invoice_prefix:      profile.invoice_prefix  || 'INV',
-              quotation_prefix:    profile.quotation_prefix || 'QT',
+              invoice_prefix:      profile.invoice_prefix      || 'INV',
+              quotation_prefix:    profile.quotation_prefix    || 'QT',
+              receipt_prefix:      profile.receipt_prefix      || 'REC',
+              billing_note_prefix: profile.billing_note_prefix || 'BN',
+              tax_invoice_prefix:  profile.tax_invoice_prefix  || 'TAX',
               bank_name:           profile.bank_name,
               bank_branch:         profile.bank_branch,
               bank_account_name:   profile.bank_account_name,
               bank_account_number: profile.bank_account_number,
               bank_note:           profile.bank_note,
+              promptpay_id:        profile.promptpay_id || '',
               vat_type:            profile.vat_type || 'none',
               credit_days:         profile.credit_days ?? 30,
             }
@@ -588,9 +596,18 @@ function DesignTab({
       {/* Document prefix */}
       <SectionCard title="รหัสนำหน้าเอกสาร (Prefix)" icon={<FileText size={15} />}>
         <p className="mb-3 text-xs text-slate-400">
-          ระบบจะนำ Prefix ไปต่อกับเลขที่เอกสารให้อัตโนมัติ
+          ระบบจะนำ Prefix ไปต่อกับเลขที่เอกสารให้อัตโนมัติ เช่น INV-2025-001
         </p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="ใบเสนอราคา (Quotation)">
+            <input
+              value={form.quotation_prefix}
+              onChange={text('quotation_prefix')}
+              placeholder="QT"
+              maxLength={10}
+              className={INPUT_CLS}
+            />
+          </Field>
           <Field label="ใบแจ้งหนี้ (Invoice)">
             <input
               value={form.invoice_prefix}
@@ -606,11 +623,29 @@ function DesignTab({
               </span>
             </p>
           </Field>
-          <Field label="ใบเสนอราคา (Quotation)">
+          <Field label="ใบเสร็จรับเงิน (Receipt)">
             <input
-              value={form.quotation_prefix}
-              onChange={text('quotation_prefix')}
-              placeholder="QT"
+              value={form.receipt_prefix}
+              onChange={text('receipt_prefix')}
+              placeholder="REC"
+              maxLength={10}
+              className={INPUT_CLS}
+            />
+          </Field>
+          <Field label="ใบวางบิล (Billing Note)">
+            <input
+              value={form.billing_note_prefix}
+              onChange={text('billing_note_prefix')}
+              placeholder="BN"
+              maxLength={10}
+              className={INPUT_CLS}
+            />
+          </Field>
+          <Field label="ใบกำกับภาษี (Tax Invoice)">
+            <input
+              value={form.tax_invoice_prefix}
+              onChange={text('tax_invoice_prefix')}
+              placeholder="TAX"
               maxLength={10}
               className={INPUT_CLS}
             />
@@ -687,12 +722,31 @@ function PaymentTab({
             <textarea
               value={form.bank_note}
               onChange={text('bank_note')}
-              placeholder="พร้อมเพย์ 08x-xxx-xxxx หรือข้อความอื่นๆ"
+              placeholder="หมายเหตุการชำระเงิน เช่น โอนแล้วแจ้งสลิป"
               rows={2}
               className={`${INPUT_CLS} resize-none`}
             />
           </Field>
         </div>
+      </SectionCard>
+
+      <SectionCard title="PromptPay QR Code" icon={<CreditCard size={15} />}>
+        <p className="mb-4 text-xs text-slate-400">
+          ใส่เบอร์มือถือหรือเลขบัตรประชาชนที่ผูกกับ PromptPay เพื่อสร้าง QR Code อัตโนมัติท้ายบิล
+        </p>
+        <Field label="PromptPay ID (เบอร์มือถือ หรือ เลขประจำตัวประชาชน 13 หลัก)">
+          <input
+            value={form.promptpay_id}
+            onChange={text('promptpay_id')}
+            placeholder="08x-xxx-xxxx หรือ 0000000000000"
+            className={INPUT_CLS}
+          />
+        </Field>
+        {form.promptpay_id && (
+          <p className="mt-2 text-xs text-green-600">
+            ✓ QR Code จะแสดงท้ายเอกสารโดยอัตโนมัติเมื่อเพิ่ม Block &ldquo;ข้อมูลธนาคาร&rdquo;
+          </p>
+        )}
       </SectionCard>
     </div>
   )

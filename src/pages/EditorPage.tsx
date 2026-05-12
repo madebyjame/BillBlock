@@ -19,7 +19,7 @@ import type { BlockType, DocumentData } from '../types/document'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useCloudAutoSave } from '../hooks/useCloudAutoSave'
-import { createDocument, updateDocument } from '../lib/documentApi'
+import { createDocument, updateDocument, convertToInvoice, convertToReceipt, convertToTaxInvoice } from '../lib/documentApi'
 import type { DocumentRow } from '../lib/documentApi'
 import type { DocTypeCode } from '../types/document'
 import { thaiToDocTypeCode } from '../types/document'
@@ -195,6 +195,7 @@ function EditorUI({
   const [isPreview, setIsPreview] = useState(false)
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isConverting, setIsConverting] = useState(false)
   const [customers, setCustomers] = useState<CustomerRow[]>([])
   const [products, setProducts] = useState<ProductRow[]>([])
   const [quickAddOpen, setQuickAddOpen] = useState(false)
@@ -309,6 +310,24 @@ function EditorUI({
     }
   }, [docId, isCloudDoc, isSaving, latestDocRef])
 
+  const handleConvert = useCallback(async (targetType: 'invoice' | 'receipt' | 'tax-invoice') => {
+    if (!docId || !isCloudDoc || !user || isConverting) return
+    setIsConverting(true)
+    try {
+      await updateDocument(docId, latestDocRef.current!)
+      let newId: string
+      if (targetType === 'invoice') newId = await convertToInvoice(docId, user.id)
+      else if (targetType === 'receipt') newId = await convertToReceipt(docId, user.id)
+      else newId = await convertToTaxInvoice(docId, user.id)
+      toast.success('แปลงเอกสารเรียบร้อย')
+      navigate(`/editor/${newId}`)
+    } catch {
+      toast.error('แปลงเอกสารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
+    } finally {
+      setIsConverting(false)
+    }
+  }, [docId, isCloudDoc, user, isConverting, latestDocRef, navigate])
+
   const displayPdfMode = pdfMode || isPreview
 
   const outerSensors = useSensors(
@@ -414,12 +433,14 @@ function EditorUI({
             isPreview={isPreview}
             isExporting={isExporting}
             isSaving={isSaving}
+            isConverting={isConverting}
             isCloudDoc={isCloudDoc}
             onBack={handleBack}
             onPreview={() => setIsPreview(p => !p)}
             onSaveDraft={isCloudDoc ? () => void handleSave('draft') : undefined}
             onSaveAndIssue={isCloudDoc ? () => void handleSave('sent') : undefined}
             onExportPdf={handleExportPdf}
+            onConvert={isCloudDoc ? handleConvert : undefined}
           />
 
           <div className="flex flex-1 overflow-hidden">
@@ -467,16 +488,45 @@ function EditorUI({
 // ─── Top Action Bar ───────────────────────────────────────────────────────────
 function TopActionBar({
   docType, docNumber, themeColor, saveStatus, isDirty,
-  isPreview, isExporting, isSaving, isCloudDoc,
-  onBack, onPreview, onSaveDraft, onSaveAndIssue, onExportPdf,
+  isPreview, isExporting, isSaving, isConverting, isCloudDoc,
+  onBack, onPreview, onSaveDraft, onSaveAndIssue, onExportPdf, onConvert,
 }: {
   docType: string; docNumber: string; themeColor: string
   saveStatus: 'saved' | 'saving' | 'unsaved'; isDirty: boolean
-  isPreview: boolean; isExporting: boolean; isSaving: boolean; isCloudDoc: boolean
+  isPreview: boolean; isExporting: boolean; isSaving: boolean; isConverting: boolean; isCloudDoc: boolean
   onBack: () => void; onPreview: () => void
   onSaveDraft?: () => void; onSaveAndIssue?: () => void
   onExportPdf: () => void
+  onConvert?: (target: 'invoice' | 'receipt' | 'tax-invoice') => void
 }) {
+  const [convertOpen, setConvertOpen] = useState(false)
+  const convertRef = useRef<HTMLDivElement>(null)
+
+  // close dropdown on outside click
+  useEffect(() => {
+    if (!convertOpen) return
+    function handleOutside(e: MouseEvent) {
+      if (convertRef.current && !convertRef.current.contains(e.target as Node)) {
+        setConvertOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [convertOpen])
+
+  const convertOptions: { target: 'invoice' | 'receipt' | 'tax-invoice'; label: string }[] =
+    docType === 'ใบเสนอราคา'
+      ? [
+          { target: 'invoice',      label: '→ ใบแจ้งหนี้' },
+          { target: 'receipt',      label: '→ ใบเสร็จรับเงิน' },
+          { target: 'tax-invoice',  label: '→ ใบกำกับภาษี' },
+        ]
+      : docType === 'ใบแจ้งหนี้'
+        ? [
+            { target: 'receipt',     label: '→ ใบเสร็จรับเงิน' },
+            { target: 'tax-invoice', label: '→ ใบกำกับภาษี' },
+          ]
+        : []
   return (
     <header className="flex h-13 items-center gap-2 border-b border-slate-200 bg-white px-4 shrink-0" style={{ height: '52px' }}>
       {/* Back */}
@@ -534,6 +584,37 @@ function TopActionBar({
           }
           บันทึก Draft
         </button>
+      )}
+
+      {/* Convert */}
+      {onConvert && convertOptions.length > 0 && (
+        <div className="relative" ref={convertRef}>
+          <button
+            onClick={() => setConvertOpen(p => !p)}
+            disabled={isConverting}
+            className="flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+          >
+            {isConverting
+              ? <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+              : <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+            }
+            {isConverting ? 'กำลังแปลง...' : 'แปลงเป็น'}
+            {!isConverting && <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>}
+          </button>
+          {convertOpen && (
+            <div className="absolute top-full right-0 mt-1 z-30 min-w-[160px] rounded-lg border border-slate-200 bg-white shadow-lg overflow-hidden">
+              {convertOptions.map(opt => (
+                <button
+                  key={opt.target}
+                  onClick={() => { setConvertOpen(false); void onConvert(opt.target) }}
+                  className="flex w-full items-center px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Issue */}

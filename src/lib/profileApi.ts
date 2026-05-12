@@ -15,12 +15,16 @@ export interface Profile {
   theme_color: string
   invoice_prefix: string
   quotation_prefix: string
+  receipt_prefix: string
+  billing_note_prefix: string
+  tax_invoice_prefix: string
   // Tab 3: Payment Methods
   bank_name: string
   bank_branch: string
   bank_account_name: string
   bank_account_number: string
   bank_note: string
+  promptpay_id: string
   // Tab 4: Defaults
   vat_type: string      // 'none' | 'included' | 'excluded'
   credit_days: number
