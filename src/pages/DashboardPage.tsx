@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { TrendingUp, Clock, FileText, Users, FilePlus, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useDashboardLayout } from '../hooks/useDashboardLayout'
 import BentoGrid from '../components/BentoGrid'
+import OverdueReminder from '../components/OverdueReminder'
+import CashFlowForecast from '../components/CashFlowForecast'
+import { computeOverdueInvoices } from '../lib/reminderEngine'
+import { computeCashFlow } from '../lib/cashFlowEngine'
 import type { DashboardData, DashboardDoc, ProductAlert, SpenderEntry } from '../types/dashboard'
 
 type SortCol = 'created_at' | 'total_amount'
@@ -165,6 +169,7 @@ export default function DashboardPage() {
   const [quotationsValue, setQuotationsValue] = useState(0)
   const [totalCustomers, setTotalCustomers] = useState(0)
   const [monthlyData, setMonthlyData] = useState<{ label: string; value: number }[]>([])
+  const [allDocs, setAllDocs] = useState<DashboardDoc[]>([])
   const [allRecentDocs, setAllRecentDocs] = useState<DashboardDoc[]>([])
   const [sortCol, setSortCol] = useState<SortCol>('created_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -213,6 +218,7 @@ export default function DashboardPage() {
       ])
 
       const docs = (docsRes.data ?? []) as DashboardDoc[]
+      setAllDocs(docs)
       const now = new Date()
 
       const company =
@@ -319,6 +325,9 @@ export default function DashboardPage() {
     }
   }
 
+  const overdueInvoices = useMemo(() => computeOverdueInvoices(allDocs), [allDocs])
+  const cashFlowData = useMemo(() => computeCashFlow(allDocs), [allDocs])
+
   const recentDocs = [...allRecentDocs]
     .sort((a, b) => {
       const aVal = sortCol === 'created_at' ? a.created_at : a.total_amount
@@ -368,6 +377,9 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
         <p className="mt-1 text-sm text-slate-400">ยินดีต้อนรับ, {displayName}</p>
       </div>
+
+      {/* Overdue Reminder */}
+      <OverdueReminder invoices={overdueInvoices} />
 
       {/* KPI Cards */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -490,6 +502,11 @@ export default function DashboardPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Cash Flow Forecast */}
+      <div className="mb-6">
+        <CashFlowForecast data={cashFlowData} loading={loading} />
       </div>
 
       {/* Bento Grid */}

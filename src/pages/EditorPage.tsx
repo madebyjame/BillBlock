@@ -32,6 +32,11 @@ const DOC_TYPE_ROUTE: Record<DocTypeCode, string> = {
 }
 import { listCustomers, createCustomer, type CustomerRow } from '../lib/customerApi'
 import { listProducts, type ProductRow } from '../lib/productApi'
+import { getLastDocByCustomer, type LastDocSummary } from '../lib/smartFillApi'
+import SmartFillBanner from '../components/SmartFillBanner'
+import { generateId } from '../utils/idGenerator'
+import { logDocumentEvent } from '../lib/documentEventsApi'
+import DocumentTimeline from '../components/DocumentTimeline'
 
 function getLocalDraftOrDefault() {
   try {
@@ -56,6 +61,7 @@ export default function EditorPage() {
   )
   const [docLoading, setDocLoading] = useState(id !== 'local')
   const [docError, setDocError] = useState('')
+  const [docCreatedAt, setDocCreatedAt] = useState<string | undefined>(undefined)
 
   const latestDocRef = useRef(doc)
   latestDocRef.current = doc
@@ -87,12 +93,15 @@ export default function EditorPage() {
       try {
         const { data, error } = await supabase
           .from('documents')
-          .select('content')
+          .select('content, created_at')
           .eq('id', id)
           .single()
 
         if (error) throw error
 
+        if (data?.created_at) {
+          setDocCreatedAt(data.created_at)
+        }
         if (data?.content) {
           // Normalize ข้อมูลที่โหลดมาเพื่อให้แน่ใจว่ามีโครงสร้างครบถ้วนตามที่ Component คาดหวัง
           let loaded = normalizeDocumentDraft(
@@ -164,18 +173,20 @@ export default function EditorPage() {
       doc={doc}
       dispatch={dispatch}
       latestDocRef={latestDocRef}
+      docCreatedAt={docCreatedAt}
     />
   )
 }
 
 // ─── EditorUI ────────────────────────────────────────────────────────────────
 function EditorUI({
-  docId, doc, dispatch, latestDocRef,
+  docId, doc, dispatch, latestDocRef, docCreatedAt,
 }: {
   docId: string | undefined
   doc: ReturnType<typeof documentReducer>
   dispatch: React.Dispatch<Parameters<typeof documentReducer>[1]>
   latestDocRef: React.RefObject<ReturnType<typeof documentReducer>>
+  docCreatedAt?: string
 }) {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -186,6 +197,9 @@ function EditorUI({
   const [products, setProducts] = useState<ProductRow[]>([])
   const [quickAddOpen, setQuickAddOpen] = useState(false)
   const [quickAddName, setQuickAddName] = useState('')
+  const [smartFillDoc, setSmartFillDoc] = useState<LastDocSummary | null>(null)
+  const lastCustomerRef = useRef('')
+  const [showTimeline, setShowTimeline] = useState(false)
 
   const isCloudDoc = !!docId && docId !== 'new' && docId !== 'local'
 
@@ -208,6 +222,28 @@ function EditorUI({
     }
     void loadMasterData()
   }, [user])
+
+  // ─── Smart Auto-fill: เมื่อลูกค้าเปลี่ยน ดึงเอกสารล่าสุด ─────────────────
+  useEffect(() => {
+    const name = doc.customer.name.trim()
+    if (!name || name === lastCustomerRef.current) return
+    lastCustomerRef.current = name
+    setSmartFillDoc(null)
+    if (!isCloudDoc) return
+    void getLastDocByCustomer(name).then(result => {
+      setSmartFillDoc(result)
+    })
+  }, [doc.customer.name, isCloudDoc])
+
+  function handleSmartFill() {
+    if (!smartFillDoc || smartFillDoc.items.length === 0) return
+    // แทนที่รายการทั้งหมดด้วยรายการจากเอกสารล่าสุด (สร้าง id ใหม่เพื่อไม่ชนกัน)
+    const newItems = smartFillDoc.items.map(item => ({ ...item, id: generateId() }))
+    // โหลดรายการใหม่ผ่าน LOAD_DOCUMENT (เฉพาะ items)
+    dispatch({ type: 'LOAD_DOCUMENT', doc: { ...doc, items: newItems } })
+    setSmartFillDoc(null)
+    toast.success(`โหลด ${newItems.length} รายการจาก ${smartFillDoc.docNumber} แล้ว`)
+  }
 
   // ─── isDirty tracking ────────────────────────────────────────────────────
   const [isDirty, setIsDirty] = useState(false)
@@ -236,12 +272,21 @@ function EditorUI({
   }, [isDirty, isCloudDoc])
 
   // ─── Explicit save ────────────────────────────────────────────────────────
+  const prevStatusRef = useRef<DocumentRow['status']>('draft')
+
   const handleSave = useCallback(async (targetStatus: DocumentRow['status'] = 'draft') => {
     if (!docId || !isCloudDoc || isSaving) return
     setIsSaving(true)
     try {
       await updateDocument(docId, latestDocRef.current!, targetStatus)
       setIsDirty(false)
+      // Log event ถ้าสถานะเปลี่ยน
+      if (targetStatus !== prevStatusRef.current) {
+        void logDocumentEvent(docId, 'status_changed', prevStatusRef.current, targetStatus)
+        prevStatusRef.current = targetStatus
+      } else {
+        void logDocumentEvent(docId, 'saved')
+      }
       const successMessage: Record<DocumentRow['status'], string> = {
         draft: 'บันทึก Draft แล้ว',
         sent: 'อัปเดตสถานะเป็น Sent แล้ว',
@@ -300,6 +345,7 @@ function EditorUI({
       alert(`กรุณากรอกข้อมูลต่อไปนี้ก่อน Export PDF:\n\n• ${messages.join('\n• ')}`)
       return
     }
+    if (docId && isCloudDoc) void logDocumentEvent(docId, 'exported_pdf')
     void exportPdf('bill-block-document.pdf')
   }
 
@@ -344,8 +390,10 @@ function EditorUI({
             isExporting={isExporting}
             isSaving={isSaving}
             isCloudDoc={isCloudDoc}
+            showTimeline={showTimeline}
             onBack={handleBack}
             onPreview={() => setIsPreview(p => !p)}
+            onToggleTimeline={isCloudDoc ? () => setShowTimeline(p => !p) : undefined}
             onSaveDraft={isCloudDoc ? () => void handleSave('draft') : undefined}
             onSaveAndIssue={isCloudDoc ? () => void handleSave('sent') : undefined}
             onExportPdf={handleExportPdf}
@@ -354,6 +402,13 @@ function EditorUI({
           <div className="flex flex-1 overflow-hidden">
             <main className="flex-1 overflow-y-auto overflow-x-auto p-6">
               <div style={{ width: '794px', margin: '0 auto' }}>
+                {smartFillDoc && !isPreview && (
+                  <SmartFillBanner
+                    doc={smartFillDoc}
+                    onUse={handleSmartFill}
+                    onDismiss={() => setSmartFillDoc(null)}
+                  />
+                )}
                 {isPreview && (
                   <div className="mb-3 flex items-center justify-between rounded-md bg-amber-50 border border-amber-200 px-4 py-2 text-sm text-amber-700">
                     <span className="font-medium">โหมดดูตัวอย่าง — นี่คือหน้าตาที่จะปรากฏใน PDF</span>
@@ -380,6 +435,14 @@ function EditorUI({
         ) : null}
       </DragOverlay>
 
+      {showTimeline && docId && isCloudDoc && (
+        <DocumentTimeline
+          documentId={docId}
+          createdAt={docCreatedAt}
+          onClose={() => setShowTimeline(false)}
+        />
+      )}
+
       {quickAddOpen && (
         <QuickAddCustomerModal
           initialName={quickAddName}
@@ -395,13 +458,15 @@ function EditorUI({
 // ─── Top Action Bar ───────────────────────────────────────────────────────────
 function TopActionBar({
   docType, docNumber, themeColor, saveStatus, isDirty,
-  isPreview, isExporting, isSaving, isCloudDoc,
-  onBack, onPreview, onSaveDraft, onSaveAndIssue, onExportPdf,
+  isPreview, isExporting, isSaving, isCloudDoc, showTimeline,
+  onBack, onPreview, onToggleTimeline, onSaveDraft, onSaveAndIssue, onExportPdf,
 }: {
   docType: string; docNumber: string; themeColor: string
   saveStatus: 'saved' | 'saving' | 'unsaved'; isDirty: boolean
   isPreview: boolean; isExporting: boolean; isSaving: boolean; isCloudDoc: boolean
+  showTimeline: boolean
   onBack: () => void; onPreview: () => void
+  onToggleTimeline?: () => void
   onSaveDraft?: () => void; onSaveAndIssue?: () => void
   onExportPdf: () => void
 }) {
@@ -437,6 +502,22 @@ function TopActionBar({
       <SaveStatus status={saveStatus} isDirty={isDirty} />
 
       <div className="h-4 w-px bg-slate-200" />
+
+      {/* Timeline */}
+      {isCloudDoc && onToggleTimeline && (
+        <button onClick={onToggleTimeline}
+          className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium border transition-colors ${
+            showTimeline
+              ? 'bg-violet-50 border-violet-300 text-violet-700'
+              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+          }`}>
+          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          ประวัติ
+        </button>
+      )}
 
       {/* Preview */}
       <button onClick={onPreview}
