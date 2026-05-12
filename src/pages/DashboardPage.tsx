@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useDashboardLayout } from '../hooks/useDashboardLayout'
@@ -10,6 +11,7 @@ import {
 } from '../lib/dashboardApi'
 import BentoGrid from '../components/BentoGrid'
 import DateRangePicker from '../components/DateRangePicker'
+import QuickSetupBar from '../components/QuickSetupBar'
 import {
   getDateRange,
   type DateRange,
@@ -47,6 +49,19 @@ export default function DashboardPage() {
 
   const userId = user!.id
   const { layout, updateLayout } = useDashboardLayout(userId)
+
+  // Welcome toast — shown once per user, first time they land on dashboard
+  useEffect(() => {
+    if (!user) return
+    const key = `bb_welcomed_${user.id}`
+    if (!localStorage.getItem(key)) {
+      localStorage.setItem(key, '1')
+      toast.success('ยินดีต้อนรับสู่ BillBlock! 🎉', {
+        description: 'เริ่มออกเอกสารได้เลย ไม่ต้องกรอกซ้ำ ระบบจำให้',
+        duration: 5000,
+      })
+    }
+  }, [user])
 
   const [dateRange, setDateRange] = useState<DateRange>(INITIAL_DATE_RANGE)
 
@@ -242,6 +257,7 @@ export default function DashboardPage() {
           <DateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
       </div>
+      <QuickSetupBar />
       <BentoGrid layout={layout} onLayoutChange={updateLayout} data={dashData} plan={plan} />
     </div>
   )

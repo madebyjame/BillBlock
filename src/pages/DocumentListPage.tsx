@@ -766,19 +766,24 @@ export default function DocumentListPage({ docType }: Props) {
                         title={rows.length === 0 ? `ยังไม่มี${pageTitle}ในระบบ` : 'ไม่พบเอกสารที่ตรงกับเงื่อนไข'}
                         description={
                           rows.length === 0
-                            ? `สร้าง${pageTitle}ฉบับแรกได้เลย ใช้เวลาไม่กี่วินาที`
+                            ? `สร้าง${pageTitle}ฉบับแรก ใช้เวลาไม่กี่วินาที ระบบจำข้อมูลลูกค้าและสินค้าให้`
                             : 'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง'
                         }
                         action={
                           rows.length === 0 ? (
-                            <button
-                              onClick={() => void handleCreate()}
-                              disabled={creating}
-                              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                              style={{ backgroundColor: themeColor }}
-                            >
-                              <Plus size={14} /> {createLabel}
-                            </button>
+                            <div className="flex flex-col items-center gap-3">
+                              <button
+                                onClick={() => void handleCreate()}
+                                disabled={creating}
+                                className="inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:opacity-90 hover:shadow-lg disabled:opacity-60"
+                                style={{ backgroundColor: themeColor }}
+                              >
+                                <Plus size={15} /> {createLabel}
+                              </button>
+                              <p className="text-xs text-slate-400">
+                                สร้างแล้ว Export PDF ได้ทันที · ส่งอีเมลหาลูกค้าได้เลย
+                              </p>
+                            </div>
                           ) : undefined
                         }
                       />
