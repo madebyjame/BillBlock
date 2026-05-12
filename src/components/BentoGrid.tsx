@@ -20,7 +20,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { motion } from 'framer-motion'
 import { GripVertical, LayoutDashboard, Check, Layers, Plus, X } from 'lucide-react'
-import { type WidgetId, WIDGET_META, PRESET_TEMPLATES } from '../types/dashboard'
+import { type WidgetId, WIDGET_META, WIDGET_REGISTRY, PRESET_TEMPLATES } from '../types/dashboard'
 import type { DashboardData, Plan } from '../types/dashboard'
 
 // ── Existing widgets ──
@@ -44,6 +44,7 @@ import Revenue30dWidget from './widgets/Revenue30dWidget'
 import TotalOutstandingWidget from './widgets/TotalOutstandingWidget'
 import PendingPaymentsWidget from './widgets/PendingPaymentsWidget'
 import TopSellersQtyWidget from './widgets/TopSellersQtyWidget'
+import TopProductsWidget from './widgets/TopProductsWidget'
 import NewCustomersWidget from './widgets/NewCustomersWidget'
 import OutOfStockWidget from './widgets/OutOfStockWidget'
 import DraftDocumentsWidget from './widgets/DraftDocumentsWidget'
@@ -71,6 +72,7 @@ function renderWidgetContent(id: WidgetId, data: DashboardData) {
     case 'total-outstanding': return <TotalOutstandingWidget data={data} />
     case 'pending-payments':  return <PendingPaymentsWidget data={data} />
     case 'top-sellers-qty':   return <TopSellersQtyWidget data={data} />
+    case 'top-products':      return <TopProductsWidget data={data} />
     case 'new-customers':     return <NewCustomersWidget />
     case 'out-of-stock':      return <OutOfStockWidget />
     case 'draft-documents':   return <DraftDocumentsWidget data={data} />
@@ -270,9 +272,20 @@ export default function BentoGrid({ layout, onLayoutChange, data, plan }: BentoG
     }
   }
 
+  const PLAN_RANK: Record<Plan, number> = { free: 0, pro: 1, business: 2 }
+
   function applyTemplate(key: string) {
     const tpl = PRESET_TEMPLATES[key]
-    if (tpl) { onLayoutChange(tpl.layout); setShowTemplates(false) }
+    if (!tpl) return
+    // Filter out widgets the current plan can't access
+    const filtered = tpl.layout.filter(id => {
+      const entry = WIDGET_REGISTRY.find(e => e.id === id)
+      if (!entry) return true // unknown widget, allow (future-proof)
+      const required = entry.requiredPlan === 'free' ? 0 : entry.requiredPlan === 'pro' ? 1 : 2
+      return PLAN_RANK[plan] >= required
+    })
+    onLayoutChange(filtered)
+    setShowTemplates(false)
   }
 
   function handleRemoveWidget(id: WidgetId) {

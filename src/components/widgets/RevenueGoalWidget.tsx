@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Target, Pencil, Check, X } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 import type { DashboardData } from '../../types/dashboard'
 
-const GOAL_KEY = 'billblock_monthly_goal'
+function goalKey(userId: string) { return `billblock_monthly_goal_${userId}` }
 
 function fmtAmount(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -39,9 +40,9 @@ function BarChart({ data }: { data: { label: string; value: number }[] }) {
   )
 }
 
-function loadGoal(): number {
+function loadGoal(userId: string): number {
   try {
-    const v = localStorage.getItem(GOAL_KEY)
+    const v = localStorage.getItem(goalKey(userId))
     if (v) {
       const n = Number(v)
       if (!isNaN(n) && n > 0) return n
@@ -55,7 +56,9 @@ interface Props {
 }
 
 export default function RevenueGoalWidget({ data }: Props) {
-  const [goal, setGoal] = useState<number>(loadGoal)
+  const { user } = useAuth()
+  const uid = user?.id ?? ''
+  const [goal, setGoal] = useState<number>(() => loadGoal(uid))
   const [editing, setEditing] = useState(false)
   const [inputVal, setInputVal] = useState('')
 
@@ -71,7 +74,7 @@ export default function RevenueGoalWidget({ data }: Props) {
     const n = Number(inputVal.replace(/,/g, ''))
     if (!isNaN(n) && n > 0) {
       setGoal(n)
-      try { localStorage.setItem(GOAL_KEY, String(n)) } catch { /* ignore */ }
+      try { localStorage.setItem(goalKey(uid), String(n)) } catch { /* ignore */ }
     }
     setEditing(false)
   }

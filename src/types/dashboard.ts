@@ -12,6 +12,7 @@ export type WidgetId =
   | 'pending-payments'    // #8 - NEW
   | 'overdue-invoices'    // #9 - existing
   | 'top-sellers-qty'     // #10 - NEW (top 5 by qty sold)
+  | 'top-products'        // #10b - top 5 by revenue
   | 'new-customers'       // #11 - NEW
   | 'stock-alerts'        // #12 - existing (count only)
   | 'out-of-stock'        // #13 - NEW
@@ -73,6 +74,7 @@ export const WIDGET_META: Record<WidgetId, WidgetMeta> = {
   'pending-payments':       { colSpan: 1, rowSpan: 1, titleTh: 'รอเก็บเงิน' },
   'overdue-invoices':       { colSpan: 1, rowSpan: 1, titleTh: 'ค้างชำระ' },
   'top-sellers-qty':        { colSpan: 1, rowSpan: 1, titleTh: 'สินค้าขายดี (จำนวน)' },
+  'top-products':           { colSpan: 1, rowSpan: 1, titleTh: 'สินค้าขายดี (รายได้)' },
   'new-customers':          { colSpan: 1, rowSpan: 1, titleTh: 'ลูกค้าใหม่เดือนนี้' },
   'stock-alerts':           { colSpan: 1, rowSpan: 1, titleTh: 'แจ้งเตือนสต็อก' },
   'out-of-stock':           { colSpan: 1, rowSpan: 1, titleTh: 'สินค้าหมด' },
@@ -164,6 +166,7 @@ export const WIDGET_REGISTRY: WidgetRegistryEntry[] = [
   { id: 'pending-payments',  titleTh: 'รอเก็บเงิน',             descriptionTh: 'ใบแจ้งหนี้ที่ยังไม่ชำระ',                colSpan: 1, requiredPlan: 'free' },
   { id: 'overdue-invoices',  titleTh: 'ค้างชำระ',               descriptionTh: 'ใบแจ้งหนี้เกินกำหนด',                   colSpan: 1, requiredPlan: 'free' },
   { id: 'top-sellers-qty',   titleTh: 'สินค้าขายดี (จำนวน)',    descriptionTh: 'Top 5 สินค้าตามจำนวนขาย',               colSpan: 1, requiredPlan: 'free' },
+  { id: 'top-products',      titleTh: 'สินค้าขายดี (รายได้)',   descriptionTh: 'Top 5 สินค้าตามยอดขาย (บาท)',           colSpan: 1, requiredPlan: 'free' },
   { id: 'new-customers',     titleTh: 'ลูกค้าใหม่เดือนนี้',    descriptionTh: 'จำนวนลูกค้าที่เพิ่มเดือนนี้',            colSpan: 1, requiredPlan: 'free' },
   { id: 'stock-alerts',      titleTh: 'แจ้งเตือนสต็อก',        descriptionTh: 'สินค้าใกล้หมด',                          colSpan: 1, requiredPlan: 'free' },
   { id: 'out-of-stock',      titleTh: 'สินค้าหมด',              descriptionTh: 'สินค้าที่สต็อก = 0',                     colSpan: 1, requiredPlan: 'free' },

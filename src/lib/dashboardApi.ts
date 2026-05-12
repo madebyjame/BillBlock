@@ -24,6 +24,7 @@ const ALL_WIDGET_IDS: readonly WidgetId[] = [
   'pending-payments',
   'overdue-invoices',
   'top-sellers-qty',
+  'top-products',
   'new-customers',
   'stock-alerts',
   'out-of-stock',
