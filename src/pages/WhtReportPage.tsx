@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { usePlan } from '../hooks/usePlan'
 import { supabase } from '../lib/supabase'
 import type { PaymentRow } from '../lib/paymentApi'
+import ProUpgradeWall from '../components/ProUpgradeWall'
 import * as XLSX from 'xlsx'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -47,7 +48,7 @@ const WHT_FORM: Record<number, string> = {
 
 export default function WhtReportPage() {
   const { user } = useAuth()
-  const { isBusiness } = usePlan()
+  const { isPro, isBusiness } = usePlan()
   const [payments, setPayments] = useState<PaymentWithDoc[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -156,6 +157,8 @@ export default function WhtReportPage() {
     XLSX.writeFile(wb, `wht_report_${dateFrom}_${dateTo}.xlsx`)
     toast.success('Export Excel สำเร็จ')
   }
+
+  if (!isPro) return <ProUpgradeWall feature="reports" />
 
   return (
     <div className="w-full p-6 md:p-8 lg:p-10">

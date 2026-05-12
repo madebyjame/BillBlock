@@ -322,7 +322,7 @@ interface Props { docType: DocTypeCode }
 export default function DocumentListPage({ docType }: Props) {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const { isBusiness } = usePlan()
+  const { isPro, isBusiness } = usePlan()
   const { rows, loading, error, refetch } = useDocumentsByType(docType)
 
   const { confirm, pending: confirmPending, onConfirm, onCancel } = useConfirm()
@@ -834,7 +834,10 @@ export default function DocumentListPage({ docType }: Props) {
                         onConvert={convertOptions.length > 0 ? handleConvert : undefined}
                         converts={convertOptions.length > 0 ? convertOptions : undefined}
                         onPayment={(id, total, title) => setPaymentDoc({ id, total, title })}
-                        onEmail={(r) => setEmailDoc(r)}
+                        onEmail={(r) => {
+                          if (!isPro) { navigate('/settings/billing'); return }
+                          setEmailDoc(r)
+                        }}
                       />
                     </td>
                   </tr>

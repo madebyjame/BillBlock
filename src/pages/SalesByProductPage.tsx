@@ -3,6 +3,7 @@ import { Package, FileSpreadsheet, Lock, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '../lib/supabase'
 import { usePlan } from '../hooks/usePlan'
+import ProUpgradeWall from '../components/ProUpgradeWall'
 import * as XLSX from 'xlsx'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -36,7 +37,7 @@ function currentYear() { return new Date().getFullYear() }
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function SalesByProductPage() {
-  const { isBusiness } = usePlan()
+  const { isPro, isBusiness } = usePlan()
   const [rows, setRows]       = useState<SalesRow[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -92,6 +93,8 @@ export default function SalesByProductPage() {
     XLSX.writeFile(wb, `sales_by_product_${year}.xlsx`)
     toast.success('Export Excel สำเร็จ')
   }
+
+  if (!isPro) return <ProUpgradeWall feature="reports" />
 
   return (
     <div className="w-full p-6 md:p-8 lg:p-10">

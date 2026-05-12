@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { usePlan } from '../hooks/usePlan'
 import { supabase } from '../lib/supabase'
+import ProUpgradeWall from '../components/ProUpgradeWall'
 import * as XLSX from 'xlsx'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -96,7 +97,7 @@ function parseDoc(doc: RawDoc): VatRow | null {
 
 export default function VatReportPage() {
   const { user } = useAuth()
-  const { isBusiness } = usePlan()
+  const { isPro, isBusiness } = usePlan()
   const [docs, setDocs] = useState<RawDoc[]>([])
   const [loading, setLoading] = useState(true)
   const [dateFrom, setDateFrom] = useState(() => currentMonthKey() + '-01')
@@ -180,6 +181,8 @@ export default function VatReportPage() {
     XLSX.writeFile(wb, `vat_report_${dateFrom}_${dateTo}.xlsx`)
     toast.success('Export Excel สำเร็จ')
   }
+
+  if (!isPro) return <ProUpgradeWall feature="reports" />
 
   return (
     <div className="w-full p-6 md:p-8 lg:p-10">

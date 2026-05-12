@@ -3,6 +3,7 @@ import { AlertTriangle, FileSpreadsheet, Lock, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '../lib/supabase'
 import { usePlan } from '../hooks/usePlan'
+import ProUpgradeWall from '../components/ProUpgradeWall'
 import * as XLSX from 'xlsx'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -79,7 +80,7 @@ export default function ArAgingPage() {
   }))
 
   const grandTotal = rows.reduce((s, r) => s + r.total_amount, 0)
-  const { isBusiness } = usePlan()
+  const { isPro, isBusiness } = usePlan()
 
   function exportExcel() {
     if (rows.length === 0) { toast.error('ไม่มีข้อมูล'); return }
@@ -99,6 +100,8 @@ export default function ArAgingPage() {
     XLSX.writeFile(wb, `ar_aging_${new Date().toISOString().split('T')[0]}.xlsx`)
     toast.success('Export Excel สำเร็จ')
   }
+
+  if (!isPro) return <ProUpgradeWall feature="reports" />
 
   return (
     <div className="w-full p-6 md:p-8 lg:p-10">

@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { usePlan } from '../hooks/usePlan'
 import { supabase } from '../lib/supabase'
 import { getExpenseSummary } from '../lib/expenseApi'
+import ProUpgradeWall from '../components/ProUpgradeWall'
 import * as XLSX from 'xlsx'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -156,7 +157,7 @@ function MiniBarChart({ months }: { months: PlRow[] }) {
 
 export default function PlReportPage() {
   const { user } = useAuth()
-  const { isBusiness } = usePlan()
+  const { isPro, isBusiness } = usePlan()
   const [rows, setRows]             = useState<PlRow[]>([])
   const [loading, setLoading]       = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -306,6 +307,8 @@ export default function PlReportPage() {
     { label: 'กำไรสุทธิ',              align: 'right' },
     { label: 'Net Margin',             align: 'right' },
   ]
+
+  if (!isPro) return <ProUpgradeWall feature="reports" />
 
   return (
     <div className="w-full p-6 md:p-8 lg:p-10">

@@ -56,13 +56,13 @@ export default function UpgradeModal({ resource, limit, onClose }: Props) {
           <div className="mb-5 rounded-xl border border-slate-100 bg-slate-50 p-4">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-slate-500">Free</span>
-              <span className="font-semibold text-blue-600">Pro — ฿299/เดือน</span>
+              <span className="font-semibold text-blue-600">Pro — ฿149/เดือน</span>
             </div>
             <div className="mt-3 space-y-1.5 text-xs text-slate-600">
               {[
                 ['เอกสาร', '20 ฉบับ/เดือน', 'ไม่จำกัด'],
-                ['ลูกค้า', '10 ราย', 'ไม่จำกัด'],
-                ['สินค้า', '10 รายการ', 'ไม่จำกัด'],
+                ['ลูกค้า', '50 ราย', 'ไม่จำกัด'],
+                ['สินค้า', '50 รายการ', 'ไม่จำกัด'],
               ].map(([label, free, pro]) => (
                 <div key={label} className="flex items-center justify-between">
                   <span className="text-slate-400">{label}</span>
