@@ -7,9 +7,9 @@ import { supabase } from '../lib/supabase'
 type Mode = 'login' | 'register'
 
 const ERROR_MAP: Record<string, string> = {
-  'Invalid login credentials': 'อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง',
-  'Email not confirmed': 'กรุณายืนยันอีเมลของคุณก่อนเข้าสู่ระบบ',
-  'User already registered': 'อีเมลนี้มีบัญชีอยู่แล้ว กรุณาเข้าสู่ระบบแทน',
+  'Invalid login credentials':            'อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่',
+  'Email not confirmed':                  'กรุณายืนยันอีเมลของคุณก่อนเข้าสู่ระบบ',
+  'User already registered':              'อีเมลนี้มีบัญชีอยู่แล้ว กรุณาเข้าสู่ระบบแทน',
   'Password should be at least 6 characters': 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร',
 }
 
@@ -17,29 +17,80 @@ function toThaiError(msg: string): string {
   for (const [key, val] of Object.entries(ERROR_MAP)) {
     if (msg.includes(key)) return val
   }
-  return 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
+  return 'เกิดข้อผิดพลาด กรุณาลองใหม่'
 }
 
+// ─── Password strength ────────────────────────────────────────────────────────
+
+function getStrength(pw: string): { level: 0 | 1 | 2 | 3; label: string; color: string } {
+  if (pw.length === 0) return { level: 0, label: '', color: '' }
+  if (pw.length < 6)   return { level: 1, label: 'สั้นเกินไป', color: 'bg-red-400' }
+  const hasUpper = /[A-Z]/.test(pw)
+  const hasNum   = /[0-9]/.test(pw)
+  const hasSpec  = /[^A-Za-z0-9]/.test(pw)
+  const score    = (hasUpper ? 1 : 0) + (hasNum ? 1 : 0) + (hasSpec ? 1 : 0)
+  if (pw.length >= 12 && score >= 2) return { level: 3, label: 'แข็งแกร่ง', color: 'bg-emerald-500' }
+  if (pw.length >= 8  && score >= 1) return { level: 2, label: 'ปานกลาง', color: 'bg-amber-400' }
+  return { level: 1, label: 'อ่อน', color: 'bg-red-400' }
+}
+
+// ─── EyeToggle ────────────────────────────────────────────────────────────────
+
+function EyeToggle({ show, onToggle }: { show: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      tabIndex={-1}
+      className="absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400 hover:text-slate-600 transition-colors"
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        {show ? (
+          <motion.span key="off" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+            <EyeOff className="h-4 w-4" />
+          </motion.span>
+        ) : (
+          <motion.span key="on" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+            <Eye className="h-4 w-4" />
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </button>
+  )
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function LoginPage() {
-  const [mode, setMode] = useState<Mode>('register')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
-  const [consented, setConsented] = useState(false)
+  const [mode, setMode]                         = useState<Mode>('register')
+  const [email, setEmail]                       = useState('')
+  const [password, setPassword]                 = useState('')
+  const [confirmPassword, setConfirmPassword]   = useState('')
+  const [showPassword, setShowPassword]         = useState(false)
+  const [showConfirm, setShowConfirm]           = useState(false)
+  const [loading, setLoading]                   = useState(false)
+  const [googleLoading, setGoogleLoading]       = useState(false)
+  const [consented, setConsented]               = useState(false)
+
+  const strength = getStrength(password)
+  const mismatch = mode === 'register' && confirmPassword.length > 0 && password !== confirmPassword
 
   function switchMode(next: Mode) {
     if (loading || googleLoading) return
     setMode(next)
     setConsented(false)
+    setPassword('')
+    setConfirmPassword('')
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (loading) return
+    if (mode === 'register') {
+      if (password.length < 6) { toast.error('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'); return }
+      if (password !== confirmPassword) { toast.error('รหัสผ่านไม่ตรงกัน'); return }
+    }
     setLoading(true)
-
     try {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -93,10 +144,13 @@ export default function LoginPage() {
     }
   }
 
+  const submitDisabled =
+    loading || googleLoading ||
+    (mode === 'register' && (!consented || mismatch || password.length < 6))
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 px-4 py-12">
 
-      {/* Card */}
       <motion.div
         initial={{ opacity: 0, y: 32 }}
         animate={{ opacity: 1, y: 0 }}
@@ -115,17 +169,15 @@ export default function LoginPage() {
           <p className="text-sm font-medium text-emerald-600 mt-1">ฟรี · ไม่ต้องใช้บัตรเครดิต · ยกเลิกได้ทุกเมื่อ</p>
         </div>
 
-        {/* Main card */}
+        {/* Card */}
         <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-8">
 
-          {/* Tab toggle */}
+          {/* Tabs */}
           <div className="flex rounded-xl border border-slate-200 bg-slate-50 overflow-hidden mb-7 text-sm font-semibold p-1 gap-1">
             <button
               onClick={() => switchMode('login')}
               className={`flex-1 py-2 rounded-lg transition-all duration-200 ${
-                mode === 'login'
-                  ? 'bg-[#1e3a8a] text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
+                mode === 'login' ? 'bg-[#1e3a8a] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               เข้าสู่ระบบ
@@ -133,28 +185,22 @@ export default function LoginPage() {
             <button
               onClick={() => switchMode('register')}
               className={`flex-1 py-2 rounded-lg transition-all duration-200 ${
-                mode === 'register'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
+                mode === 'register' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               สมัครฟรี ✨
             </button>
           </div>
 
-          {/* Google Sign-in */}
+          {/* Google */}
           <button
             type="button"
             onClick={handleGoogle}
             disabled={googleLoading || loading}
             className="w-full flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm mb-5"
           >
-            {googleLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
-            ) : (
-              <GoogleIcon />
-            )}
-            <span>เข้าสู่ระบบด้วย Google</span>
+            {googleLoading ? <Loader2 className="h-4 w-4 animate-spin text-slate-500" /> : <GoogleIcon />}
+            <span>{mode === 'register' ? 'สมัครด้วย Google' : 'เข้าสู่ระบบด้วย Google'}</span>
           </button>
 
           {/* Divider */}
@@ -169,9 +215,7 @@ export default function LoginPage() {
 
             {/* Email */}
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                อีเมล
-              </label>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">อีเมล</label>
               <input
                 type="email"
                 required
@@ -188,11 +232,8 @@ export default function LoginPage() {
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-semibold text-slate-600">รหัสผ่าน</label>
                 {mode === 'login' && (
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    className="text-xs text-[#1e3a8a] hover:text-[#1e40af] hover:underline transition-colors"
-                  >
+                  <button type="button" onClick={handleForgotPassword}
+                    className="text-xs text-[#1e3a8a] hover:underline transition-colors">
                     ลืมรหัสผ่าน?
                   </button>
                 )}
@@ -207,49 +248,76 @@ export default function LoginPage() {
                   placeholder={mode === 'register' ? 'อย่างน้อย 6 ตัวอักษร' : '••••••••'}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-11 text-sm placeholder-slate-400 focus:border-[#1e3a8a] focus:bg-white focus:outline-none focus:ring-3 focus:ring-blue-100 transition-all duration-150"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(v => !v)}
-                  tabIndex={-1}
-                  className="absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400 hover:text-slate-600 transition-colors"
-                  aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
-                >
-                  <AnimatePresence mode="wait" initial={false}>
-                    {showPassword ? (
-                      <motion.span key="off" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                        <EyeOff className="h-4 w-4" />
-                      </motion.span>
-                    ) : (
-                      <motion.span key="on" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                        <Eye className="h-4 w-4" />
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </button>
+                <EyeToggle show={showPassword} onToggle={() => setShowPassword(v => !v)} />
               </div>
+
+              {/* Password strength — register only */}
+              {mode === 'register' && password.length > 0 && (
+                <div className="mt-2">
+                  <div className="flex gap-1">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-300 ${
+                        strength.level >= i ? strength.color : 'bg-slate-100'
+                      }`} />
+                    ))}
+                  </div>
+                  <p className={`mt-1 text-[11px] font-medium ${
+                    strength.level === 1 ? 'text-red-500' :
+                    strength.level === 2 ? 'text-amber-500' : 'text-emerald-600'
+                  }`}>
+                    {strength.label}
+                    {strength.level === 1 && password.length < 6 && ' — ต้องอย่างน้อย 6 ตัวอักษร'}
+                  </p>
+                </div>
+              )}
             </div>
 
-            {/* Consent checkbox — register only */}
+            {/* Confirm password — register only */}
+            {mode === 'register' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">ยืนยันรหัสผ่าน</label>
+                <div className="relative">
+                  <input
+                    type={showConfirm ? 'text' : 'password'}
+                    required
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="พิมพ์รหัสผ่านอีกครั้ง"
+                    className={`w-full rounded-xl border bg-slate-50 px-4 py-3 pr-11 text-sm placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-3 transition-all duration-150 ${
+                      mismatch
+                        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
+                        : 'border-slate-200 focus:border-[#1e3a8a] focus:ring-blue-100'
+                    }`}
+                  />
+                  <EyeToggle show={showConfirm} onToggle={() => setShowConfirm(v => !v)} />
+                </div>
+                {mismatch && (
+                  <p className="mt-1 text-[11px] font-medium text-red-500">รหัสผ่านไม่ตรงกัน</p>
+                )}
+              </div>
+            )}
+
+            {/* Consent — register only */}
             {mode === 'register' && (
               <label className="flex items-start gap-2.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={consented}
                   onChange={e => setConsented(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-[#1e3a8a] accent-[#1e3a8a] cursor-pointer"
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-[#1e3a8a] cursor-pointer"
                 />
                 <span className="text-xs text-slate-500 leading-relaxed">
-                  ฉันได้อ่านและยอมรับ{' '}
+                  ฉันยอมรับ{' '}
                   <a href="/terms" target="_blank" rel="noopener noreferrer"
-                    className="text-[#1e3a8a] underline underline-offset-2 hover:text-[#1e40af]">
+                    className="font-semibold text-[#1e3a8a] underline underline-offset-2 hover:text-[#1e40af]">
                     เงื่อนไขการใช้บริการ
                   </a>
                   {' '}และ{' '}
                   <a href="/privacy" target="_blank" rel="noopener noreferrer"
-                    className="text-[#1e3a8a] underline underline-offset-2 hover:text-[#1e40af]">
+                    className="font-semibold text-[#1e3a8a] underline underline-offset-2 hover:text-[#1e40af]">
                     นโยบายความเป็นส่วนตัว
                   </a>
-                  {' '}ของ BillBlock
                 </span>
               </label>
             )}
@@ -257,21 +325,49 @@ export default function LoginPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading || googleLoading || (mode === 'register' && !consented)}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1e3a8a] py-3 text-sm font-bold text-white hover:bg-[#1e40af] active:bg-[#1e3a8a] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-blue-900/20 mt-1"
+              disabled={submitDisabled}
+              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed shadow-md mt-1 ${
+                mode === 'register'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 shadow-emerald-200'
+                  : 'bg-[#1e3a8a] hover:bg-[#1e40af] active:bg-[#1e3a8a] shadow-blue-900/20'
+              }`}
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               {loading
-                ? 'กำลังเข้าสู่ระบบ...'
-                : mode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
+                ? (mode === 'login' ? 'กำลังเข้าสู่ระบบ...' : 'กำลังสมัคร...')
+                : (mode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิกฟรี')}
             </button>
+
+            {/* Switch mode link */}
+            <p className="text-center text-xs text-slate-400 pt-1">
+              {mode === 'register' ? (
+                <>มีบัญชีแล้ว?{' '}
+                  <button type="button" onClick={() => switchMode('login')}
+                    className="font-semibold text-[#1e3a8a] hover:underline">
+                    เข้าสู่ระบบ
+                  </button>
+                </>
+              ) : (
+                <>ยังไม่มีบัญชี?{' '}
+                  <button type="button" onClick={() => switchMode('register')}
+                    className="font-semibold text-emerald-600 hover:underline">
+                    สมัครฟรี
+                  </button>
+                </>
+              )}
+            </p>
           </form>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-center gap-1.5 mt-6 text-[11px] text-slate-400">
-          <ShieldCheck className="h-3.5 w-3.5 text-slate-300" />
-          <span>ข้อมูลของคุณเข้ารหัสและจัดเก็บอย่างปลอดภัย</span>
+        <div className="mt-5 space-y-2 text-center">
+          <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+            <ShieldCheck className="h-3.5 w-3.5 text-slate-300" />
+            <span>ข้อมูลของคุณเข้ารหัสและจัดเก็บอย่างปลอดภัย</span>
+          </div>
+          <a href="/#pricing" className="block text-[11px] text-slate-400 hover:text-blue-600 transition-colors">
+            ดูแผนราคาทั้งหมด →
+          </a>
         </div>
       </motion.div>
     </div>
