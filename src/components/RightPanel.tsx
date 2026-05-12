@@ -59,14 +59,14 @@ export default function RightPanel({ doc, dispatch }: Props) {
   ]
 
   return (
-    <aside className="flex h-full w-72 flex-shrink-0 flex-col border-l border-slate-200 bg-white overflow-hidden">
+    <aside className="flex h-full w-80 flex-shrink-0 flex-col border-l border-slate-200 bg-white overflow-hidden">
       {/* Tab bar */}
       <div className="flex border-b border-slate-200 shrink-0">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${
+            className={`flex-1 py-3 text-sm font-semibold transition-colors ${
               activeTab === tab.id
                 ? 'text-slate-800 border-b-2'
                 : 'text-slate-400 hover:text-slate-600'
@@ -78,7 +78,7 @@ export default function RightPanel({ doc, dispatch }: Props) {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-4 text-sm">
+      <div className="flex-1 overflow-y-auto p-4 space-y-5 text-sm">
         {/* ═══ CONTENT TAB ═══ */}
         {activeTab === 'content' && (
           <>
@@ -286,8 +286,8 @@ export default function RightPanel({ doc, dispatch }: Props) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-slate-400">{title}</p>
-      <div className="space-y-1">{children}</div>
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">{title}</p>
+      <div className="space-y-1.5">{children}</div>
     </div>
   )
 }
@@ -334,13 +334,13 @@ function PaletteCard({ type, label, desc, disabled, tc }: {
 function Toggle({ label, on, onToggle, tc }: { label: string; on: boolean; onToggle: () => void; tc: string }) {
   return (
     <button onClick={onToggle}
-      className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors ${on ? '' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
+      className={`flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm transition-colors ${on ? '' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
       style={on
         ? { backgroundColor: tc + '18', color: tc, border: `1px solid ${tc}35` }
         : { border: '1px solid #cbd5e1' }}
     >
       <span>{label}</span>
-      <span className="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+      <span className="rounded-full px-2 py-0.5 text-xs font-bold"
         style={on ? { backgroundColor: tc, color: '#fff' } : { backgroundColor: '#e2e8f0', color: '#475569' }}>
         {on ? 'ON' : 'OFF'}
       </span>
