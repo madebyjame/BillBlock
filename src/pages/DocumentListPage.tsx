@@ -764,7 +764,7 @@ export default function DocumentListPage({ docType }: Props) {
                         title={rows.length === 0 ? `ยังไม่มี${pageTitle}ในระบบ` : 'ไม่พบเอกสารที่ตรงกับเงื่อนไข'}
                         description={
                           rows.length === 0
-                            ? 'คลิกปุ่มด้านบนเพื่อเริ่มสร้างเอกสารรายการแรก'
+                            ? `สร้าง${pageTitle}ฉบับแรกได้เลย ใช้เวลาไม่กี่วินาที`
                             : 'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง'
                         }
                         action={

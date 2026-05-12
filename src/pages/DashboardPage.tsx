@@ -9,6 +9,7 @@ import {
   fetchSalesForecast,
 } from '../lib/dashboardApi'
 import BentoGrid from '../components/BentoGrid'
+import OnboardingChecklist from '../components/OnboardingChecklist'
 import DateRangePicker from '../components/DateRangePicker'
 import {
   getDateRange,
@@ -242,6 +243,7 @@ export default function DashboardPage() {
           <DateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
       </div>
+      <OnboardingChecklist />
       <BentoGrid layout={layout} onLayoutChange={updateLayout} data={dashData} plan={plan} />
     </div>
   )
