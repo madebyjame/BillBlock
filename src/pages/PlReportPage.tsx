@@ -178,7 +178,7 @@ export default function PlReportPage() {
     setLoading(true)
     try {
       const [{ data, error }, expenseData] = await Promise.all([
-        supabase.rpc('get_pl_summary', { p_date_from: dateFrom, p_date_to: dateTo }),
+        supabase.rpc('get_pl_summary', { date_from: dateFrom, date_to: dateTo }),
         getExpenseSummary(dateFrom, dateTo),
       ])
       if (error) throw error

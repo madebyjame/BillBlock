@@ -3,6 +3,7 @@ import { Package, FileSpreadsheet, Lock, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '../lib/supabase'
 import { usePlan } from '../hooks/usePlan'
+import { useAuth } from '../context/AuthContext'
 import ProUpgradeWall from '../components/ProUpgradeWall'
 import * as XLSX from 'xlsx'
 
@@ -37,6 +38,7 @@ function currentYear() { return new Date().getFullYear() }
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function SalesByProductPage() {
+  const { user } = useAuth()
   const { isPro, isBusiness } = usePlan()
   const [rows, setRows]       = useState<SalesRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -53,7 +55,7 @@ export default function SalesByProductPage() {
     setLoading(true)
     try {
       const { data, error } = await supabase
-        .rpc('get_sales_by_product', { p_date_from: dateFrom, p_date_to: dateTo })
+        .rpc('get_sales_by_product', { uid: user?.id, date_from: dateFrom, date_to: dateTo })
       if (error) throw error
       setRows((data ?? []).map((r: Record<string, unknown>) => ({
         product_id:    String(r.product_id),

@@ -50,6 +50,25 @@ import OutOfStockWidget from './widgets/OutOfStockWidget'
 import DraftDocumentsWidget from './widgets/DraftDocumentsWidget'
 import GoalTrackerWidget from './widgets/GoalTrackerWidget'
 
+// ── Phase-2 widgets ──
+import MomRevenueWidget from './widgets/MomRevenueWidget'
+import TopInvoiceWidget from './widgets/TopInvoiceWidget'
+import PipelineValueWidget from './widgets/PipelineValueWidget'
+import ExpiringQuotesWidget from './widgets/ExpiringQuotesWidget'
+import WhtSummaryWidget from './widgets/WhtSummaryWidget'
+import TotalStockValueWidget from './widgets/TotalStockValueWidget'
+import QuoteConversionWidget from './widgets/QuoteConversionWidget'
+import PaymentMethodWidget from './widgets/PaymentMethodWidget'
+import HighRiskCustomersWidget from './widgets/HighRiskCustomersWidget'
+import InactiveCustomersWidget from './widgets/InactiveCustomersWidget'
+import ExpectedCashInflowWidget from './widgets/ExpectedCashInflowWidget'
+import CancellationRatioWidget from './widgets/CancellationRatioWidget'
+import RevConcentrationWidget from './widgets/RevConcentrationWidget'
+import YtdSummaryWidget from './widgets/YtdSummaryWidget'
+import CashflowChartWidget from './widgets/CashflowChartWidget'
+import AvgPaymentTimeWidget from './widgets/AvgPaymentTimeWidget'
+import ExportShortcutsWidget from './widgets/ExportShortcutsWidget'
+
 // ── Coming soon stub ──
 import ComingSoonWidget from './widgets/ComingSoonWidget'
 
@@ -84,38 +103,40 @@ function renderWidgetContent(id: WidgetId, data: DashboardData) {
     case 'customer-grades':   return <CustomerGradesWidget data={data} />
     case 'low-stock-detail':  return <LowStockDetailWidget data={data} />
     case 'quick-note':        return <QuickNoteWidget />
-    // PRO — stubs
-    case 'cashflow-chart':    return <ComingSoonWidget titleTh="กระแสเงินสด 6 เดือน" requiredPlan="pro" descriptionTh="เงินเข้า-ออกรายเดือน" />
-    case 'mom-revenue':       return <ComingSoonWidget titleTh="เทียบยอดเดือนที่แล้ว" requiredPlan="pro" descriptionTh="เปรียบเทียบรายได้เดือนนี้กับเดือนก่อน" />
-    case 'wht-summary':       return <ComingSoonWidget titleTh="WHT สะสม" requiredPlan="pro" descriptionTh="ภาษีหัก ณ ที่จ่ายสะสม" />
-    case 'top-invoice':       return <ComingSoonWidget titleTh="ใบแจ้งหนี้สูงสุด" requiredPlan="pro" descriptionTh="ใบแจ้งหนี้มูลค่าสูงสุดเดือนนี้" />
-    case 'pipeline-value':    return <ComingSoonWidget titleTh="มูลค่า Pipeline" requiredPlan="pro" descriptionTh="ใบเสนอราคาที่รอปิดการขาย" />
-    case 'high-risk-customers': return <ComingSoonWidget titleTh="ลูกค้าหนี้เสีย" requiredPlan="pro" descriptionTh="ลูกค้าค้างชำระเกิน 90 วัน" />
-    case 'inactive-customers':  return <ComingSoonWidget titleTh="ลูกค้าที่หายไป" requiredPlan="pro" descriptionTh="ไม่มีธุรกรรมนาน 3 เดือน" />
+    // PRO — now real
+    case 'cashflow-chart':    return <CashflowChartWidget />
+    case 'mom-revenue':       return <MomRevenueWidget />
+    case 'wht-summary':       return <WhtSummaryWidget />
+    case 'top-invoice':       return <TopInvoiceWidget />
+    case 'pipeline-value':    return <PipelineValueWidget />
+    case 'high-risk-customers': return <HighRiskCustomersWidget />
+    case 'inactive-customers':  return <InactiveCustomersWidget />
+    case 'total-stock-value':   return <TotalStockValueWidget />
+    case 'quote-conversion-rate': return <QuoteConversionWidget />
+    case 'expiring-quotes':     return <ExpiringQuotesWidget />
+    case 'payment-method-stats': return <PaymentMethodWidget />
+    // PRO — still coming soon (needs portal/tracking infra)
     case 'portal-views':        return <ComingSoonWidget titleTh="สถิติดูเอกสาร" requiredPlan="pro" descriptionTh="จำนวนครั้งที่ลูกค้าเปิดเอกสาร" />
     case 'top-profitable-products': return <ComingSoonWidget titleTh="สินค้ากำไรสูงสุด" requiredPlan="pro" descriptionTh="สินค้าที่ทำกำไรสูงสุด" />
     case 'recent-stock-adjustments': return <ComingSoonWidget titleTh="ประวัติปรับสต็อก" requiredPlan="pro" descriptionTh="การปรับสต็อกล่าสุด" />
-    case 'total-stock-value':   return <ComingSoonWidget titleTh="มูลค่าสต็อกรวม" requiredPlan="pro" descriptionTh="มูลค่าสินค้าคงเหลือทั้งหมด" />
-    case 'quote-conversion-rate': return <ComingSoonWidget titleTh="อัตราปิดการขาย" requiredPlan="pro" descriptionTh="ใบเสนอราคาที่ปิดเป็นออเดอร์ (%)" />
-    case 'expiring-quotes':     return <ComingSoonWidget titleTh="ใบเสนอราคาใกล้หมดอายุ" requiredPlan="pro" descriptionTh="หมดอายุใน 7 วัน" />
-    case 'payment-method-stats': return <ComingSoonWidget titleTh="ช่องทางชำระเงิน" requiredPlan="pro" descriptionTh="สถิติการชำระเงินแต่ละช่องทาง" />
     // BUSINESS — existing
     case 'sales-forecast':    return <SalesForecastWidget data={data} />
-    // BUSINESS — stubs
-    case 'expected-cash-inflow': return <ComingSoonWidget titleTh="คาดการณ์เงินเข้า" requiredPlan="business" descriptionTh="เงินที่คาดว่าจะได้รับจากลูกหนี้" />
+    // BUSINESS — now real
+    case 'expected-cash-inflow': return <ExpectedCashInflowWidget />
+    case 'avg-payment-time':  return <AvgPaymentTimeWidget />
+    case 'revenue-concentration': return <RevConcentrationWidget />
+    case 'export-shortcuts':  return <ExportShortcutsWidget />
+    case 'cancellation-ratio': return <CancellationRatioWidget />
+    case 'ytd-summary':       return <YtdSummaryWidget />
+    // BUSINESS — still coming soon (needs salesperson / category features)
     case 'vat-payable':       return <ComingSoonWidget titleTh="VAT รอยื่น" requiredPlan="business" descriptionTh="ภาษีมูลค่าเพิ่มที่ต้องยื่น" />
-    case 'avg-payment-time':  return <ComingSoonWidget titleTh="เวลาเก็บเงินเฉลี่ย" requiredPlan="business" descriptionTh="DSO — จำนวนวันเฉลี่ย" />
-    case 'revenue-concentration': return <ComingSoonWidget titleTh="ความเสี่ยงลูกค้าเดียว" requiredPlan="business" descriptionTh="% รายได้จากลูกค้าอันดับ 1" />
     case 'sales-by-salesperson': return <ComingSoonWidget titleTh="ยอดขายรายพนักงาน" requiredPlan="business" descriptionTh="ยอดขายแยกตามเซลส์" />
     case 'top-converter-sales': return <ComingSoonWidget titleTh="พนักงานปิดยอดเก่ง" requiredPlan="business" descriptionTh="เซลส์ที่มีอัตราปิดสูงสุด" />
     case 'overdue-by-salesperson': return <ComingSoonWidget titleTh="หนี้ค้างรายเซลส์" requiredPlan="business" descriptionTh="ยอดค้างชำระแยกตามเซลส์" />
     case 'dead-stock':        return <ComingSoonWidget titleTh="สินค้าค้างสต็อก" requiredPlan="business" descriptionTh="ไม่ขายมานานกว่า 90 วัน" />
     case 'inventory-turnover': return <ComingSoonWidget titleTh="อัตราหมุนเวียนสินค้า" requiredPlan="business" descriptionTh="ความถี่ที่สต็อกหมุนเวียนต่อปี" />
     case 'sales-by-category': return <ComingSoonWidget titleTh="ยอดขายตามหมวด" requiredPlan="business" descriptionTh="ยอดขายแยกตามหมวดหมู่สินค้า" />
-    case 'export-shortcuts':  return <ComingSoonWidget titleTh="Export ข้อมูล" requiredPlan="business" descriptionTh="ส่งออกรายงานด้วยคลิกเดียว" />
-    case 'cancellation-ratio': return <ComingSoonWidget titleTh="อัตรายกเลิกเอกสาร" requiredPlan="business" descriptionTh="% เอกสารที่ถูกยกเลิก" />
     case 'audit-log':         return <ComingSoonWidget titleTh="ประวัติการใช้งาน" requiredPlan="business" descriptionTh="ติดตามการเปลี่ยนแปลงในระบบ" />
-    case 'ytd-summary':       return <ComingSoonWidget titleTh="ภาพรวมปีปัจจุบัน" requiredPlan="business" descriptionTh="สรุปผลประกอบการตั้งแต่ต้นปี" />
   }
 }
 

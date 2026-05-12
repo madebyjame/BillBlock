@@ -77,7 +77,7 @@ export default function UpgradeModal({ resource, limit, onClose }: Props) {
 
           {/* Actions */}
           <button
-            onClick={() => { navigate('/settings/billing'); onClose() }}
+            onClick={() => { navigate('/settings?tab=billing'); onClose() }}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
           >
             <Zap className="h-4 w-4" />
